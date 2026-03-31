@@ -89,3 +89,11 @@ export function buildShiftReport(summary: ShiftCashSummary, sales: SaleWithItems
     fcu_default: fcuDefault,
   }
 }
+
+export function calcDepositExpected(fce: number, totalCash: number, totalExpenses: number, fcuDefault: number): number {
+  return Math.max(0, fce + totalCash - totalExpenses - fcuDefault)
+}
+
+export function calcVariance(depositExpected: number, depositActual: number): number {
+  return depositActual - depositExpected
+}

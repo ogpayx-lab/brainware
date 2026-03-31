@@ -94,3 +94,20 @@ export interface BanconoteMap { 50: number; 20: number; 10: number; 5: number; 2
 export function calcFCU(b: BanconoteMap): number {
   return b[50]*50 + b[20]*20 + b[10]*10 + b[5]*5 + b[2]*2 + b[1]*1
 }
+
+export interface FidelityCard {
+  id: string
+  store_id: string
+  created_by: string
+  card_number: string
+  customer_name: string
+  customer_phone: string | null
+  customer_email: string | null
+  customer_nationality: string | null
+  customer_dob: string | null
+  acquisition_source: string | null
+  notes: string | null
+  points: number
+  is_active: boolean
+  created_at: string
+}
