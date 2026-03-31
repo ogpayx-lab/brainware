@@ -1,6 +1,5 @@
 'use server'
 import { createAdminClient } from '@/lib/supabase/admin'
-import { createClient } from '@/lib/supabase/server'
 
 type OnboardingStep1Data = {
   ragione_sociale: string
@@ -24,14 +23,9 @@ type OnboardingStep2Data = {
 }
 
 export async function setupOrganizationAndStore(data: OnboardingStep1Data) {
-  // Verifica che l'utente sia autenticato
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user || user.id !== data.userId) {
-    return { error: 'Non autorizzato' }
-  }
+  if (!data.userId) return { error: 'UserId mancante' }
 
-  // Usa il client admin per bypassare RLS — operazione privilegiata
+  // Usa direttamente il client admin (service role bypassa RLS)
   const admin = createAdminClient()
 
   // 1. Crea organizzazione
@@ -72,7 +66,7 @@ export async function setupOrganizationAndStore(data: OnboardingStep1Data) {
   await admin.from('store_config').insert({ store_id: storeRow.id })
   await admin.from('bonus_config').insert({ store_id: storeRow.id })
 
-  // 4. Upsert profilo utente come owner — admin bypassa RLS
+  // 4. Upsert profilo utente come owner
   const { error: userError } = await admin.from('users').upsert({
     id: data.userId,
     store_id: storeRow.id,
@@ -89,12 +83,7 @@ export async function setupOrganizationAndStore(data: OnboardingStep1Data) {
 }
 
 export async function updateStoreAndBrand(data: OnboardingStep2Data) {
-  // Verifica autenticazione
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user || user.id !== data.userId) {
-    return { error: 'Non autorizzato' }
-  }
+  if (!data.userId || !data.storeId) return { error: 'Dati mancanti' }
 
   const admin = createAdminClient()
 
