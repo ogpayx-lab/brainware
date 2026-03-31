@@ -1,0 +1,320 @@
+'use client'
+
+import { useState, useEffect } from 'react'
+import { useRouter } from 'next/navigation'
+import Link from 'next/link'
+import { createClient } from '@/lib/supabase/client'
+import { formatTime } from '@/lib/utils'
+import { BottomNav } from '@/components/employee/BottomNav'
+import type { FidelityCard } from '@/types/database'
+
+interface CardCreated {
+  card_number: string
+  customer_name: string
+  customer_phone: string
+  customer_email: string
+  customer_nationality: string
+  acquisition_source: string
+}
+
+export default function FidelityPage() {
+  const router = useRouter()
+  const supabase = createClient()
+
+  const [cards, setCards] = useState<any[]>([])
+  const [stats, setStats] = useState({ total: 0, active: 0, pointsToday: 0 })
+  const [shiftId, setShiftId] = useState<string | null>(null)
+  const [storeId, setStoreId] = useState<string | null>(null)
+  const [userId, setUserId] = useState<string | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [saving, setSaving] = useState(false)
+  const [created, setCreated] = useState<CardCreated | null>(null)
+
+  const [form, setForm] = useState({
+    first_name: '', last_name: '', email: '', phone: '',
+    dob: '', notes: '', nationality: 'Italiana', how: 'Passaparola',
+    privacy: false,
+  })
+
+  const NATIONALITIES = ['Italiana', 'Tedesca', 'Francese', 'Inglese', 'Spagnola', 'Americana', 'Altra']
+  const HOW_OPTIONS = ['Passaparola', 'Social Media', 'Google', 'Passaggio', 'Pubblicita', 'Altro']
+
+  useEffect(() => { loadData() }, [])
+
+  async function loadData() {
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) { router.push('/login'); return }
+    setUserId(user.id)
+
+    const { data: profile } = await supabase.from('users').select('store_id').eq('id', user.id).single()
+    if (!profile?.store_id) return
+    setStoreId(profile.store_id)
+
+    const { data: shift } = await supabase.from('shifts').select('id').eq('user_id', user.id).eq('status', 'open').single()
+    if (shift) setShiftId(shift.id)
+
+    const [{ data: allCards }, { count: activeCount }] = await Promise.all([
+      supabase.from('fidelity_cards').select('*').eq('store_id', profile.store_id).order('created_at', { ascending: false }).limit(10),
+      supabase.from('fidelity_cards').select('*', { count: 'exact', head: true }).eq('store_id', profile.store_id).eq('is_active', true),
+    ])
+
+    setCards(allCards ?? [])
+    setStats({ total: allCards?.length ?? 0, active: activeCount ?? 0, pointsToday: 345 })
+    setLoading(false)
+  }
+
+  async function handleCreate() {
+    if (!storeId || !userId || !form.first_name || !form.last_name || !form.phone || !form.privacy) return
+    setSaving(true)
+
+    const fullName = `${form.first_name} ${form.last_name}`
+
+    const { data: card } = await supabase.from('fidelity_cards').insert({
+      store_id: storeId,
+      customer_name: fullName,
+      customer_phone: form.phone,
+      customer_email: form.email || null,
+      customer_dob: form.dob || null,
+      customer_nationality: form.nationality,
+      acquisition_source: form.how,
+      notes: form.notes || null,
+      created_by: userId,
+    }).select('card_number').single()
+
+    if (card) {
+      setCreated({
+        card_number: card.card_number,
+        customer_name: fullName,
+        customer_phone: form.phone,
+        customer_email: form.email,
+        customer_nationality: form.nationality,
+        acquisition_source: form.how,
+      })
+      setForm({ first_name: '', last_name: '', email: '', phone: '', dob: '', notes: '', nationality: 'Italiana', how: 'Passaparola', privacy: false })
+      await loadData()
+    }
+    setSaving(false)
+  }
+
+  if (loading) return <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100vh' }}>Caricamento...</div>
+
+  // Success screen
+  if (created) return (
+    <div className="page" style={{ paddingBottom: 80 }}>
+      <div style={{ background: 'var(--bg-primary)', borderBottom: '1px solid var(--border-subtle)', padding: 'var(--space-lg)', display: 'flex', alignItems: 'center', gap: 'var(--space-md)' }}>
+        <h3>Fidelity e-Card</h3>
+        <span style={{ fontSize: 13, color: 'var(--text-secondary)' }}>Card creata con successo</span>
+      </div>
+
+      <div style={{ padding: 'var(--space-lg)', display: 'flex', flexDirection: 'column', gap: 'var(--space-lg)' }}>
+        <div style={{ textAlign: 'center', padding: 'var(--space-xl)', background: 'var(--success-light)', borderRadius: 'var(--radius-lg)', border: '1px solid var(--brand-primary)' }}>
+          <div style={{ fontSize: 40, marginBottom: 8 }}></div>
+          <h3 style={{ color: 'var(--brand-primary-dark)', marginBottom: 4 }}>e-Card creata con successo!</h3>
+          <p style={{ fontSize: 14, color: 'var(--brand-primary-dark)', opacity: 0.8 }}>
+            La card <strong>{created.card_number}</strong> e stata attivata per {created.customer_name}
+          </p>
+        </div>
+
+        {/* Card preview */}
+        <div style={{
+          background: 'linear-gradient(135deg, #1A1A2E 0%, #16213E 50%, #0F3460 100%)',
+          borderRadius: 'var(--radius-xl)',
+          padding: '24px',
+          color: 'white',
+          boxShadow: 'var(--shadow-lg)',
+        }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 32 }}>
+            <div>
+              <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.1em', opacity: 0.6, marginBottom: 4 }}>FIDELITY e-CARD</div>
+              <div style={{ fontSize: 20, fontFamily: 'var(--font-heading)', fontWeight: 700 }}>BrainWare</div>
+            </div>
+            <div style={{ width: 40, height: 40, borderRadius: 8, background: 'var(--brand-primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: 20 }}>B</div>
+          </div>
+          <div style={{ marginBottom: 20 }}>
+            <div style={{ fontSize: 18, fontWeight: 700, letterSpacing: '0.05em' }}>{created.customer_name.toUpperCase()}</div>
+            <div style={{ fontSize: 13, opacity: 0.6, marginTop: 4, letterSpacing: '0.1em' }}>{created.card_number}</div>
+          </div>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end' }}>
+            <div>
+              <div style={{ fontSize: 10, opacity: 0.5, letterSpacing: '0.05em' }}>ATTIVA DAL</div>
+              <div style={{ fontSize: 13 }}>{new Date().toLocaleDateString('it-IT')}</div>
+            </div>
+            <div style={{ textAlign: 'right' }}>
+              <div style={{ fontSize: 24, fontWeight: 700, color: 'var(--brand-primary)' }}>0</div>
+              <div style={{ fontSize: 10, opacity: 0.5, letterSpacing: '0.05em' }}>PUNTI</div>
+            </div>
+          </div>
+        </div>
+
+        {/* Actions */}
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 'var(--space-sm)' }}>
+          <button className="btn btn-secondary" style={{ flexDirection: 'column', gap: 4, padding: 'var(--space-md)' }}>
+            <span></span><span style={{ fontSize: 12 }}>Invia SMS</span>
+          </button>
+          <button className="btn btn-secondary" style={{ flexDirection: 'column', gap: 4, padding: 'var(--space-md)' }}>
+            <span></span><span style={{ fontSize: 12 }}>Invia Email</span>
+          </button>
+          <button className="btn btn-secondary" style={{ flexDirection: 'column', gap: 4, padding: 'var(--space-md)' }}>
+            <span></span><span style={{ fontSize: 12 }}>Stampa QR</span>
+          </button>
+        </div>
+
+        {/* Customer details */}
+        <div className="card" style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-sm)' }}>
+          <h4 style={{ marginBottom: 8 }}>Dati Cliente</h4>
+          {[
+            { l: 'Nome Completo', v: created.customer_name },
+            { l: 'Telefono', v: created.customer_phone },
+            { l: 'Email', v: created.customer_email || '' },
+            { l: 'Nazionalita', v: created.customer_nationality },
+            { l: 'Come ci ha trovato', v: created.acquisition_source },
+            { l: 'Numero Card', v: created.card_number },
+            { l: 'Punti', v: '0 (appena creata)' },
+          ].map(d => (
+            <div key={d.l} style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 0', borderBottom: '1px solid var(--border-subtle)', fontSize: 13 }}>
+              <span style={{ color: 'var(--text-secondary)' }}>{d.l}</span>
+              <span style={{ fontWeight: 600 }}>{d.v}</span>
+            </div>
+          ))}
+        </div>
+
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--space-sm)' }}>
+          <button onClick={() => setCreated(null)} className="btn btn-primary">+ Nuova Card</button>
+          <button onClick={() => router.push('/employee/dashboard')} className="btn btn-secondary">Lista Clienti</button>
+        </div>
+      </div>
+
+      <BottomNav />
+    </div>
+  )
+
+  return (
+    <div className="page" style={{ paddingBottom: 80 }}>
+      <div style={{ background: 'var(--bg-primary)', borderBottom: '1px solid var(--border-subtle)', padding: 'var(--space-lg)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <h3>Fidelity e-Card</h3>
+        <div style={{ display: 'flex', gap: 'var(--space-sm)' }}>
+          <button className="btn btn-secondary" style={{ fontSize: 12 }}> Scansiona Card</button>
+          <button onClick={() => {}} className="btn btn-primary" style={{ fontSize: 12 }}>+ Nuova e-Card</button>
+        </div>
+      </div>
+
+      <div style={{ padding: 'var(--space-lg)', display: 'flex', flexDirection: 'column', gap: 'var(--space-lg)' }}>
+
+        {/* Stats */}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 'var(--space-md)' }}>
+          <div className="kpi-card">
+            <div className="kpi-label">Clienti Registrati</div>
+            <div className="kpi-value">{stats.total}</div>
+            <div className="kpi-sub">+8 questo mese</div>
+          </div>
+          <div className="kpi-card">
+            <div className="kpi-label">Card Attive</div>
+            <div className="kpi-value">{stats.active}</div>
+            <div className="kpi-sub" style={{ color: 'var(--success)' }}>{stats.total > 0 ? Math.round((stats.active / stats.total) * 100) : 0}% del totale</div>
+          </div>
+          <div className="kpi-card">
+            <div className="kpi-label">Punti Emessi Oggi</div>
+            <div className="kpi-value">{stats.pointsToday}</div>
+            <div className="kpi-sub">spesa clienti fidelity</div>
+          </div>
+        </div>
+
+        {/* Form nuova card */}
+        <div className="card" style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-lg)' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <h4>Nuova Fidelity e-Card</h4>
+            <span className="badge badge-brand">Step 1/2</span>
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--space-md)' }}>
+            <div className="input-group">
+              <label className="input-label">Nome *</label>
+              <input className="input" placeholder="Mario" value={form.first_name} onChange={e => setForm(f => ({ ...f, first_name: e.target.value }))} />
+            </div>
+            <div className="input-group">
+              <label className="input-label">Cognome *</label>
+              <input className="input" placeholder="Bianchi" value={form.last_name} onChange={e => setForm(f => ({ ...f, last_name: e.target.value }))} />
+            </div>
+          </div>
+
+          <div className="input-group">
+            <label className="input-label">Telefono *</label>
+            <input className="input" type="tel" placeholder="+39 333 456 7890" value={form.phone} onChange={e => setForm(f => ({ ...f, phone: e.target.value }))} />
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--space-md)' }}>
+            <div className="input-group">
+              <label className="input-label">Email</label>
+              <input className="input" type="email" placeholder="mario@email.com" value={form.email} onChange={e => setForm(f => ({ ...f, email: e.target.value }))} />
+            </div>
+            <div className="input-group">
+              <label className="input-label">Data di Nascita</label>
+              <input className="input" type="date" value={form.dob} onChange={e => setForm(f => ({ ...f, dob: e.target.value }))} />
+            </div>
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--space-md)' }}>
+            <div className="input-group">
+              <label className="input-label">Nazionalita *</label>
+              <select className="input" value={form.nationality} onChange={e => setForm(f => ({ ...f, nationality: e.target.value }))}>
+                {NATIONALITIES.map(n => <option key={n} value={n}>{n}</option>)}
+              </select>
+            </div>
+            <div className="input-group">
+              <label className="input-label">Come ci conosce? *</label>
+              <select className="input" value={form.how} onChange={e => setForm(f => ({ ...f, how: e.target.value }))}>
+                {HOW_OPTIONS.map(h => <option key={h} value={h}>{h}</option>)}
+              </select>
+            </div>
+          </div>
+
+          <div className="input-group">
+            <label className="input-label">Note (opzionale)</label>
+            <textarea className="input" placeholder="Cliente abituale, preferisce..." value={form.notes} onChange={e => setForm(f => ({ ...f, notes: e.target.value }))} rows={2} />
+          </div>
+
+          <div style={{ display: 'flex', alignItems: 'flex-start', gap: 'var(--space-sm)' }}>
+            <input type="checkbox" id="privacy" checked={form.privacy} onChange={e => setForm(f => ({ ...f, privacy: e.target.checked }))}
+              style={{ width: 16, height: 16, marginTop: 2, accentColor: 'var(--brand-primary)', cursor: 'pointer', flexShrink: 0 }} />
+            <label htmlFor="privacy" style={{ fontSize: 13, color: 'var(--text-secondary)', cursor: 'pointer', lineHeight: 1.4 }}>
+              Acconsento al trattamento dei dati personali (GDPR)
+            </label>
+          </div>
+
+          <button onClick={handleCreate} disabled={saving || !form.first_name || !form.last_name || !form.phone || !form.privacy} className="btn btn-primary btn-full btn-lg">
+            {saving ? 'Creazione...' : 'Crea e-Card'}
+          </button>
+        </div>
+
+        {/* Recent cards */}
+        {cards.length > 0 && (
+          <div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--space-md)' }}>
+              <h4>Ultime Card Create</h4>
+              <span style={{ fontSize: 13, color: 'var(--text-tertiary)' }}>Oggi: {cards.filter(c => new Date(c.created_at).toDateString() === new Date().toDateString()).length}</span>
+            </div>
+            <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
+              {cards.slice(0, 5).map((card, i) => (
+                <div key={card.id} style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-md)', padding: 'var(--space-md) var(--space-lg)', borderBottom: i < Math.min(cards.length, 5) - 1 ? '1px solid var(--border-subtle)' : 'none' }}>
+                  <div style={{ width: 38, height: 38, borderRadius: '50%', background: 'var(--brand-primary-light)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: 14, color: 'var(--brand-primary-dark)' }}>
+                    {card.customer_name.split(' ').map((n: string) => n[0]).join('').slice(0, 2)}
+                  </div>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontSize: 14, fontWeight: 600 }}>{card.customer_name}</div>
+                    <div style={{ fontSize: 12, color: 'var(--text-tertiary)' }}>{card.customer_phone}  {formatTime(card.created_at)}</div>
+                  </div>
+                  <div style={{ textAlign: 'right' }}>
+                    <div style={{ fontSize: 11, color: 'var(--text-tertiary)', marginBottom: 2 }}>{card.card_number}</div>
+                    <span className="badge badge-success" style={{ fontSize: 10 }}>Attiva</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+      </div>
+      <BottomNav />
+    </div>
+  )
+}

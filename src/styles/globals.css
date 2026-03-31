@@ -1,0 +1,583 @@
+@import url('https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@400;600;700&family=DM+Sans:wght@400;500;600&display=swap');
+
+/* ============================================================
+   MamaMary Design System  from Pencil.dev tokens
+   ============================================================ */
+
+:root {
+  /* Brand */
+  --brand-primary:        #22C55E;
+  --brand-primary-dark:   #16A34A;
+  --brand-primary-light:  #F0FDF4;
+
+  /* Backgrounds */
+  --bg-primary:           #FFFFFF;
+  --bg-surface:           #F6F7F8;
+  --bg-surface-alt:       #F0F2F5;
+  --bg-card:              #FFFFFF;
+
+  /* Borders */
+  --border-subtle:        #F3F4F6;
+  --border-default:       #E5E7EB;
+  --border-strong:        #D1D5DB;
+
+  /* Text */
+  --text-primary:         #1A1A1A;
+  --text-secondary:       #6B7280;
+  --text-tertiary:        #9CA3AF;
+  --text-disabled:        #D1D5DB;
+  --text-on-primary:      #FFFFFF;
+
+  /* Semantic */
+  --success:              #22C55E;
+  --success-light:        #F0FDF4;
+  --danger:               #EF4444;
+  --danger-light:         #FEF2F2;
+  --warning:              #F59E0B;
+  --warning-light:        #FFFBEB;
+
+  /* Accents */
+  --accent-blue:          #3B82F6;
+  --accent-blue-light:    #EFF6FF;
+  --accent-indigo:        #6366F1;
+  --accent-indigo-light:  #EEF2FF;
+  --accent-coral:         #FF6B6B;
+  --accent-yellow:        #FCD34D;
+  --accent-yellow-light:  #FFFBEB;
+
+  /* Radius */
+  --radius-sm:   8px;
+  --radius-md:   12px;
+  --radius-lg:   16px;
+  --radius-xl:   20px;
+  --radius-full: 9999px;
+
+  /* Spacing */
+  --space-xs:   4px;
+  --space-sm:   8px;
+  --space-md:   12px;
+  --space-lg:   16px;
+  --space-xl:   24px;
+  --space-2xl:  32px;
+  --space-3xl:  40px;
+
+  /* Typography */
+  --font-heading: 'Bricolage Grotesque', system-ui, sans-serif;
+  --font-body:    'DM Sans', system-ui, sans-serif;
+
+  /* Shadows */
+  --shadow-sm:  0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04);
+  --shadow-md:  0 4px 12px rgba(0,0,0,0.08), 0 2px 4px rgba(0,0,0,0.04);
+  --shadow-lg:  0 8px 24px rgba(0,0,0,0.10), 0 4px 8px rgba(0,0,0,0.04);
+
+  /* Transitions */
+  --transition: 150ms ease;
+}
+
+/* ============================================================
+   Reset & Base
+   ============================================================ */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+html {
+  font-size: 16px;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+body {
+  font-family: var(--font-body);
+  font-size: 14px;
+  color: var(--text-primary);
+  background-color: var(--bg-surface);
+  line-height: 1.5;
+}
+
+/* ============================================================
+   Typography
+   ============================================================ */
+h1, h2, h3, h4 {
+  font-family: var(--font-heading);
+  font-weight: 700;
+  color: var(--text-primary);
+  line-height: 1.2;
+}
+
+h1 { font-size: 28px; }
+h2 { font-size: 22px; }
+h3 { font-size: 18px; }
+h4 { font-size: 16px; }
+
+.text-sm   { font-size: 12px; }
+.text-base { font-size: 14px; }
+.text-lg   { font-size: 16px; }
+.text-xl   { font-size: 18px; }
+
+.text-secondary  { color: var(--text-secondary); }
+.text-tertiary   { color: var(--text-tertiary); }
+.text-success    { color: var(--success); }
+.text-danger     { color: var(--danger); }
+.text-brand      { color: var(--brand-primary); }
+
+.font-medium { font-weight: 500; }
+.font-semibold { font-weight: 600; }
+.font-bold { font-weight: 700; }
+
+/* ============================================================
+   Layout
+   ============================================================ */
+.page {
+  min-height: 100vh;
+  background: var(--bg-surface);
+}
+
+.card {
+  background: var(--bg-card);
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--border-subtle);
+  box-shadow: var(--shadow-sm);
+  padding: var(--space-xl);
+}
+
+.card-sm {
+  padding: var(--space-lg);
+  border-radius: var(--radius-md);
+}
+
+/* ============================================================
+   Buttons
+   ============================================================ */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-sm);
+  padding: 10px var(--space-lg);
+  border-radius: var(--radius-sm);
+  font-family: var(--font-body);
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  border: none;
+  transition: all var(--transition);
+  white-space: nowrap;
+  text-decoration: none;
+}
+
+.btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.btn-primary {
+  background: var(--brand-primary);
+  color: var(--text-on-primary);
+}
+.btn-primary:hover:not(:disabled) { background: var(--brand-primary-dark); }
+
+.btn-secondary {
+  background: var(--bg-surface);
+  color: var(--text-primary);
+  border: 1px solid var(--border-default);
+}
+.btn-secondary:hover:not(:disabled) { background: var(--bg-surface-alt); }
+
+.btn-danger {
+  background: var(--danger);
+  color: white;
+}
+.btn-danger:hover:not(:disabled) { background: #DC2626; }
+
+.btn-ghost {
+  background: transparent;
+  color: var(--text-secondary);
+}
+.btn-ghost:hover:not(:disabled) { background: var(--bg-surface); }
+
+.btn-lg {
+  padding: 14px var(--space-xl);
+  font-size: 16px;
+  border-radius: var(--radius-md);
+}
+
+.btn-full { width: 100%; }
+
+/* ============================================================
+   Form Elements
+   ============================================================ */
+.input-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.input-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.input {
+  width: 100%;
+  height: 44px;
+  padding: 0 14px;
+  border: 1.5px solid var(--border-default);
+  border-radius: var(--radius-sm);
+  font-family: var(--font-body);
+  font-size: 14px;
+  color: var(--text-primary);
+  background: var(--bg-primary);
+  transition: border-color var(--transition);
+  outline: none;
+}
+
+.input:focus {
+  border-color: var(--brand-primary);
+  box-shadow: 0 0 0 3px rgba(34, 197, 94, 0.12);
+}
+
+.input::placeholder { color: var(--text-tertiary); }
+
+.input-with-prefix {
+  display: flex;
+  align-items: center;
+  border: 1.5px solid var(--border-default);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  background: var(--bg-primary);
+}
+.input-with-prefix:focus-within {
+  border-color: var(--brand-primary);
+  box-shadow: 0 0 0 3px rgba(34, 197, 94, 0.12);
+}
+.input-prefix {
+  padding: 0 12px;
+  color: var(--text-tertiary);
+  font-weight: 600;
+  border-right: 1px solid var(--border-default);
+  height: 44px;
+  display: flex;
+  align-items: center;
+}
+.input-with-prefix .input {
+  border: none;
+  box-shadow: none;
+}
+.input-with-prefix .input:focus {
+  border: none;
+  box-shadow: none;
+}
+
+select.input {
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%239CA3AF' d='M6 8L1 3h10z'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 14px center;
+  padding-right: 36px;
+}
+
+textarea.input {
+  height: auto;
+  padding: 12px 14px;
+  resize: vertical;
+  min-height: 80px;
+}
+
+/* ============================================================
+   Badges & Pills
+   ============================================================ */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 10px;
+  border-radius: var(--radius-full);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.badge-success  { background: var(--success-light); color: var(--brand-primary-dark); }
+.badge-danger   { background: var(--danger-light); color: var(--danger); }
+.badge-warning  { background: var(--warning-light); color: #92400E; }
+.badge-blue     { background: var(--accent-blue-light); color: var(--accent-blue); }
+.badge-indigo   { background: var(--accent-indigo-light); color: var(--accent-indigo); }
+.badge-gray     { background: var(--bg-surface-alt); color: var(--text-secondary); }
+.badge-brand    { background: var(--brand-primary-light); color: var(--brand-primary-dark); }
+
+/* ============================================================
+   KPI Cards (dashboard metric cards)
+   ============================================================ */
+.kpi-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  padding: var(--space-lg);
+  box-shadow: var(--shadow-sm);
+}
+
+.kpi-label {
+  font-size: 12px;
+  color: var(--text-tertiary);
+  font-weight: 500;
+  margin-bottom: 4px;
+}
+
+.kpi-value {
+  font-family: var(--font-heading);
+  font-size: 24px;
+  font-weight: 700;
+  color: var(--text-primary);
+  line-height: 1;
+  margin-bottom: 4px;
+}
+
+.kpi-sub {
+  font-size: 12px;
+  color: var(--text-tertiary);
+}
+
+/* ============================================================
+   Table
+   ============================================================ */
+.table-wrapper {
+  overflow-x: auto;
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--border-subtle);
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  background: var(--bg-card);
+}
+
+th {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-tertiary);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding: var(--space-md) var(--space-lg);
+  text-align: left;
+  border-bottom: 1px solid var(--border-default);
+  background: var(--bg-surface);
+}
+
+td {
+  padding: var(--space-md) var(--space-lg);
+  border-bottom: 1px solid var(--border-subtle);
+  font-size: 14px;
+}
+
+tr:last-child td { border-bottom: none; }
+tr:hover td { background: var(--bg-surface); }
+
+/* ============================================================
+   Toggle / Switch
+   ============================================================ */
+.toggle-group {
+  display: flex;
+  background: var(--bg-surface-alt);
+  border-radius: var(--radius-sm);
+  padding: 3px;
+  gap: 2px;
+}
+
+.toggle-option {
+  flex: 1;
+  padding: 8px 16px;
+  border-radius: 6px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  text-align: center;
+  transition: all var(--transition);
+  color: var(--text-secondary);
+  background: transparent;
+  border: none;
+}
+
+.toggle-option.active {
+  background: var(--brand-primary);
+  color: var(--text-on-primary);
+}
+
+/* ============================================================
+   Bottom Navigation (mobile employee)
+   ============================================================ */
+.bottom-nav {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: var(--bg-primary);
+  border-top: 1px solid var(--border-default);
+  display: flex;
+  padding: var(--space-sm) 0 env(safe-area-inset-bottom);
+  z-index: 100;
+}
+
+.bottom-nav-item {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: var(--space-sm) 0;
+  color: var(--text-tertiary);
+  text-decoration: none;
+  font-size: 11px;
+  font-weight: 500;
+  transition: color var(--transition);
+  cursor: pointer;
+  background: none;
+  border: none;
+}
+
+.bottom-nav-item.active { color: var(--brand-primary); }
+.bottom-nav-item:hover { color: var(--text-secondary); }
+
+/* ============================================================
+   Sidebar (owner desktop)
+   ============================================================ */
+.sidebar {
+  width: 220px;
+  min-height: 100vh;
+  background: var(--bg-primary);
+  border-right: 1px solid var(--border-default);
+  display: flex;
+  flex-direction: column;
+  padding: var(--space-xl) 0;
+  position: fixed;
+  left: 0;
+  top: 0;
+}
+
+.sidebar-logo {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  padding: 0 var(--space-lg) var(--space-xl);
+  border-bottom: 1px solid var(--border-subtle);
+  margin-bottom: var(--space-lg);
+}
+
+.sidebar-logo-mark {
+  width: 36px;
+  height: 36px;
+  background: var(--brand-primary);
+  border-radius: var(--radius-sm);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-heading);
+  font-weight: 700;
+  font-size: 18px;
+  color: white;
+}
+
+.sidebar-nav-item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+  padding: 10px var(--space-lg);
+  color: var(--text-secondary);
+  text-decoration: none;
+  font-size: 14px;
+  font-weight: 500;
+  transition: all var(--transition);
+  border-left: 2px solid transparent;
+}
+
+.sidebar-nav-item:hover { color: var(--text-primary); background: var(--bg-surface); }
+.sidebar-nav-item.active {
+  color: var(--brand-primary);
+  background: var(--brand-primary-light);
+  border-left-color: var(--brand-primary);
+}
+
+.owner-main {
+  margin-left: 220px;
+  padding: var(--space-2xl);
+  min-height: 100vh;
+}
+
+/* ============================================================
+   Modal Overlay
+   ============================================================ */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 200;
+  padding: var(--space-lg);
+}
+
+.modal {
+  background: var(--bg-primary);
+  border-radius: var(--radius-xl);
+  padding: var(--space-2xl);
+  width: 100%;
+  max-width: 440px;
+  max-height: 90vh;
+  overflow-y: auto;
+  box-shadow: var(--shadow-lg);
+}
+
+/* ============================================================
+   Quick Amount Buttons (POS cash modal)
+   ============================================================ */
+.quick-amounts {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--space-sm);
+}
+
+.quick-amount-btn {
+  padding: 10px;
+  border: 1.5px solid var(--border-default);
+  border-radius: var(--radius-sm);
+  background: var(--bg-primary);
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-primary);
+  cursor: pointer;
+  transition: all var(--transition);
+  text-align: center;
+}
+
+.quick-amount-btn:hover { border-color: var(--brand-primary); color: var(--brand-primary); }
+.quick-amount-btn.exact { color: var(--brand-primary); border-color: var(--brand-primary-light); }
+
+/* ============================================================
+   Cash Summary Row (dashboard / chiusura)
+   ============================================================ */
+.cash-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: var(--space-sm) 0;
+  border-bottom: 1px solid var(--border-subtle);
+}
+.cash-row:last-child { border-bottom: none; }
+.cash-row-label { font-size: 13px; color: var(--text-tertiary); }
+.cash-row-value { font-size: 15px; font-weight: 600; color: var(--text-primary); }
+.cash-row.total .cash-row-label { font-weight: 700; color: var(--text-primary); font-size: 14px; }
+.cash-row.total .cash-row-value { font-size: 18px; color: var(--brand-primary); }
+.cash-row.variance-positive .cash-row-value { color: var(--success); }
+.cash-row.variance-negative .cash-row-value { color: var(--danger); }
+
+/* ============================================================
+   Print styles (busta cassa)
+   ============================================================ */
+@media print {
+  .no-print { display: none !important; }
+  body { background: white; font-size: 12px; }
+  .print-container { padding: 0; margin: 0; }
+  .card { box-shadow: none; border: 1px solid #ccc; break-inside: avoid; }
+  table { font-size: 11px; }
+  .btn { display: none; }
+}
