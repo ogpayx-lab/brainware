@@ -38,6 +38,7 @@ export default function POSContent() {
   // Online mode
   const [shipping, setShipping] = useState({ type:'delivery' as 'delivery'|'long_distance', name:'', address:'', city:'', cap:'', phone:'', courier:'GLS', tracking:'', notes:'' })
   const [shippingCost, setShippingCost] = useState(5)
+  const [deliverySteps, setDeliverySteps] = useState([false,false,false,false,false])
 
   useEffect(() => { loadData() }, [])
   useEffect(() => { setShippingCost(shipping.type==='delivery'?5:9.90) }, [shipping.type])
@@ -105,8 +106,12 @@ export default function POSContent() {
     loadData()
   }
 
-  const filtered = products.filter(p => (activeCat==='all'||p.category===activeCat) && (!search||p.name.toLowerCase().includes(search.toLowerCase())))
-  const popular = [...products].sort((a,b) => b.stock-a.stock).slice(0,3)
+  const filtered = products.filter(p =>
+    (activeCat==='all'||p.category===activeCat) &&
+    (!search||p.name.toLowerCase().includes(search.toLowerCase())) &&
+    p.stock > 0
+  )
+  const popular = [...products].filter(p => p.stock > 0).sort((a,b) => b.stock-a.stock).slice(0,3)
 
   if (loading) return <div style={{ display:'flex', alignItems:'center', justifyContent:'center', height:'100vh' }}>Caricamento...</div>
 
@@ -300,10 +305,31 @@ export default function POSContent() {
               )}
               {mode==='online' && (
                 <div style={{ marginTop:12 }}>
+                  {/* Step checklist preparazione ordine */}
+                  <div style={{ background:'var(--bg-surface)', borderRadius:10, padding:12, marginBottom:12 }}>
+                    <div style={{ fontSize:12, fontWeight:700, marginBottom:10, color:'var(--text-primary)' }}>📦 Step Preparazione Ordine</div>
+                    {[
+                      'Controlla disponibilità prodotti in magazzino',
+                      'Prepara e imballa i prodotti',
+                      'Stampa etichetta con indirizzo destinatario',
+                      'Affida il pacco al corriere / rider',
+                      'Inserisci numero di tracking nel sistema',
+                    ].map((step, i) => (
+                      <div key={i} onClick={() => setDeliverySteps(s => { const n=[...s]; n[i]=!n[i]; return n })} style={{ display:'flex', alignItems:'center', gap:10, padding:'7px 0', borderBottom:i<4?'1px solid var(--border-subtle)':'none', cursor:'pointer' }}>
+                        <div style={{ width:20, height:20, borderRadius:5, border:`2px solid ${deliverySteps[i]?'var(--success)':'var(--border-default)'}`, background:deliverySteps[i]?'var(--success)':'transparent', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0, transition:'all 0.15s' }}>
+                          {deliverySteps[i] && <span style={{ color:'white', fontSize:12, fontWeight:700 }}>✓</span>}
+                        </div>
+                        <span style={{ fontSize:12, color:deliverySteps[i]?'var(--text-tertiary)':'var(--text-primary)', textDecoration:deliverySteps[i]?'line-through':'none' }}>{step}</span>
+                      </div>
+                    ))}
+                    <div style={{ marginTop:8, fontSize:11, color:deliverySteps.every(Boolean)?'var(--success)':'var(--text-tertiary)', fontWeight:600 }}>
+                      {deliverySteps.filter(Boolean).length}/5 step completati {deliverySteps.every(Boolean) ? '✓ Pronto per la spedizione' : ''}
+                    </div>
+                  </div>
                   <div style={{ fontSize:12, fontWeight:600, marginBottom:8 }}>Tipo Spedizione</div>
                   <div className="toggle-group" style={{ marginBottom:10 }}>
-                    <button className={`toggle-option ${shipping.type==='delivery'?'active':''}`} onClick={() => setShipping(s=>({...s,type:'delivery'}))}>Delivery (+5.00)</button>
-                    <button className={`toggle-option ${shipping.type==='long_distance'?'active':''}`} onClick={() => setShipping(s=>({...s,type:'long_distance'}))}>Long Distance (+9.90)</button>
+                    <button className={`toggle-option ${shipping.type==='delivery'?'active':''}`} onClick={() => setShipping(s=>({...s,type:'delivery'}))}>🛵 Delivery (+5.00)</button>
+                    <button className={`toggle-option ${shipping.type==='long_distance'?'active':''}`} onClick={() => setShipping(s=>({...s,type:'long_distance'}))}>🚚 Long Distance (+9.90)</button>
                   </div>
                   <div style={{ fontSize:11, color:'var(--text-tertiary)', marginBottom:8 }}>Consegna in prossimita del negozio</div>
                   {[{label:'Nome destinatario',key:'name',ph:'Mario Rossi'},{label:'Indirizzo spedizione',key:'address',ph:'Via Roma 42'},{label:'Corriere',key:'courier',ph:'GLS'},{label:'Tracking / Note',key:'tracking',ph:'#TXN...'},{label:'Citta',key:'city',ph:'Milano'},{label:'CAP',key:'cap',ph:'20100'},{label:'Telefono',key:'phone',ph:'+39 333...'}].map(f => (
@@ -348,8 +374,8 @@ export default function POSContent() {
                       <button className="btn btn-primary btn-lg" onClick={() => setShowPOS(true)} disabled={saving} style={{ background:'var(--accent-blue)' }}> POS</button>
                     </div>
                   ) : (
-                    <button className="btn btn-primary btn-full btn-lg" disabled={saving||!shipping.name} onClick={() => completeSale('other')}>
-                      {saving?'Conferma...':' CONFERMA ORDINE ONLINE'}
+                    <button className="btn btn-primary btn-full btn-lg" disabled={saving||!shipping.name} onClick={() => completeSale('other')} style={{ opacity: deliverySteps.every(Boolean) ? 1 : 0.6 }}>
+                      {saving ? 'Conferma...' : deliverySteps.every(Boolean) ? '✅ CONFERMA ORDINE ONLINE' : `🚧 Completa ${5-deliverySteps.filter(Boolean).length} step prima`}
                     </button>
                   )}
                 </>

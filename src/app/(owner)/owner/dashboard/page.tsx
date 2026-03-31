@@ -15,8 +15,13 @@ export default function OwnerDashboard() {
   const [loading, setLoading] = useState(true)
   const [storeId, setStoreId] = useState<string|null>(null)
   const [storeName, setStoreName] = useState('')
+  const [tasks, setTasks] = useState<any[]>([])
+  const [newTask, setNewTask] = useState('')
+  const [taskPriority, setTaskPriority] = useState<'alta'|'media'|'bassa'>('media')
+  const [savingTask, setSavingTask] = useState(false)
 
   useEffect(() => { loadData() }, [dateFilter, selectedStore])
+  useEffect(() => { if (storeId) loadTasks() }, [storeId])
 
   async function loadData() {
     const { data: { user } } = await supabase.auth.getUser()
@@ -62,13 +67,55 @@ export default function OwnerDashboard() {
       return (sales ?? []).filter((s: any) => s.movement_type === 'sale' && new Date(s.created_at).toDateString() === d.toDateString()).reduce((s: number, x: any) => s + x.total, 0)
     })
 
-    setData({ totalRevenue, totalCash, totalPos, totalTxn, avgSale, totalExpenses, openShifts: openShifts ?? [], recentSales: realSales.slice(0,5), lowStock: lowStock ?? [], pendingDiscounts, resi, ecomOrders: ecomOrders ?? [], weekRevenue, storeName: (profile.stores as any)?.name ?? '' })
+    const { data: saleItems } = await supabase
+      .from('sale_items')
+      .select('product_name, qty, line_total')
+      .in('sale_id', (realSales ?? []).map((s: any) => s.id))
+
+    const productMap: Record<string, {qty:number, revenue:number}> = {}
+    ;(saleItems ?? []).forEach((item: any) => {
+      if (!productMap[item.product_name]) productMap[item.product_name] = { qty:0, revenue:0 }
+      productMap[item.product_name].qty += item.qty
+      productMap[item.product_name].revenue += item.line_total
+    })
+    const topProducts = Object.entries(productMap)
+      .map(([name, v]) => ({ name, ...v }))
+      .sort((a,b) => b.revenue - a.revenue)
+      .slice(0, 6)
+
+    setData({ totalRevenue, totalCash, totalPos, totalTxn, avgSale, totalExpenses, openShifts: openShifts ?? [], recentSales: realSales.slice(0,5), lowStock: lowStock ?? [], pendingDiscounts, resi, ecomOrders: ecomOrders ?? [], weekRevenue, storeName: (profile.stores as any)?.name ?? '', topProducts })
     setLoading(false)
   }
 
   async function approveDiscount(saleId: string) {
     await supabase.from('sales').update({ discount_approved: true }).eq('id', saleId)
     loadData()
+  }
+
+  async function loadTasks() {
+    if (!storeId) return
+    const { data: t } = await supabase.from('tasks').select('*,users!tasks_assigned_to_fkey(full_name)').eq('store_id', storeId).order('created_at', { ascending: false })
+    setTasks(t ?? [])
+  }
+
+  async function addTask() {
+    if (!newTask.trim() || !storeId) return
+    setSavingTask(true)
+    const { data: { user } } = await supabase.auth.getUser()
+    await supabase.from('tasks').insert({ store_id: storeId, title: newTask.trim(), priority: taskPriority, created_by: user?.id })
+    setNewTask(''); setSavingTask(false)
+    loadTasks()
+  }
+
+  async function toggleTask(id: string, done: boolean) {
+    const { data: { user } } = await supabase.auth.getUser()
+    await supabase.from('tasks').update({ completed: !done, completed_at: !done ? new Date().toISOString() : null, completed_by: !done ? user?.id : null }).eq('id', id)
+    loadTasks()
+  }
+
+  async function deleteTask(id: string) {
+    await supabase.from('tasks').delete().eq('id', id)
+    loadTasks()
   }
 
   if (loading) return (
@@ -317,6 +364,72 @@ export default function OwnerDashboard() {
             </div>
           ))
         }
+      </div>
+
+      {/* Prodotti più venduti oggi */}
+      {data.topProducts?.length > 0 && (
+        <div className="card" style={{ marginTop:'var(--space-xl)' }}>
+          <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:'var(--space-md)' }}>
+            <h4>🏆 Top Prodotti — {dateFilter === 'oggi' ? 'Oggi' : dateFilter === 'settimana' ? 'Settimana' : 'Mese'}</h4>
+            <span className="badge badge-brand">{data.topProducts.length} prodotti</span>
+          </div>
+          <div style={{ display:'grid', gridTemplateColumns:'repeat(3,1fr)', gap:10 }}>
+            {data.topProducts.map((p: any, i: number) => (
+              <div key={p.name} style={{ background:'var(--bg-surface)', borderRadius:10, padding:12, display:'flex', flexDirection:'column', gap:4 }}>
+                <div style={{ display:'flex', alignItems:'center', gap:6 }}>
+                  <span style={{ fontSize:16 }}>{['🥇','🥈','🥉','4️⃣','5️⃣','6️⃣'][i]}</span>
+                  <span style={{ fontSize:13, fontWeight:600, flex:1, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{p.name}</span>
+                </div>
+                <div style={{ fontSize:12, color:'var(--text-secondary)' }}>{p.qty} unità vendute</div>
+                <div style={{ fontSize:14, fontWeight:700, color:'var(--brand-primary)' }}>{fmt(p.revenue)}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Tasks */}
+      <div className="card" style={{ marginTop:'var(--space-xl)' }}>
+        <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:'var(--space-md)' }}>
+          <h4>✅ Task del Negozio</h4>
+          <span className="badge badge-gray">{tasks.filter(t=>!t.completed).length} da fare</span>
+        </div>
+        {/* Nuovo task */}
+        <div style={{ display:'flex', gap:8, marginBottom:'var(--space-md)' }}>
+          <input
+            className="input" style={{ flex:1, height:36 }}
+            placeholder="Nuovo task..."
+            value={newTask}
+            onChange={e => setNewTask(e.target.value)}
+            onKeyDown={e => e.key === 'Enter' && addTask()}
+          />
+          <select className="input" style={{ width:90, height:36, fontSize:12 }} value={taskPriority} onChange={e => setTaskPriority(e.target.value as any)}>
+            <option value="alta">🔴 Alta</option>
+            <option value="media">🟡 Media</option>
+            <option value="bassa">🟢 Bassa</option>
+          </select>
+          <button className="btn btn-primary" style={{ height:36, padding:'0 14px', fontSize:13 }} onClick={addTask} disabled={savingTask||!newTask.trim()}>
+            + Aggiungi
+          </button>
+        </div>
+        {tasks.length === 0 && (
+          <p style={{ color:'var(--text-tertiary)', fontSize:13, textAlign:'center', padding:'var(--space-lg)' }}>Nessun task. Aggiungine uno!</p>
+        )}
+        {tasks.map(task => (
+          <div key={task.id} style={{ display:'flex', alignItems:'center', gap:10, padding:'9px 0', borderBottom:'1px solid var(--border-subtle)' }}>
+            <div
+              onClick={() => toggleTask(task.id, task.completed)}
+              style={{ width:22, height:22, borderRadius:6, border:`2px solid ${task.completed ? 'var(--success)' : 'var(--border-default)'}`, background: task.completed ? 'var(--success)' : 'transparent', display:'flex', alignItems:'center', justifyContent:'center', cursor:'pointer', flexShrink:0, transition:'all 0.15s' }}
+            >
+              {task.completed && <span style={{ color:'white', fontSize:13, fontWeight:700 }}>✓</span>}
+            </div>
+            <span style={{ flex:1, fontSize:13, fontWeight:500, textDecoration:task.completed?'line-through':'none', color:task.completed?'var(--text-tertiary)':'var(--text-primary)' }}>{task.title}</span>
+            <span className={`badge ${task.priority==='alta'?'badge-danger':task.priority==='bassa'?'badge-success':'badge-warning'}`} style={{ fontSize:10 }}>
+              {task.priority === 'alta' ? '🔴' : task.priority === 'bassa' ? '🟢' : '🟡'} {task.priority}
+            </span>
+            <button onClick={() => deleteTask(task.id)} style={{ background:'none', border:'none', color:'var(--text-tertiary)', cursor:'pointer', fontSize:16, padding:'0 4px' }}>✕</button>
+          </div>
+        ))}
       </div>
     </div>
   )

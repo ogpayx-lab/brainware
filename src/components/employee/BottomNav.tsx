@@ -4,12 +4,12 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 
 const TABS = [
-  { href: '/employee/dashboard',  icon: '', label: 'Home' },
-  { href: '/employee/pos',        icon: '', label: 'Vendita' },
-  { href: '/employee/fidelity',   icon: '', label: 'Fidelity' },
-  { href: '/employee/expenses',   icon: '', label: 'Spese' },
-  { href: '/employee/inventory',  icon: '', label: 'Conteggio' },
-  { href: '/employee/more',       icon: '',  label: 'Altro' },
+  { href: '/employee/dashboard',  icon: '🏠', label: 'Home' },
+  { href: '/employee/pos',        icon: '🛒', label: 'Vendita' },
+  { href: '/employee/calendar',   icon: '📅', label: 'Turni' },
+  { href: '/employee/fidelity',   icon: '💳', label: 'Fidelity' },
+  { href: '/employee/expenses',   icon: '💸', label: 'Spese' },
+  { href: '/employee/more',       icon: '⋯',  label: 'Altro' },
 ]
 
 export function BottomNav() {

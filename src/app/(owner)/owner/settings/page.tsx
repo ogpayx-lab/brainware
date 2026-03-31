@@ -19,6 +19,8 @@ export default function SettingsPage() {
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState('')
   const [loading, setLoading] = useState(true)
+  const [shopify, setShopify] = useState({ shopify_domain: '', access_token: '', sync_enabled: false })
+  const [shopifyId, setShopifyId] = useState<string|null>(null)
 
   useEffect(() => { loadData() }, [])
 
@@ -40,6 +42,11 @@ export default function SettingsPage() {
     if (brandData) { setBrand({ brand_name: brandData.brand_name, logo_letter: brandData.logo_letter, primary_color: brandData.primary_color, piva: brandData.piva ?? '', receipt_header: brandData.receipt_header ?? '', receipt_footer: brandData.receipt_footer ?? '' }); setBrandId(brandData.id) }
     if (cfgData) { setCfg({ fcu_default: cfgData.fcu_default, morning_shift_start: cfgData.morning_shift_start, morning_shift_end: cfgData.morning_shift_end, evening_shift_start: cfgData.evening_shift_start, evening_shift_end: cfgData.evening_shift_end, stock_alert_threshold: cfgData.stock_alert_threshold, discount_notify_pct: cfgData.discount_notify_pct }); setCfgId(cfgData.id) }
     if (bonusData) { setBonus({ sales_commission_pct: bonusData.sales_commission_pct, hours_bonus_amount: bonusData.hours_bonus_amount, hours_bonus_threshold: bonusData.hours_bonus_threshold, avg_sale_threshold: bonusData.avg_sale_threshold }); setBonusId(bonusData.id) }
+
+    // Carica config Shopify
+    const { data: shopifyData } = await supabase.from('shopify_config').select('*').eq('store_id', profile.store_id).single()
+    if (shopifyData) { setShopify({ shopify_domain: shopifyData.shopify_domain, access_token: shopifyData.access_token ?? '', sync_enabled: shopifyData.sync_enabled }); setShopifyId(shopifyData.id) }
+
     setLoading(false)
   }
 
@@ -213,6 +220,51 @@ export default function SettingsPage() {
             Bonus = (vendite  {(bonus.sales_commission_pct * 100).toFixed(1)}%) + (turni_qualificanti  {bonus.hours_bonus_amount})
           </div>
           <button onClick={saveBonus} disabled={saving} className="btn btn-primary" style={{ alignSelf: 'flex-start' }}>Salva Bonus</button>
+        </div>
+        {/* Integrazione Shopify */}
+        <div className="card" style={{ display:'flex', flexDirection:'column', gap:'var(--space-lg)' }}>
+          <div style={{ display:'flex', alignItems:'center' }}>
+            <h3>🛍️ Integrazione Shopify</h3><SavedBadge section="shopify" />
+          </div>
+          <div style={{ background:'var(--bg-surface)', borderRadius:8, padding:12, fontSize:13, color:'var(--text-secondary)' }}>
+            Collega il tuo Shopify store per visualizzare ordini e gestire le spedizioni direttamente da BrainWare.
+            Ogni owner può collegare il proprio store indipendentemente.
+          </div>
+          <div className="input-group">
+            <label className="input-label">Dominio Shopify Store</label>
+            <input className="input" placeholder="mio-negozio.myshopify.com" value={shopify.shopify_domain} onChange={e => setShopify(s => ({ ...s, shopify_domain: e.target.value.replace('https://','').replace('/','') }))} />
+            <div style={{ fontSize:11, color:'var(--text-tertiary)', marginTop:4 }}>Solo il dominio, es: mamamarycannabis.myshopify.com</div>
+          </div>
+          <div className="input-group">
+            <label className="input-label">Access Token (Admin API)</label>
+            <input className="input" type="password" placeholder="shpat_xxxxxxxxxxxxxxxxxxxx" value={shopify.access_token} onChange={e => setShopify(s => ({ ...s, access_token: e.target.value }))} />
+            <div style={{ fontSize:11, color:'var(--text-tertiary)', marginTop:4 }}>
+              Come ottenerlo: Shopify Admin → Settings → Apps and sales channels → Develop apps → Create app → Admin API access scopes (orders: read_orders, write_orders)
+            </div>
+          </div>
+          <div style={{ display:'flex', alignItems:'center', gap:10 }}>
+            <input type="checkbox" id="shopify-sync" checked={shopify.sync_enabled} onChange={e => setShopify(s => ({ ...s, sync_enabled: e.target.checked }))} />
+            <label htmlFor="shopify-sync" style={{ fontSize:13, cursor:'pointer' }}>Sincronizzazione automatica attiva</label>
+          </div>
+          <div style={{ display:'flex', gap:10, alignItems:'center' }}>
+            <button onClick={async () => {
+              if (!storeId || !shopify.shopify_domain) return; setSaving(true)
+              if (shopifyId) {
+                await supabase.from('shopify_config').update(shopify).eq('id', shopifyId)
+              } else {
+                const { data } = await supabase.from('shopify_config').insert({ store_id: storeId, ...shopify }).select('id').single()
+                if (data) setShopifyId(data.id)
+              }
+              showSaved('shopify'); setSaving(false)
+            }} disabled={saving || !shopify.shopify_domain} className="btn btn-primary">
+              Salva Shopify
+            </button>
+            {shopifyId && (
+              <button onClick={() => window.location.href = '/owner/shopify'} className="btn btn-secondary">
+                👁️ Vedi Ordini
+              </button>
+            )}
+          </div>
         </div>
 
       </div>

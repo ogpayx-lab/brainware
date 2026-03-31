@@ -12,15 +12,16 @@ const NAV_MAIN = [
   { href: '/owner/analytics/performance', icon: '', label: 'Performance' },
 ]
 const NAV_GESTIONE = [
-  { href: '/owner/employees',         icon: '', label: 'Dipendenti' },
-  { href: '/owner/ecommerce',         icon: '', label: 'E-commerce' },
-  { href: '/owner/vending',           icon: '', label: 'H24 Vending' },
-  { href: '/owner/warehouse',         icon: '', label: 'Multi-Store' },
-  { href: '/owner/general-warehouse', icon: '', label: 'Magazzino' },
-  { href: '/owner/maintenance',       icon: '', label: 'Manutenzione' },
-  { href: '/owner/intelligence',      icon: '', label: 'Intelligence AI' },
-  { href: '/owner/ai-management',     icon: '', label: 'Gestione AI' },
-  { href: '/owner/settings',          icon: '', label: 'Impostazioni' },
+  { href: '/owner/employees',         icon: '👥', label: 'Dipendenti' },
+  { href: '/owner/shopify',           icon: '🛍️', label: 'Shopify' },
+  { href: '/owner/ecommerce',         icon: '🌐', label: 'E-commerce' },
+  { href: '/owner/vending',           icon: '🏧', label: 'H24 Vending' },
+  { href: '/owner/warehouse',         icon: '🏪', label: 'Multi-Store' },
+  { href: '/owner/general-warehouse', icon: '📦', label: 'Magazzino' },
+  { href: '/owner/maintenance',       icon: '🔧', label: 'Manutenzione' },
+  { href: '/owner/intelligence',      icon: '🧠', label: 'Intelligence AI' },
+  { href: '/owner/ai-management',     icon: '🤖', label: 'Gestione AI' },
+  { href: '/owner/settings',          icon: '⚙️', label: 'Impostazioni' },
 ]
 
 export function OwnerSidebar() {
