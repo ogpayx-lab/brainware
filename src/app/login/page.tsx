@@ -10,18 +10,46 @@ export default function LoginPage() {
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
 
-  async function login(e: any) {
+  async function login(e: React.FormEvent) {
     e.preventDefault()
     setLoading(true)
     setError('')
+
     const { data, error: err } = await supabase.auth.signInWithPassword({ email, password })
-    if (err || !data.user) {
-      setError('Credenziali non corrette.')
+
+    if (err) {
+      // Messaggi di errore in italiano più chiari
+      if (err.message.includes('Invalid login credentials') || err.message.includes('invalid_credentials')) {
+        setError('Email o password non corretti. Controlla i dati inseriti.')
+      } else if (err.message.includes('Email not confirmed')) {
+        setError('Devi confermare la tua email prima di accedere. Controlla la casella di posta (anche Spam).')
+      } else {
+        setError('Errore di accesso: ' + err.message)
+      }
       setLoading(false)
       return
     }
-    const { data: profile } = await supabase.from('users').select('role').eq('id', data.user.id).single()
-    const r = profile?.role
+
+    if (!data.user) {
+      setError('Errore durante il login. Riprova.')
+      setLoading(false)
+      return
+    }
+
+    // Recupera il profilo utente dalla tabella public.users
+    const { data: profile, error: profileErr } = await supabase
+      .from('users')
+      .select('role')
+      .eq('id', data.user.id)
+      .single()
+
+    if (profileErr || !profile) {
+      // L'utente esiste in auth ma non ha ancora completato l'onboarding
+      window.location.replace('/onboarding')
+      return
+    }
+
+    const r = profile.role
     if (r === 'superadmin') window.location.replace('/superadmin/dashboard')
     else if (r === 'owner') window.location.replace('/owner/dashboard')
     else window.location.replace('/employee/shift/open')

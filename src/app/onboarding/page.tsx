@@ -2,39 +2,55 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
+import { setupOrganizationAndStore, updateStoreAndBrand } from './actions'
 
 const PLANS = [
-  { key:'trial', label:'Trial', desc:'Gratuito per 14 giorni', price:'0' },
-  { key:'pro', label:'Pro', desc:'Fino a 3 negozi', price:'49/mese' },
-  { key:'enterprise', label:'Enterprise', desc:'Negozi illimitati', price:'149/mese' },
+  { key: 'trial', label: 'Trial', desc: 'Gratuito per 14 giorni', price: '0' },
+  { key: 'pro', label: 'Pro', desc: 'Fino a 3 negozi', price: '49/mese' },
+  { key: 'enterprise', label: 'Enterprise', desc: 'Negozi illimitati', price: '149/mese' },
 ]
 
 export default function OnboardingPage() {
   const router = useRouter()
   const supabase = createClient()
   const [step, setStep] = useState(0)
-  const [userId, setUserId] = useState<string|null>(null)
+  const [userId, setUserId] = useState<string | null>(null)
+  const [storeId, setStoreId] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
-  const [company, setCompany] = useState({ ragione_sociale:'', piva:'', indirizzo:'', telefono:'', plan:'trial' })
-  const [store, setStore] = useState({ name:'', city:'', address:'' })
-  const [brand, setBrand] = useState({ brand_name:'BrainWare', logo_letter:'B', primary_color:'#22C55E' })
+  const [saveError, setSaveError] = useState<string | null>(null)
+  const [company, setCompany] = useState({ ragione_sociale: '', piva: '', indirizzo: '', telefono: '', plan: 'trial' })
+  const [store, setStore] = useState({ name: '', city: '', address: '' })
+  const [brand, setBrand] = useState({ brand_name: 'BrainWare', logo_letter: 'B', primary_color: '#22C55E' })
 
   useEffect(() => {
-    supabase.auth.getUser().then(({ data:{ user } }) => { if (!user) router.push('/login'); else setUserId(user.id) })
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      if (!user) router.push('/login')
+      else setUserId(user.id)
+    })
   }, [])
 
+
   async function saveStep1() {
-    if (!company.ragione_sociale || !company.piva) return
+    if (!company.ragione_sociale || !company.piva || !userId) return
     setSaving(true)
-    const slug = company.ragione_sociale.toLowerCase().replace(/\s+/g,'-').replace(/[^a-z0-9-]/g,'') + '-' + Date.now()
-    const { data: org } = await supabase.from('organizations').insert({ name: company.ragione_sociale, slug, plan: company.plan }).select('id').single()
-    const { data: storeRow } = await supabase.from('stores').insert({ name: company.ragione_sociale + ' Store', organization_id: org?.id ?? null }).select('id').single()
-    if (storeRow && userId) {
-      await supabase.from('brand_config').insert({ store_id: storeRow.id, brand_name:'BrainWare', logo_letter:'B' })
-      await supabase.from('store_config').insert({ store_id: storeRow.id })
-      await supabase.from('bonus_config').insert({ store_id: storeRow.id })
-      await supabase.from('users').upsert({ id: userId, store_id: storeRow.id, full_name: company.ragione_sociale, role:'owner' })
+    setSaveError(null)
+
+    const result = await setupOrganizationAndStore({
+      ragione_sociale: company.ragione_sociale,
+      piva: company.piva,
+      indirizzo: company.indirizzo,
+      telefono: company.telefono,
+      plan: company.plan,
+      userId,
+    })
+
+    if (result.error) {
+      setSaveError(result.error)
+      setSaving(false)
+      return
     }
+
+    setStoreId(result.storeId!)
     setBrand(b => ({ ...b, brand_name: company.ragione_sociale, logo_letter: company.ragione_sociale[0]?.toUpperCase() || 'B' }))
     setStore(s => ({ ...s, name: company.ragione_sociale }))
     setSaving(false)
@@ -42,15 +58,31 @@ export default function OnboardingPage() {
   }
 
   async function saveStep2() {
-    if (!store.name || !brand.brand_name) return
+    if (!store.name || !brand.brand_name || !userId || !storeId) return
     setSaving(true)
-    const { data: profile } = await supabase.from('users').select('store_id').eq('id', userId!).single()
-    if (profile?.store_id) {
-      await supabase.from('stores').update({ name: store.name, city: store.city || null, address: store.address || null }).eq('id', profile.store_id)
-      await supabase.from('brand_config').update({ brand_name: brand.brand_name, logo_letter: brand.logo_letter, primary_color: brand.primary_color, piva: company.piva }).eq('store_id', profile.store_id)
+    setSaveError(null)
+
+    const result = await updateStoreAndBrand({
+      storeId,
+      userId,
+      storeName: store.name,
+      storeCity: store.city,
+      storeAddress: store.address,
+      brandName: brand.brand_name,
+      logoLetter: brand.logo_letter,
+      primaryColor: brand.primary_color,
+      piva: company.piva,
+    })
+
+    if (result.error) {
+      setSaveError(result.error)
+      setSaving(false)
+      return
     }
+
     setSaving(false)
     router.push('/owner/dashboard')
+
   }
 
   const COLORS = ['#22C55E','#3B82F6','#8B5CF6','#F59E0B','#EF4444','#0F172A']
@@ -98,7 +130,8 @@ export default function OnboardingPage() {
                   ))}
                 </div>
               </div>
-              <button onClick={saveStep1} disabled={saving||!company.ragione_sociale||!company.piva} className="btn btn-primary btn-full btn-lg">{saving?'Salvataggio...':'Continua '}</button>
+              {saveError && <div style={{ background:'#FEF2F2', border:'1px solid #EF4444', borderRadius:8, padding:'10px 14px', fontSize:13, color:'#EF4444' }}>{saveError}</div>}
+              <button onClick={saveStep1} disabled={saving||!company.ragione_sociale||!company.piva} className="btn btn-primary btn-full btn-lg">{saving?'Salvataggio...':'Continua →'}</button>
             </div>
           )}
           {step === 1 && (
@@ -127,9 +160,10 @@ export default function OnboardingPage() {
                 <div style={{ width:40, height:40, borderRadius:8, background:brand.primary_color, display:'flex', alignItems:'center', justifyContent:'center', fontFamily:'var(--font-heading)', fontWeight:700, fontSize:20, color:'white', flexShrink:0 }}>{brand.logo_letter||'B'}</div>
                 <div><div style={{ fontFamily:'var(--font-heading)', fontWeight:700, fontSize:16, color:brand.primary_color }}>{brand.brand_name||'BrainWare'}</div><div style={{ fontSize:12, color:'var(--text-tertiary)' }}>{store.name||'Nome negozio'}{store.city?`  ${store.city}`:''}</div></div>
               </div>
+              {saveError && <div style={{ background:'#FEF2F2', border:'1px solid #EF4444', borderRadius:8, padding:'10px 14px', fontSize:13, color:'#EF4444' }}>{saveError}</div>}
               <div style={{ display:'flex', gap:10 }}>
-                <button onClick={() => setStep(0)} className="btn btn-secondary" style={{ flex:1 }}> Indietro</button>
-                <button onClick={saveStep2} disabled={saving||!store.name||!brand.brand_name} className="btn btn-primary" style={{ flex:2 }}>{saving?'Salvataggio...':' Entra nella Dashboard'}</button>
+                <button onClick={() => setStep(0)} className="btn btn-secondary" style={{ flex:1 }}>← Indietro</button>
+                <button onClick={saveStep2} disabled={saving||!store.name||!brand.brand_name} className="btn btn-primary" style={{ flex:2 }}>{saving?'Salvataggio...':'Entra nella Dashboard →'}</button>
               </div>
             </div>
           )}
