@@ -12,7 +12,7 @@ export default function EmployeesPage() {
   const [loading, setLoading] = useState(true)
   const [showForm, setShowForm] = useState(false)
   const [saving, setSaving] = useState(false)
-  const [form, setForm] = useState({ full_name:'', email:'', password:'', role:'employee' })
+  const [form, setForm] = useState({ full_name:'', email:'', role:'employee' })
   const [totalClients, setTotalClients] = useState(0)
   const [emailStatus, setEmailStatus] = useState<'idle'|'sent'|'error'>('idle')
 
@@ -32,28 +32,33 @@ export default function EmployeesPage() {
   }
 
   async function createEmployee() {
-    if (!storeId || !form.full_name || !form.email || !form.password) return
+    if (!storeId || !form.full_name || !form.email) return
     setSaving(true)
     setEmailStatus('idle')
-    const { data: authData, error } = await supabase.auth.admin ?
-      { data: null, error: new Error('Use signup') } :
-      await supabase.auth.signUp({ email: form.email, password: form.password, options: { data: { full_name: form.full_name } } })
-    if (!error && (authData as any)?.user) {
-      await supabase.from('users').upsert({ id: (authData as any).user.id, full_name: form.full_name, role: form.role, store_id: storeId, is_active: true })
-      // Invia email con credenziali
-      try {
-        const res = await fetch('/api/send-employee-credentials', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ employeeName: form.full_name, employeeEmail: form.email, password: form.password }),
-        })
-        setEmailStatus(res.ok ? 'sent' : 'error')
-      } catch {
+    try {
+      const res = await fetch('/api/send-employee-credentials', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          employeeName: form.full_name,
+          employeeEmail: form.email,
+          role: form.role,
+          storeId,
+        }),
+      })
+      const json = await res.json()
+      if (res.status === 409) {
+        setEmailStatus('error') // email già registrata
+      } else if (res.ok) {
+        setEmailStatus('sent')
+      } else {
         setEmailStatus('error')
       }
+    } catch {
+      setEmailStatus('error')
     }
     setShowForm(false)
-    setForm({ full_name:'', email:'', password:'', role:'employee' })
+    setForm({ full_name:'', email:'', role:'employee' })
     setSaving(false)
     loadData()
   }
@@ -74,17 +79,19 @@ export default function EmployeesPage() {
             <div style={{ display:'flex', flexDirection:'column', gap:'var(--space-md)' }}>
               <div className="input-group"><label className="input-label">Nome completo *</label><input className="input" placeholder="Mario Rossi" value={form.full_name} onChange={e => setForm(f=>({...f,full_name:e.target.value}))}/></div>
               <div className="input-group"><label className="input-label">Email *</label><input className="input" type="email" placeholder="mario@negozio.it" value={form.email} onChange={e => setForm(f=>({...f,email:e.target.value}))}/></div>
-              <div className="input-group"><label className="input-label">Password *</label><input className="input" type="password" placeholder="Min 8 caratteri" value={form.password} onChange={e => setForm(f=>({...f,password:e.target.value}))}/></div>
               <div className="input-group"><label className="input-label">Ruolo</label>
                 <select className="input" value={form.role} onChange={e => setForm(f=>({...f,role:e.target.value}))}>
                   <option value="employee">Dipendente</option>
                   <option value="owner">Proprietario</option>
                 </select>
               </div>
+              <div style={{ background:'#FFFBEB', border:'1px solid #FCD34D', borderRadius:8, padding:'10px 14px', fontSize:13, color:'#92400E' }}>
+                📧 Il dipendente riceverà un&apos;email con il link per impostare la propria password.
+              </div>
             </div>
             <div style={{ display:'flex', gap:'var(--space-sm)', marginTop:'var(--space-xl)' }}>
               <button className="btn btn-secondary" style={{ flex:1 }} onClick={() => setShowForm(false)}>Annulla</button>
-              <button className="btn btn-primary" style={{ flex:2 }} onClick={createEmployee} disabled={saving || !form.full_name || !form.email || !form.password}>{saving?'Creazione...':'Crea Dipendente'}</button>
+              <button className="btn btn-primary" style={{ flex:2 }} onClick={createEmployee} disabled={saving || !form.full_name || !form.email}>{saving ? 'Invio invito...' : '✉️ Invia Invito'}</button>
             </div>
           </div>
         </div>
@@ -106,7 +113,7 @@ export default function EmployeesPage() {
       {emailStatus === 'sent' && (
         <div style={{ background:'#F0FDF4', border:'1px solid #22C55E', borderRadius:10, padding:'12px 16px', marginBottom:'var(--space-lg)', display:'flex', alignItems:'center', gap:10, fontSize:14, color:'#15803D' }}>
           <span style={{ fontSize:20 }}>✅</span>
-          <span><strong>Dipendente creato!</strong> Email con credenziali inviata con successo.</span>
+          <span><strong>Dipendente invitato!</strong> Email di invito inviata a {form.email || 'il dipendente'}. Dovrà cliccare il link per impostare la password.</span>
           <button onClick={() => setEmailStatus('idle')} style={{ marginLeft:'auto', background:'none', border:'none', cursor:'pointer', fontSize:18, color:'#15803D' }}>×</button>
         </div>
       )}
