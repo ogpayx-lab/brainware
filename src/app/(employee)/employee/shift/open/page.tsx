@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { formatDate } from '@/lib/utils'
@@ -15,6 +15,17 @@ export default function ShiftOpenPage() {
   const [fce, setFce] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [storeName, setStoreName] = useState('BrainWare')
+
+  useEffect(() => {
+    async function loadStore() {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) return
+      const { data: profile } = await supabase.from('users').select('store_id,stores(name)').eq('id', user.id).single()
+      if (profile?.stores) setStoreName((profile.stores as any).name ?? 'BrainWare')
+    }
+    loadStore()
+  }, [])
 
   async function handleOpen() {
     setLoading(true)
@@ -30,17 +41,32 @@ export default function ShiftOpenPage() {
       .single()
 
     if (!profile?.store_id) {
-      setError('Nessun negozio associato al tuo account. Contatta l\'owner.')
-      setLoading(false)
-      return
+      // Prova a recuperare store_id dai metadati auth (impostati durante l'invito)
+      const meta = user.user_metadata
+      if (meta?.store_id) {
+        await supabase.from('users').upsert({
+          id: user.id,
+          full_name: meta.full_name || profile?.full_name || user.email,
+          role: meta.role || 'employee',
+          store_id: meta.store_id,
+          is_active: true,
+        })
+        // Riprova con il store_id recuperato
+      } else {
+        setError('Nessun negozio associato al tuo account. Contatta il tuo owner.')
+        setLoading(false)
+        return
+      }
     }
+
+    const storeId = profile?.store_id || user.user_metadata?.store_id
 
     const fceValue = parseFloat(fce) || 0
 
     const { error: shiftError } = await supabase
       .from('shifts')
       .insert({
-        store_id: profile.store_id,
+        store_id: storeId,
         user_id: user.id,
         period,
         fce: fceValue,
@@ -70,7 +96,7 @@ export default function ShiftOpenPage() {
         {/* Header */}
         <div style={{ marginBottom: 'var(--space-xl)' }}>
           <div style={{ fontFamily: 'var(--font-heading)', fontSize: 28, fontWeight: 700, color: 'var(--brand-primary)' }}>
-             MamaMary
+            {storeName}
           </div>
         </div>
 
