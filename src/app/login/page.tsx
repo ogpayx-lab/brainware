@@ -1,11 +1,8 @@
 'use client'
-import { useState, FormEvent } from 'react'
-import { useRouter } from 'next/navigation'
-import { createClient } from '@/lib/supabase/client'
+import { useState } from 'react'
+import { loginAction } from './actions'
 
 export default function LoginPage() {
-  const router = useRouter()
-  const supabase = createClient()
   const [role, setRole] = useState('owner')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -17,59 +14,22 @@ export default function LoginPage() {
     setLoading(true)
     setError('')
 
-    const { data, error: err } = await supabase.auth.signInWithPassword({ email, password })
+    const result = await loginAction(email, password)
 
-    if (err) {
-      if (err.message.includes('Invalid login credentials') || err.message.includes('invalid_credentials')) {
+    // Se loginAction non fa redirect (cioè c'è un errore), mostra l'errore
+    if (result?.error) {
+      if (result.error.includes('Invalid login credentials') || result.error.includes('invalid_credentials')) {
         setError('Email o password non corretti. Controlla i dati inseriti.')
-      } else if (err.message.includes('Email not confirmed')) {
+      } else if (result.error.includes('Email not confirmed')) {
         setError('Devi confermare la tua email prima di accedere. Controlla la casella di posta (anche Spam).')
       } else {
-        setError('Errore di accesso: ' + err.message)
+        setError('Errore di accesso: ' + result.error)
       }
       setLoading(false)
-      return
     }
-
-    if (!data.user) {
-      setError('Errore durante il login. Riprova.')
-      setLoading(false)
-      return
-    }
-
-    // Attendi un momento per la sincronizzazione sessione
-    await new Promise(r => setTimeout(r, 300))
-
-    // Recupera il profilo utente
-    const { data: profile, error: profileError } = await supabase
-      .from('users')
-      .select('role, store_id')
-      .eq('id', data.user.id)
-      .single()
-
-    if (profileError || !profile) {
-      // Nessun profilo o errore → onboarding non completato
-      window.location.href = '/onboarding'
-      return
-    }
-
-    if (!profile.store_id) {
-      // Profilo esiste ma senza store → riprendi onboarding
-      window.location.href = '/onboarding'
-      return
-    }
-
-    // router.refresh() aggiorna la sessione lato server PRIMA di navigare
-    // Questo è NECESSARIO con @supabase/ssr + Next.js App Router
-    router.refresh()
-    await new Promise(r => setTimeout(r, 100))
-
-    // Redirect in base al ruolo
-    const r = profile.role
-    if (r === 'superadmin') router.push('/superadmin/dashboard')
-    else if (r === 'owner') router.push('/owner/dashboard')
-    else router.push('/employee/shift/open')
+    // Se loginAction fa redirect(), il browser naviga automaticamente — nessuna azione client necessaria
   }
+
 
   return (
     <div style={{minHeight:'100vh',background:'#F6F7F8',display:'flex',alignItems:'center',justifyContent:'center',padding:24}}>
