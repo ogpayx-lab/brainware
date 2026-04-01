@@ -15,6 +15,7 @@ export default function EmployeesPage() {
   const [form, setForm] = useState({ full_name:'', email:'', role:'employee' })
   const [totalClients, setTotalClients] = useState(0)
   const [emailStatus, setEmailStatus] = useState<'idle'|'sent'|'error'>('idle')
+  const [apiError, setApiError] = useState('')
 
   useEffect(() => { loadData() }, [])
 
@@ -48,13 +49,16 @@ export default function EmployeesPage() {
       })
       const json = await res.json()
       if (res.status === 409) {
-        setEmailStatus('error') // email già registrata
+        setApiError('Email già registrata: ' + (json.error || ''))
+        setEmailStatus('error')
       } else if (res.ok) {
         setEmailStatus('sent')
       } else {
+        setApiError(json.error || `Errore ${res.status}`)
         setEmailStatus('error')
       }
-    } catch {
+    } catch (e: any) {
+      setApiError(e.message)
       setEmailStatus('error')
     }
     setShowForm(false)
@@ -77,18 +81,24 @@ export default function EmployeesPage() {
   }
 
   async function resendInvite(emp: any) {
-    const res = await fetch('/api/send-employee-credentials', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        employeeName: emp.full_name,
-        employeeEmail: emp.email,
-        role: emp.role,
-        storeId,
-        resend: true,
-      }),
-    })
-    setEmailStatus(res.ok ? 'sent' : 'error')
+      const res = await fetch('/api/send-employee-credentials', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          employeeName: emp.full_name,
+          employeeEmail: emp.email,
+          role: emp.role,
+          storeId,
+          resend: true,
+        }),
+      })
+      const json = await res.json()
+      if (res.ok) {
+        setEmailStatus('sent')
+      } else {
+        setApiError(json.error || `Errore ${res.status}`)
+        setEmailStatus('error')
+      }
   }
 
   if (loading) return <div style={{ display:'flex', alignItems:'center', justifyContent:'center', height:'60vh' }}>Caricamento...</div>
@@ -143,8 +153,8 @@ export default function EmployeesPage() {
       {emailStatus === 'error' && (
         <div style={{ background:'#FEF2F2', border:'1px solid #EF4444', borderRadius:10, padding:'12px 16px', marginBottom:'var(--space-lg)', display:'flex', alignItems:'center', gap:10, fontSize:14, color:'#B91C1C' }}>
           <span style={{ fontSize:20 }}>⚠️</span>
-          <span><strong>Dipendente creato</strong> ma l&apos;email non è stata inviata. Controlla la configurazione RESEND_API_KEY su Vercel.</span>
-          <button onClick={() => setEmailStatus('idle')} style={{ marginLeft:'auto', background:'none', border:'none', cursor:'pointer', fontSize:18, color:'#B91C1C' }}>×</button>
+          <span><strong>Errore:</strong> {apiError || 'Impossibile inviare l&apos;email di invito.'}</span>
+          <button onClick={() => { setEmailStatus('idle'); setApiError('') }} style={{ marginLeft:'auto', background:'none', border:'none', cursor:'pointer', fontSize:18, color:'#B91C1C' }}>×</button>
         </div>
       )}
 
