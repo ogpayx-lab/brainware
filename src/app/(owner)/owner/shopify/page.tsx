@@ -103,7 +103,7 @@ export default function ShopifyOrdersPage() {
         <div>
           <h2>🛍️ Ordini Shopify</h2>
           <p style={{ color:'var(--text-secondary)', fontSize:14, marginTop:4 }}>
-            {shopifyConfig?.shopify_domain || 'Store non configurato'}
+            {shopifyConfig?.shopify_domain || 'mamamarycannabis.myshopify.com'}
           </p>
         </div>
         <div style={{ display:'flex', gap:8 }}>
