@@ -48,8 +48,8 @@ function ResetPasswordForm() {
       // 3. token_hash nel query param (?token_hash=xxx&type=recovery)
       const tokenHash = searchParams.get('token_hash')
       const type = searchParams.get('type')
-      if (tokenHash && type === 'recovery') {
-        const { error: err } = await supabase.auth.verifyOtp({ token_hash: tokenHash, type: 'recovery' })
+      if (tokenHash && (type === 'recovery' || type === 'invite')) {
+        const { error: err } = await supabase.auth.verifyOtp({ token_hash: tokenHash, type: type as 'recovery' | 'invite' })
         if (err) {
           setError('Link non valido o scaduto. Richiedine uno nuovo.')
         } else {
@@ -66,7 +66,7 @@ function ResetPasswordForm() {
         const accessToken = hashParams.get('access_token')
         const refreshToken = hashParams.get('refresh_token')
         const hashType = hashParams.get('type')
-        if (accessToken && refreshToken && hashType === 'recovery') {
+        if (accessToken && refreshToken && (hashType === 'recovery' || hashType === 'invite')) {
           const { error: err } = await supabase.auth.setSession({
             access_token: accessToken,
             refresh_token: refreshToken,
@@ -110,8 +110,8 @@ function ResetPasswordForm() {
       <div style={{width:'100%',maxWidth:420,background:'white',borderRadius:16,padding:'40px 32px 32px',boxShadow:'0 4px 24px rgba(0,0,0,0.08)',border:'1px solid #F3F4F6'}}>
         <div style={{textAlign:'center',marginBottom:28}}>
           <div style={{width:52,height:52,borderRadius:12,background:'#22C55E',display:'flex',alignItems:'center',justifyContent:'center',fontWeight:700,fontSize:26,color:'white',margin:'0 auto 12px'}}>B</div>
-          <h2 style={{fontSize:24,fontWeight:700,margin:0}}>Nuova Password</h2>
-          <p style={{fontSize:13,color:'#6B7280',marginTop:4}}>BrainWare</p>
+          <h2 style={{fontSize:24,fontWeight:700,margin:0}}>Imposta la tua Password</h2>
+          <p style={{fontSize:13,color:'#6B7280',marginTop:4}}>BrainWare — Primo accesso</p>
         </div>
 
         {success ? (

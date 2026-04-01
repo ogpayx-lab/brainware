@@ -32,7 +32,7 @@ export async function POST(req: NextRequest) {
         store_id: storeId,
         role: role || 'employee',
       },
-      redirectTo: `${process.env.NEXT_PUBLIC_SITE_URL || 'https://brainware-vq7o.vercel.app'}/login`,
+      redirectTo: `${process.env.NEXT_PUBLIC_SITE_URL || 'https://brainware-vq7o.vercel.app'}/auth/reset-password`,
     }
   )
 
