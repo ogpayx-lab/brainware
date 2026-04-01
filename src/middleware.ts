@@ -9,9 +9,13 @@ export async function middleware(request: NextRequest) {
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
       cookies: {
-        getAll() { return request.cookies.getAll() },
+        getAll() {
+          return request.cookies.getAll()
+        },
         setAll(cookiesToSet) {
-          cookiesToSet.forEach(({ name, value }) => request.cookies.set(name, value))
+          cookiesToSet.forEach(({ name, value, options }) =>
+            request.cookies.set(name, value)
+          )
           supabaseResponse = NextResponse.next({ request })
           cookiesToSet.forEach(({ name, value, options }) =>
             supabaseResponse.cookies.set(name, value, options)
@@ -21,7 +25,10 @@ export async function middleware(request: NextRequest) {
     }
   )
 
+  // IMPORTANT: do not add logic between createServerClient and getUser()
+  // See: https://supabase.com/docs/guides/auth/server-side/nextjs
   const { data: { user } } = await supabase.auth.getUser()
+
   const path = request.nextUrl.pathname
 
   // Public paths - always allow
@@ -29,14 +36,17 @@ export async function middleware(request: NextRequest) {
     path === '/login' ||
     path === '/signup' ||
     path === '/onboarding' ||
-    path.startsWith('/superadmin/login')
+    path.startsWith('/superadmin/login') ||
+    path.startsWith('/api/')
   ) {
     return supabaseResponse
   }
 
   // Not logged in - redirect to login
   if (!user) {
-    return NextResponse.redirect(new URL('/login', request.url))
+    const url = request.nextUrl.clone()
+    url.pathname = '/login'
+    return NextResponse.redirect(url)
   }
 
   // Logged in - allow through (page handles role check)
@@ -44,5 +54,7 @@ export async function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ['/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp|csv)$).*)'],
+  matcher: [
+    '/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp|csv)$).*)',
+  ],
 }

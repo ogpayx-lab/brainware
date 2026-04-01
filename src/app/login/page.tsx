@@ -1,8 +1,10 @@
 'use client'
-import { useState } from 'react'
+import { useState, FormEvent } from 'react'
+import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 
 export default function LoginPage() {
+  const router = useRouter()
   const supabase = createClient()
   const [role, setRole] = useState('owner')
   const [email, setEmail] = useState('')
@@ -57,11 +59,16 @@ export default function LoginPage() {
       return
     }
 
+    // router.refresh() aggiorna la sessione lato server PRIMA di navigare
+    // Questo è NECESSARIO con @supabase/ssr + Next.js App Router
+    router.refresh()
+    await new Promise(r => setTimeout(r, 100))
+
     // Redirect in base al ruolo
     const r = profile.role
-    if (r === 'superadmin') window.location.href = '/superadmin/dashboard'
-    else if (r === 'owner') window.location.href = '/owner/dashboard'
-    else window.location.href = '/employee/shift/open'
+    if (r === 'superadmin') router.push('/superadmin/dashboard')
+    else if (r === 'owner') router.push('/owner/dashboard')
+    else router.push('/employee/shift/open')
   }
 
   return (
