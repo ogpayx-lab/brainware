@@ -81,7 +81,7 @@ export default function OnboardingPage() {
     }
 
     setSaving(false)
-    router.push('/owner/dashboard')
+    window.location.href = '/owner/dashboard'
 
   }
 

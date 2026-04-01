@@ -18,7 +18,6 @@ export default function LoginPage() {
     const { data, error: err } = await supabase.auth.signInWithPassword({ email, password })
 
     if (err) {
-      // Messaggi di errore in italiano più chiari
       if (err.message.includes('Invalid login credentials') || err.message.includes('invalid_credentials')) {
         setError('Email o password non corretti. Controlla i dati inseriti.')
       } else if (err.message.includes('Email not confirmed')) {
@@ -36,23 +35,33 @@ export default function LoginPage() {
       return
     }
 
-    // Recupera il profilo utente dalla tabella public.users
-    const { data: profile, error: profileErr } = await supabase
+    // Attendi un momento per la sincronizzazione sessione
+    await new Promise(r => setTimeout(r, 300))
+
+    // Recupera il profilo utente
+    const { data: profile } = await supabase
       .from('users')
-      .select('role')
+      .select('role, store_id')
       .eq('id', data.user.id)
       .single()
 
-    if (profileErr || !profile) {
-      // L'utente esiste in auth ma non ha ancora completato l'onboarding
-      window.location.replace('/onboarding')
+    if (!profile) {
+      // Nessun profilo → onboarding non completato
+      window.location.href = '/onboarding'
       return
     }
 
+    if (!profile.store_id) {
+      // Profilo esiste ma senza store → riprendi onboarding
+      window.location.href = '/onboarding'
+      return
+    }
+
+    // Redirect in base al ruolo
     const r = profile.role
-    if (r === 'superadmin') window.location.replace('/superadmin/dashboard')
-    else if (r === 'owner') window.location.replace('/owner/dashboard')
-    else window.location.replace('/employee/shift/open')
+    if (r === 'superadmin') window.location.href = '/superadmin/dashboard'
+    else if (r === 'owner') window.location.href = '/owner/dashboard'
+    else window.location.href = '/employee/shift/open'
   }
 
   return (
