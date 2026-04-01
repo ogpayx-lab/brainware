@@ -18,12 +18,25 @@ export async function POST(req: NextRequest) {
   const { data: profile } = await supabase.from('users').select('role,store_id').eq('id', user.id).single()
   if (profile?.role !== 'owner') return NextResponse.json({ error: 'Non autorizzato' }, { status: 403 })
 
-  const { employeeName, employeeEmail, role, storeId } = await req.json()
+  const { employeeName, employeeEmail, role, storeId, resend } = await req.json()
   if (!employeeName || !employeeEmail || !storeId) {
     return NextResponse.json({ error: 'Dati mancanti' }, { status: 400 })
   }
 
-  // Invita l'utente via Supabase — usa il tuo SMTP/Resend già configurato
+  const redirectTo = `${process.env.NEXT_PUBLIC_SITE_URL || 'https://brainware-vq7o.vercel.app'}/auth/reset-password`
+
+  // RESEND: usa resetPasswordForEmail per utenti già registrati
+  if (resend) {
+    const supabaseClient = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+    )
+    const { error } = await supabaseClient.auth.resetPasswordForEmail(employeeEmail, { redirectTo })
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+    return NextResponse.json({ success: true })
+  }
+
+  // NUOVO INVITO via inviteUserByEmail
   const { data: inviteData, error: inviteError } = await supabaseAdmin.auth.admin.inviteUserByEmail(
     employeeEmail,
     {
@@ -32,7 +45,7 @@ export async function POST(req: NextRequest) {
         store_id: storeId,
         role: role || 'employee',
       },
-      redirectTo: `${process.env.NEXT_PUBLIC_SITE_URL || 'https://brainware-vq7o.vercel.app'}/auth/reset-password`,
+      redirectTo,
     }
   )
 

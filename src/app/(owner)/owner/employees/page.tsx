@@ -64,8 +64,31 @@ export default function EmployeesPage() {
   }
 
   async function toggleActive(emp: any) {
-    await supabase.from('users').update({ is_active: !emp.is_active }).eq('id', emp.id)
+    const newStatus = !emp.is_active
+    // Aggiorna DB
+    await supabase.from('users').update({ is_active: newStatus }).eq('id', emp.id)
+    // Ban/unban reale su Supabase Auth via API admin
+    await fetch('/api/admin-user', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ userId: emp.id, action: newStatus ? 'unban' : 'ban' }),
+    })
     loadData()
+  }
+
+  async function resendInvite(emp: any) {
+    const res = await fetch('/api/send-employee-credentials', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        employeeName: emp.full_name,
+        employeeEmail: emp.email,
+        role: emp.role,
+        storeId,
+        resend: true,
+      }),
+    })
+    setEmailStatus(res.ok ? 'sent' : 'error')
   }
 
   if (loading) return <div style={{ display:'flex', alignItems:'center', justifyContent:'center', height:'60vh' }}>Caricamento...</div>
@@ -171,8 +194,20 @@ export default function EmployeesPage() {
                 <td>
                   {emp.role !== 'owner' && (
                     <div style={{ display:'flex', gap:6 }}>
-                      <button onClick={() => toggleActive(emp)} className={`btn ${emp.is_active?'btn-secondary':'btn-primary'}`} style={{ padding:'4px 10px', fontSize:12 }}>
-                        {emp.is_active?'Disabilita':'Abilita'}
+                      <button
+                        onClick={() => resendInvite(emp)}
+                        className="btn btn-secondary"
+                        style={{ padding:'4px 10px', fontSize:12 }}
+                        title="Reinvia email di invito"
+                      >
+                        🔁 Reinvita
+                      </button>
+                      <button
+                        onClick={() => toggleActive(emp)}
+                        className={`btn ${emp.is_active ? 'btn-secondary' : 'btn-primary'}`}
+                        style={{ padding:'4px 10px', fontSize:12 }}
+                      >
+                        {emp.is_active ? '🚫 Disabilita' : '✅ Abilita'}
                       </button>
                     </div>
                   )}
