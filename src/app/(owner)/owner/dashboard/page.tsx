@@ -26,13 +26,22 @@ export default function OwnerDashboard() {
   async function loadData() {
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) { router.push('/login'); return }
-    const { data: profile } = await supabase
-      .from('users').select('store_id,role,full_name,stores(name,organization_id)').eq('id', user.id).single()
-    if (profile?.role !== 'owner') { router.push('/login'); return }
-    setStoreId(profile.store_id)
-    setStoreName((profile.stores as any)?.name ?? '')
 
-    const oid = (profile.stores as any)?.organization_id
+    // Prima query: solo profilo utente (senza join stores)
+    const { data: profile, error: profileError } = await supabase
+      .from('users').select('store_id, role, full_name').eq('id', user.id).single()
+
+    if (profileError || !profile) { router.push('/login'); return }
+    if (profile.role !== 'owner') { router.push('/login'); return }
+
+    setStoreId(profile.store_id)
+
+    // Seconda query: dati store separati
+    const { data: storeData } = await supabase
+      .from('stores').select('name, organization_id').eq('id', profile.store_id).single()
+    setStoreName(storeData?.name ?? '')
+
+    const oid = storeData?.organization_id
     const { data: storesData } = await supabase.from('stores').select('id,name').eq('organization_id', oid)
     setStores(storesData ?? [])
 
@@ -83,7 +92,7 @@ export default function OwnerDashboard() {
       .sort((a,b) => b.revenue - a.revenue)
       .slice(0, 6)
 
-    setData({ totalRevenue, totalCash, totalPos, totalTxn, avgSale, totalExpenses, openShifts: openShifts ?? [], recentSales: realSales.slice(0,5), lowStock: lowStock ?? [], pendingDiscounts, resi, ecomOrders: ecomOrders ?? [], weekRevenue, storeName: (profile.stores as any)?.name ?? '', topProducts })
+    setData({ totalRevenue, totalCash, totalPos, totalTxn, avgSale, totalExpenses, openShifts: openShifts ?? [], recentSales: realSales.slice(0,5), lowStock: lowStock ?? [], pendingDiscounts, resi, ecomOrders: ecomOrders ?? [], weekRevenue, storeName: storeData?.name ?? '', topProducts })
     setLoading(false)
   }
 

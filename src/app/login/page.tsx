@@ -39,14 +39,14 @@ export default function LoginPage() {
     await new Promise(r => setTimeout(r, 300))
 
     // Recupera il profilo utente
-    const { data: profile } = await supabase
+    const { data: profile, error: profileError } = await supabase
       .from('users')
       .select('role, store_id')
       .eq('id', data.user.id)
       .single()
 
-    if (!profile) {
-      // Nessun profilo → onboarding non completato
+    if (profileError || !profile) {
+      // Nessun profilo o errore → onboarding non completato
       window.location.href = '/onboarding'
       return
     }
