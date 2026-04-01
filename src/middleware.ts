@@ -42,14 +42,19 @@ export async function middleware(request: NextRequest) {
     return supabaseResponse
   }
 
-  // Not logged in - redirect to login
+  // Owner/employee pages: let the page component handle auth
+  // (protects via client-side supabase.auth.getUser() check)
+  if (path.startsWith('/owner/') || path.startsWith('/employee/')) {
+    return supabaseResponse
+  }
+
+  // All other protected routes: require session
   if (!user) {
     const url = request.nextUrl.clone()
     url.pathname = '/login'
     return NextResponse.redirect(url)
   }
 
-  // Logged in - allow through (page handles role check)
   return supabaseResponse
 }
 

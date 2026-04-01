@@ -1,8 +1,9 @@
 'use client'
 import { useState } from 'react'
-import { loginAction } from './actions'
+import { createClient } from '@/lib/supabase/client'
 
 export default function LoginPage() {
+  const supabase = createClient()
   const [role, setRole] = useState('owner')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -14,27 +15,45 @@ export default function LoginPage() {
     setLoading(true)
     setError('')
 
-    const result = await loginAction(email, password)
+    const { data, error: err } = await supabase.auth.signInWithPassword({ email, password })
 
-    if (result?.error) {
-      if (result.error.includes('Invalid login credentials') || result.error.includes('invalid_credentials')) {
+    if (err) {
+      if (err.message.includes('Invalid login credentials') || err.message.includes('invalid_credentials')) {
         setError('Email o password non corretti. Controlla i dati inseriti.')
-      } else if (result.error.includes('Email not confirmed')) {
+      } else if (err.message.includes('Email not confirmed')) {
         setError('Devi confermare la tua email prima di accedere. Controlla la casella di posta (anche Spam).')
       } else {
-        setError('Errore di accesso: ' + result.error)
+        setError('Errore: ' + err.message)
       }
       setLoading(false)
       return
     }
 
-    if (result?.redirectTo) {
-      // Hard redirect: ricarica completa la pagina così il middleware legge la sessione dai cookie
-      window.location.href = result.redirectTo
+    if (!data.user) {
+      setError('Errore durante il login. Riprova.')
+      setLoading(false)
+      return
     }
+
+    // Recupera profilo per redirect basato sul ruolo
+    const { data: profile } = await supabase
+      .from('users')
+      .select('role, store_id')
+      .eq('id', data.user.id)
+      .single()
+
+    const userRole = profile?.role
+    const storeId = profile?.store_id
+
+    if (!storeId) {
+      window.location.href = '/onboarding'
+      return
+    }
+
+    if (userRole === 'superadmin') window.location.href = '/superadmin/dashboard'
+    else if (userRole === 'owner') window.location.href = '/owner/dashboard'
+    else window.location.href = '/employee/shift/open'
   }
-
-
 
   return (
     <div style={{minHeight:'100vh',background:'#F6F7F8',display:'flex',alignItems:'center',justifyContent:'center',padding:24}}>
@@ -59,7 +78,7 @@ export default function LoginPage() {
           </div>
           <div>
             <label style={{display:'block',fontSize:13,fontWeight:600,color:'#374151',marginBottom:6}}>Password</label>
-            <input type="password" value={password} onChange={e=>setPassword(e.target.value)} required placeholder="" style={{width:'100%',padding:'11px 14px',border:'1px solid #E5E7EB',borderRadius:8,fontSize:14,outline:'none',boxSizing:'border-box'}}/>
+            <input type="password" value={password} onChange={e=>setPassword(e.target.value)} required style={{width:'100%',padding:'11px 14px',border:'1px solid #E5E7EB',borderRadius:8,fontSize:14,outline:'none',boxSizing:'border-box'}}/>
           </div>
           <p style={{fontSize:12,color:'#9CA3AF',margin:0}}>I dipendenti devono essere abilitati dal proprietario per poter accedere.</p>
           {error&&<div style={{background:'#FEF2F2',border:'1px solid #EF4444',borderRadius:8,padding:'10px 14px',fontSize:13,color:'#EF4444'}}>{error}</div>}
