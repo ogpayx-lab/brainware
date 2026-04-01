@@ -10,12 +10,17 @@ const supabaseAdmin = createClient(
 )
 
 export async function POST(req: NextRequest) {
-  // Verifica che chi chiama sia un owner autenticato
-  const supabase = await createServerClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return NextResponse.json({ error: 'Non autorizzato' }, { status: 401 })
+  // Verifica via Authorization header (più affidabile dei cookie nelle route handlers)
+  const authHeader = req.headers.get('Authorization')
+  if (!authHeader?.startsWith('Bearer ')) {
+    return NextResponse.json({ error: 'Non autorizzato' }, { status: 401 })
+  }
+  const token = authHeader.replace('Bearer ', '')
+  const { data: { user }, error: authError } = await supabaseAdmin.auth.getUser(token)
+  if (authError || !user) return NextResponse.json({ error: 'Non autorizzato' }, { status: 401 })
 
-  const { data: profile } = await supabase.from('users').select('role,store_id').eq('id', user.id).single()
+  // Verifica che sia owner
+  const { data: profile } = await supabaseAdmin.from('users').select('role,store_id').eq('id', user.id).single()
   if (profile?.role !== 'owner') return NextResponse.json({ error: 'Non autorizzato' }, { status: 403 })
 
   const { employeeName, employeeEmail, role, storeId, resend } = await req.json()

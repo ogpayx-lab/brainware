@@ -32,14 +32,20 @@ export default function EmployeesPage() {
     setLoading(false)
   }
 
+  async function getAuthHeader() {
+    const { data: { session } } = await supabase.auth.getSession()
+    return { 'Authorization': `Bearer ${session?.access_token}`, 'Content-Type': 'application/json' }
+  }
+
   async function createEmployee() {
     if (!storeId || !form.full_name || !form.email) return
     setSaving(true)
     setEmailStatus('idle')
     try {
+      const headers = await getAuthHeader()
       const res = await fetch('/api/send-employee-credentials', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers,
         body: JSON.stringify({
           employeeName: form.full_name,
           employeeEmail: form.email,
@@ -71,19 +77,20 @@ export default function EmployeesPage() {
     const newStatus = !emp.is_active
     // Aggiorna DB
     await supabase.from('users').update({ is_active: newStatus }).eq('id', emp.id)
-    // Ban/unban reale su Supabase Auth via API admin
+    const headers = await getAuthHeader()
     await fetch('/api/admin-user', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers,
       body: JSON.stringify({ userId: emp.id, action: newStatus ? 'unban' : 'ban' }),
     })
     loadData()
   }
 
   async function resendInvite(emp: any) {
+      const headers = await getAuthHeader()
       const res = await fetch('/api/send-employee-credentials', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers,
         body: JSON.stringify({
           employeeName: emp.full_name,
           employeeEmail: emp.email,
