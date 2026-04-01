@@ -14,6 +14,7 @@ export default function EmployeesPage() {
   const [saving, setSaving] = useState(false)
   const [form, setForm] = useState({ full_name:'', email:'', password:'', role:'employee' })
   const [totalClients, setTotalClients] = useState(0)
+  const [emailStatus, setEmailStatus] = useState<'idle'|'sent'|'error'>('idle')
 
   useEffect(() => { loadData() }, [])
 
@@ -33,11 +34,23 @@ export default function EmployeesPage() {
   async function createEmployee() {
     if (!storeId || !form.full_name || !form.email || !form.password) return
     setSaving(true)
-    const { data: authData, error } = await supabase.auth.admin ? 
+    setEmailStatus('idle')
+    const { data: authData, error } = await supabase.auth.admin ?
       { data: null, error: new Error('Use signup') } :
       await supabase.auth.signUp({ email: form.email, password: form.password, options: { data: { full_name: form.full_name } } })
     if (!error && (authData as any)?.user) {
       await supabase.from('users').upsert({ id: (authData as any).user.id, full_name: form.full_name, role: form.role, store_id: storeId, is_active: true })
+      // Invia email con credenziali
+      try {
+        const res = await fetch('/api/send-employee-credentials', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ employeeName: form.full_name, employeeEmail: form.email, password: form.password }),
+        })
+        setEmailStatus(res.ok ? 'sent' : 'error')
+      } catch {
+        setEmailStatus('error')
+      }
     }
     setShowForm(false)
     setForm({ full_name:'', email:'', password:'', role:'employee' })
@@ -88,6 +101,22 @@ export default function EmployeesPage() {
           <button className="btn btn-primary" onClick={() => setShowForm(true)}>+ Nuovo Dipendente</button>
         </div>
       </div>
+
+      {/* Feedback email */}
+      {emailStatus === 'sent' && (
+        <div style={{ background:'#F0FDF4', border:'1px solid #22C55E', borderRadius:10, padding:'12px 16px', marginBottom:'var(--space-lg)', display:'flex', alignItems:'center', gap:10, fontSize:14, color:'#15803D' }}>
+          <span style={{ fontSize:20 }}>✅</span>
+          <span><strong>Dipendente creato!</strong> Email con credenziali inviata con successo.</span>
+          <button onClick={() => setEmailStatus('idle')} style={{ marginLeft:'auto', background:'none', border:'none', cursor:'pointer', fontSize:18, color:'#15803D' }}>×</button>
+        </div>
+      )}
+      {emailStatus === 'error' && (
+        <div style={{ background:'#FEF2F2', border:'1px solid #EF4444', borderRadius:10, padding:'12px 16px', marginBottom:'var(--space-lg)', display:'flex', alignItems:'center', gap:10, fontSize:14, color:'#B91C1C' }}>
+          <span style={{ fontSize:20 }}>⚠️</span>
+          <span><strong>Dipendente creato</strong> ma l&apos;email non è stata inviata. Controlla la configurazione RESEND_API_KEY su Vercel.</span>
+          <button onClick={() => setEmailStatus('idle')} style={{ marginLeft:'auto', background:'none', border:'none', cursor:'pointer', fontSize:18, color:'#B91C1C' }}>×</button>
+        </div>
+      )}
 
       <div style={{ background:'var(--brand-primary-light)', border:'1px solid var(--brand-primary)', borderRadius:'var(--radius-md)', padding:'var(--space-md)', marginBottom:'var(--space-xl)', display:'flex', alignItems:'center', gap:16 }}>
         <div style={{ fontSize:28, fontWeight:700, fontFamily:'var(--font-heading)', color:'var(--brand-primary-dark)' }}>{totalClients.toLocaleString('it-IT')}</div>
