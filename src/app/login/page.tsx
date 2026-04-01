@@ -16,7 +16,6 @@ export default function LoginPage() {
 
     const result = await loginAction(email, password)
 
-    // Se loginAction non fa redirect (cioè c'è un errore), mostra l'errore
     if (result?.error) {
       if (result.error.includes('Invalid login credentials') || result.error.includes('invalid_credentials')) {
         setError('Email o password non corretti. Controlla i dati inseriti.')
@@ -26,9 +25,15 @@ export default function LoginPage() {
         setError('Errore di accesso: ' + result.error)
       }
       setLoading(false)
+      return
     }
-    // Se loginAction fa redirect(), il browser naviga automaticamente — nessuna azione client necessaria
+
+    if (result?.redirectTo) {
+      // Hard redirect: ricarica completa la pagina così il middleware legge la sessione dai cookie
+      window.location.href = result.redirectTo
+    }
   }
+
 
 
   return (
