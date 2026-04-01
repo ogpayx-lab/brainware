@@ -7,21 +7,29 @@ import { fmt, formatTime, periodLabel } from '@/lib/utils'
 import { BottomNav } from '@/components/employee/BottomNav'
 
 const QUICK_ACTIONS = [
-  { href:'/employee/pos',         icon:'', label:'Nuova Vendita' },
-  { href:'/employee/fidelity',    icon:'', label:'Crea Fidelity Card' },
-  { href:'/employee/stock',       icon:'', label:'Ricarica Stock' },
-  { href:'/employee/shift/close', icon:'', label:'Chiudi Turno' },
+  { href:'/employee/pos',         icon:'🛒', label:'Nuova Vendita' },
+  { href:'/employee/fidelity',    icon:'💳', label:'Crea Fidelity Card' },
+  { href:'/employee/stock',       icon:'📦', label:'Ricarica Stock' },
+  { href:'/employee/shift/close', icon:'🔒', label:'Chiudi Turno' },
 ]
 const MORE_ACTIONS = [
-  { href:'/employee/expenses',    icon:'', label:'Aggiungi Spesa' },
-  { href:'/employee/inventory',   icon:'', label:'Conteggio' },
-  { href:'/employee/maintenance', icon:'', label:'Manutenzione' },
-  { href:'/employee/photos',      icon:'', label:'Foto Registro' },
-  { href:'/employee/transfers',   icon:'', label:'Trasferimenti' },
-  { href:'/employee/transfers?mode=ship', icon:'', label:'Spedizione' },
-  { href:'/employee/stock?request=1', icon:'', label:'Richiedi Ricarica' },
-  { href:'/employee/more',        icon:'', label:'Persone' },
+  { href:'/employee/expenses',    icon:'💸', label:'Aggiungi Spesa' },
+  { href:'/employee/inventory',   icon:'📋', label:'Conteggio' },
+  { href:'/employee/maintenance', icon:'🔧', label:'Manutenzione' },
+  { href:'/employee/photos',      icon:'📷', label:'Foto Registro' },
+  { href:'/employee/transfers',   icon:'🔄', label:'Trasferimenti' },
+  { href:'/employee/transfers?mode=ship', icon:'🚚', label:'Spedizione' },
+  { href:'/employee/stock?request=1', icon:'🔔', label:'Richiedi Ricarica' },
+  { href:'/employee/calendar',    icon:'📅', label:'Giorni Liberi' },
+  { href:'/employee/more',        icon:'👥', label:'Persone' },
 ]
+
+const PRIORITY_COLOR: Record<string, string> = {
+  urgent: '#EF4444', high: '#F59E0B', normal: '#22C55E', low: '#9CA3AF'
+}
+const PRIORITY_LABEL: Record<string, string> = {
+  urgent: '🔴 Urgente', high: '🟡 Alta', normal: '🟢 Normale', low: '⚪ Bassa'
+}
 
 export default function EmployeeDashboard() {
   const router = useRouter()
@@ -35,6 +43,8 @@ export default function EmployeeDashboard() {
   const [loading, setLoading] = useState(true)
   const [maintenanceDone, setMaintenanceDone] = useState(0)
   const [maintenanceTotal, setMaintenanceTotal] = useState(0)
+  const [tasks, setTasks] = useState<any[]>([])
+  const [userId, setUserId] = useState<string>('')
 
   useEffect(() => { loadData(); const t = setInterval(loadData, 30000); return () => clearInterval(t) }, [])
 
@@ -45,11 +55,17 @@ export default function EmployeeDashboard() {
     if (!profile) { router.push('/login'); return }
     setName(profile.full_name)
     setStoreName((profile.stores as any)?.name ?? '')
+    setUserId(user.id)
     if (profile.store_id) {
       const { data: cfg } = await supabase.from('store_config').select('fcu_default').eq('store_id', profile.store_id).single()
       if (cfg) setFcuDefault(cfg.fcu_default)
       const { data: mLogs } = await supabase.from('maintenance_logs').select('id,status').eq('shift_user_id', user.id).gte('created_at', new Date().toISOString().split('T')[0])
       if (mLogs) { setMaintenanceDone(mLogs.filter((m:any) => m.status==='done').length); setMaintenanceTotal(mLogs.length) }
+      // Carica task assegnati al dipendente
+      try {
+        const { data: tasksData } = await supabase.from('tasks').select('*').eq('store_id', profile.store_id).eq('assigned_to', user.id).neq('status','done').order('created_at',{ascending:false}).limit(5)
+        setTasks(tasksData ?? [])
+      } catch {}
     }
     const { data: sum } = await supabase.from('shift_cash_summary').select('*').eq('user_id', user.id).eq('status','open').single()
     if (!sum) { router.push('/employee/shift/open'); return }
@@ -225,6 +241,31 @@ export default function EmployeeDashboard() {
             ))}
           </div>
         </div>
+
+        {/* Tasks */}
+        {tasks.length > 0 && (
+          <div>
+            <h4 style={{ marginBottom:'var(--space-md)' }}>📋 I Tuoi Task ({tasks.length})</h4>
+            <div style={{ display:'flex', flexDirection:'column', gap:'var(--space-sm)' }}>
+              {tasks.map(task => (
+                <div key={task.id} className="card" style={{ padding:'var(--space-md)', display:'flex', justifyContent:'space-between', alignItems:'flex-start' }}>
+                  <div style={{ flex:1 }}>
+                    <div style={{ fontWeight:600, fontSize:14, marginBottom:4 }}>{task.title}</div>
+                    {task.description && <div style={{ fontSize:12, color:'var(--text-secondary)', marginBottom:4 }}>{task.description}</div>}
+                    {task.due_date && <div style={{ fontSize:11, color:'var(--text-tertiary)' }}>📅 Scadenza: {new Date(task.due_date).toLocaleDateString('it-IT')}</div>}
+                  </div>
+                  <div style={{ display:'flex', flexDirection:'column', alignItems:'flex-end', gap:6, marginLeft:12 }}>
+                    <span style={{ fontSize:10, fontWeight:700, color: PRIORITY_COLOR[task.priority] }}>{PRIORITY_LABEL[task.priority]}</span>
+                    <button onClick={async () => {
+                      await supabase.from('tasks').update({ status:'done', completed_at: new Date().toISOString() }).eq('id', task.id)
+                      setTasks(prev => prev.filter(t => t.id !== task.id))
+                    }} style={{ fontSize:11, padding:'4px 10px', background:'var(--success)', color:'white', border:'none', borderRadius:6, cursor:'pointer', fontWeight:600 }}>✓ Fatto</button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* Ultime Vendite */}
         <div>

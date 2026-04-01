@@ -46,7 +46,9 @@ export default function CalendarioTurni() {
 
     const [{ data: shiftsData }, { data: reqData }] = await Promise.all([
       supabase.from('shifts').select('*').eq('user_id', user.id).gte('opened_at', from).lte('opened_at', to),
-      supabase.from('shift_day_requests').select('*').eq('user_id', user.id).gte('request_date', `${year}-${String(month+1).padStart(2,'0')}-01`).lte('request_date', `${year}-${String(month+1).padStart(2,'0')}-${getDaysInMonth(year,month)}`),
+      supabase.from('day_off_requests').select('*').eq('user_id', user.id)
+        .gte('date', `${year}-${String(month+1).padStart(2,'0')}-01`)
+        .lte('date', `${year}-${String(month+1).padStart(2,'0')}-${getDaysInMonth(year,month)}`),
     ])
     setShifts(shiftsData ?? [])
     setRequests(reqData ?? [])
@@ -56,7 +58,23 @@ export default function CalendarioTurni() {
   async function submitRequest() {
     if (!requestDate || !userId || !storeId) return
     setSaving(true)
-    await supabase.from('shift_day_requests').insert({ user_id: userId, store_id: storeId, request_date: requestDate, reason: requestReason })
+    // Inserisci richiesta
+    await supabase.from('day_off_requests').insert({
+      user_id: userId,
+      store_id: storeId,
+      date: requestDate,
+      notes: requestReason,
+    })
+    // Inserisci notifica per l'owner
+    const { data: profile } = await supabase.from('users').select('full_name').eq('id', userId).single()
+    await supabase.from('notifications').insert({
+      store_id: storeId,
+      type: 'day_off_request',
+      title: `📅 Richiesta giorno libero`,
+      message: `${profile?.full_name} ha richiesto il giorno libero del ${new Date(requestDate + 'T12:00:00').toLocaleDateString('it-IT', { weekday:'long', day:'numeric', month:'long' })}${requestReason ? ` — ${requestReason}` : ''}`,
+      user_id: userId,
+      metadata: { date: requestDate, notes: requestReason },
+    })
     setSaving(false)
     setShowRequestModal(false)
     setRequestDate(''); setRequestReason('')
@@ -69,7 +87,7 @@ export default function CalendarioTurni() {
   function getDayInfo(day: number) {
     const dateStr = `${year}-${String(month+1).padStart(2,'0')}-${String(day).padStart(2,'0')}`
     const shift = shifts.find(s => s.opened_at.startsWith(dateStr))
-    const req = requests.find(r => r.request_date === dateStr)
+    const req = requests.find(r => r.date === dateStr)
     return { dateStr, shift, req }
   }
 
@@ -227,8 +245,8 @@ export default function CalendarioTurni() {
             {requests.map(r => (
               <div key={r.id} style={{ display:'flex', justifyContent:'space-between', alignItems:'center', padding:'8px 0', borderBottom:'1px solid var(--border-subtle)' }}>
                 <div>
-                  <div style={{ fontSize:13, fontWeight:600 }}>{new Date(r.request_date + 'T12:00:00').toLocaleDateString('it-IT', { weekday:'short', day:'numeric', month:'short' })}</div>
-                  <div style={{ fontSize:12, color:'var(--text-tertiary)' }}>{r.reason || 'Nessun motivo'}</div>
+                  <div style={{ fontSize:13, fontWeight:600 }}>{new Date((r.date || r.request_date) + 'T12:00:00').toLocaleDateString('it-IT', { weekday:'short', day:'numeric', month:'short' })}</div>
+                  <div style={{ fontSize:12, color:'var(--text-tertiary)' }}>{r.notes || r.reason || 'Nessun motivo'}</div>
                 </div>
                 <span className={`badge ${r.status === 'approved' ? 'badge-success' : r.status === 'rejected' ? 'badge-danger' : 'badge-warning'}`} style={{ fontSize:11 }}>
                   {r.status === 'approved' ? '✅ Approvata' : r.status === 'rejected' ? '❌ Rifiutata' : '⏳ In attesa'}
