@@ -141,7 +141,7 @@ function ResetPasswordForm() {
           </div>
         )}
 
-        {!success && !verifying && (
+        {!success && !verifying && ready && (
           <div style={{textAlign:'center',marginTop:16,fontSize:14}}>
             <a href="/login" style={{color:'#22C55E',fontWeight:600,textDecoration:'none'}}>← Torna al login</a>
           </div>
