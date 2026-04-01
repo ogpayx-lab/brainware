@@ -13,6 +13,7 @@ const NAV_MAIN = [
 ]
 const NAV_GESTIONE = [
   { href: '/owner/notifications',      icon: '🔔', label: 'Notifiche' },
+  { href: '/owner/tasks',              icon: '📋', label: 'Task' },
   { href: '/owner/employees',         icon: '👥', label: 'Dipendenti' },
   { href: '/owner/shopify',           icon: '🛍️', label: 'Shopify' },
   { href: '/owner/ecommerce',         icon: '🌐', label: 'E-commerce' },
