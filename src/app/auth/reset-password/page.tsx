@@ -18,7 +18,7 @@ function ResetPasswordForm() {
 
   useEffect(() => {
     async function init() {
-      // Rileva errori Supabase nell'URL (es. link scaduto)
+      // 1. Errori espliciti da Supabase nella URL
       const errorCode = searchParams.get('error_code')
       const errorParam = searchParams.get('error')
       if (errorParam || errorCode) {
@@ -26,58 +26,72 @@ function ResetPasswordForm() {
         if (errorCode === 'otp_expired' || desc.includes('expired') || desc.includes('invalid')) {
           setError('Il link è scaduto o già utilizzato. Richiedine uno nuovo dalla pagina di login.')
         } else {
-          setError('Errore: ' + (desc || errorParam || 'link non valido'))
+          setError('Errore: ' + (desc.replace(/\+/g, ' ') || errorParam || 'link non valido'))
         }
         setVerifying(false)
         return
       }
 
+      // 2. PKCE flow con code param (?code=xxx)
+      const code = searchParams.get('code')
+      if (code) {
+        const { error: err } = await supabase.auth.exchangeCodeForSession(code)
+        if (err) {
+          setError('Link non valido o scaduto. Richiedine uno nuovo.')
+        } else {
+          setReady(true)
+        }
+        setVerifying(false)
+        return
+      }
+
+      // 3. token_hash nel query param (?token_hash=xxx&type=recovery)
       const tokenHash = searchParams.get('token_hash')
       const type = searchParams.get('type')
-
       if (tokenHash && type === 'recovery') {
-        // Scambia il token per una sessione recovery
-        const { error } = await supabase.auth.verifyOtp({
-          token_hash: tokenHash,
-          type: 'recovery',
-        })
-        if (error) {
+        const { error: err } = await supabase.auth.verifyOtp({ token_hash: tokenHash, type: 'recovery' })
+        if (err) {
           setError('Link non valido o scaduto. Richiedine uno nuovo.')
+        } else {
+          setReady(true)
+        }
+        setVerifying(false)
+        return
+      }
+
+      // 4. Implicit flow: access_token nel hash URL (#access_token=xxx&type=recovery)
+      const hash = typeof window !== 'undefined' ? window.location.hash : ''
+      if (hash && hash.includes('access_token')) {
+        const hashParams = new URLSearchParams(hash.slice(1))
+        const accessToken = hashParams.get('access_token')
+        const refreshToken = hashParams.get('refresh_token')
+        const hashType = hashParams.get('type')
+        if (accessToken && refreshToken && hashType === 'recovery') {
+          const { error: err } = await supabase.auth.setSession({
+            access_token: accessToken,
+            refresh_token: refreshToken,
+          })
+          if (err) {
+            setError('Sessione non valida. Richiedine una nuova.')
+          } else {
+            setReady(true)
+          }
           setVerifying(false)
           return
         }
-        setReady(true)
-        setVerifying(false)
-        return
       }
 
-      // Fallback: ascolta l'evento PASSWORD_RECOVERY (vecchi link)
-      const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
-        if (event === 'PASSWORD_RECOVERY') {
-          setReady(true)
-          setVerifying(false)
-        }
-      })
-
-      // Check se c'è già una sessione recovery attiva
-      await supabase.auth.getSession()
+      // 5. Nessun parametro riconosciuto
       setVerifying(false)
-
-      return () => subscription.unsubscribe()
     }
+
     init()
   }, [searchParams])
 
   async function handleReset(e: React.FormEvent) {
     e.preventDefault()
-    if (password !== confirm) {
-      setError('Le password non coincidono.')
-      return
-    }
-    if (password.length < 8) {
-      setError('La password deve essere di almeno 8 caratteri.')
-      return
-    }
+    if (password !== confirm) { setError('Le password non coincidono.'); return }
+    if (password.length < 8) { setError('La password deve essere di almeno 8 caratteri.'); return }
     setLoading(true)
     setError('')
     const { error: err } = await supabase.auth.updateUser({ password })
@@ -136,14 +150,8 @@ function ResetPasswordForm() {
         ) : (
           <div style={{textAlign:'center',padding:'20px 0'}}>
             <div style={{fontSize:40,marginBottom:12}}>🔗</div>
-            <p style={{fontSize:14,color:'#6B7280',marginBottom:16}}>Link non riconosciuto. Assicurati di aver cliccato il link direttamente dall&apos;email.</p>
-            <a href="/login" style={{color:'#22C55E',fontWeight:600,textDecoration:'none',fontSize:14}}>← Torna al login</a>
-          </div>
-        )}
-
-        {!success && !verifying && ready && (
-          <div style={{textAlign:'center',marginTop:16,fontSize:14}}>
-            <a href="/login" style={{color:'#22C55E',fontWeight:600,textDecoration:'none'}}>← Torna al login</a>
+            <p style={{fontSize:14,color:'#6B7280',marginBottom:16}}>Nessun link di reset rilevato.<br/>Assicurati di aver cliccato il link direttamente dall&apos;email.</p>
+            <a href="/login" style={{color:'#22C55E',fontWeight:600,textDecoration:'none',fontSize:14}}>← Torna al login e richiedi un nuovo link</a>
           </div>
         )}
       </div>
