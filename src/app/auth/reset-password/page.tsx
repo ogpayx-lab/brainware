@@ -18,6 +18,20 @@ function ResetPasswordForm() {
 
   useEffect(() => {
     async function init() {
+      // Rileva errori Supabase nell'URL (es. link scaduto)
+      const errorCode = searchParams.get('error_code')
+      const errorParam = searchParams.get('error')
+      if (errorParam || errorCode) {
+        const desc = searchParams.get('error_description') ?? ''
+        if (errorCode === 'otp_expired' || desc.includes('expired') || desc.includes('invalid')) {
+          setError('Il link è scaduto o già utilizzato. Richiedine uno nuovo dalla pagina di login.')
+        } else {
+          setError('Errore: ' + (desc || errorParam || 'link non valido'))
+        }
+        setVerifying(false)
+        return
+      }
+
       const tokenHash = searchParams.get('token_hash')
       const type = searchParams.get('type')
 
