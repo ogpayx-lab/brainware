@@ -37,6 +37,11 @@ export default function ShopifyOrdersPage() {
   const [shopifyConfig, setShopifyConfig] = useState<any>(null)
   const [stores, setStores] = useState<any[]>([])
   const [accessToken, setAccessToken] = useState<string|null>(null)
+  const [fulfillModal, setFulfillModal] = useState<ShopifyOrder|null>(null)
+  const [fulfilling, setFulfilling] = useState(false)
+  const [fulfillForm, setFulfillForm] = useState({ trackingCompany:'', trackingNumber:'', notifyCustomer:true })
+  const [fulfillError, setFulfillError] = useState('')
+  const [fulfillSuccess, setFulfillSuccess] = useState('')
 
   useEffect(() => { checkAuthAndLoad() }, [])
 
@@ -97,6 +102,37 @@ export default function ShopifyOrdersPage() {
       setError(e.message)
     }
     setLoading(false)
+  }
+
+  async function fulfillOrder() {
+    if (!fulfillModal) return
+    setFulfilling(true); setFulfillError('')
+    const token = accessToken ?? (await supabase.auth.getSession()).data.session?.access_token ?? ''
+    try {
+      const res = await fetch('/api/shopify', {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          orderId: fulfillModal.id,
+          trackingCompany: fulfillForm.trackingCompany || null,
+          trackingNumber: fulfillForm.trackingNumber || null,
+          notifyCustomer: fulfillForm.notifyCustomer,
+        }),
+      })
+      const json = await res.json()
+      if (!res.ok || json.error) {
+        setFulfillError(json.error || `Errore ${res.status}`)
+        setFulfilling(false)
+        return
+      }
+      // Aggiorna l'ordine nella lista
+      setOrders(prev => prev.map(o => o.id === fulfillModal.id ? { ...o, fulfillment_status: 'fulfilled' } : o))
+      setFulfillSuccess(`✅ Ordine ${fulfillModal.name} evaso con successo!`)
+      setTimeout(() => { setFulfillModal(null); setFulfillSuccess('') }, 2000)
+    } catch (e: any) {
+      setFulfillError(e.message)
+    }
+    setFulfilling(false)
   }
 
   const filtered = orders.filter(o => {
@@ -211,14 +247,94 @@ export default function ShopifyOrdersPage() {
                     {new Date(order.created_at).toLocaleDateString('it-IT', { day:'numeric', month:'short', hour:'2-digit', minute:'2-digit' })}
                   </div>
                   {!order.fulfillment_status && (
-                    <button className="btn btn-primary" style={{ marginTop:8, fontSize:11, padding:'4px 12px' }}>
-                      Evadi ordine →
+                    <button
+                      className="btn btn-primary"
+                      style={{ marginTop:8, fontSize:11, padding:'4px 12px', background:'var(--brand-primary)' }}
+                      onClick={() => { setFulfillModal(order); setFulfillForm({ trackingCompany:'', trackingNumber:'', notifyCustomer:true }); setFulfillError('') }}
+                    >
+                      📦 Evadi ordine →
                     </button>
                   )}
                 </div>
               </div>
             </div>
           ))}
+        </div>
+      )}
+      {/* Modal Evasione Ordine */}
+      {fulfillModal && (
+        <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.5)', display:'flex', alignItems:'center', justifyContent:'center', zIndex:1000, padding:20 }}>
+          <div style={{ background:'var(--bg-primary)', borderRadius:16, padding:32, width:'100%', maxWidth:480, boxShadow:'0 20px 60px rgba(0,0,0,0.3)' }}>
+
+            {fulfillSuccess ? (
+              <div style={{ textAlign:'center', padding:'20px 0' }}>
+                <div style={{ fontSize:48, marginBottom:12 }}>✅</div>
+                <h3 style={{ color:'var(--success)' }}>{fulfillSuccess}</h3>
+              </div>
+            ) : (
+              <>
+                <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', marginBottom:20 }}>
+                  <div>
+                    <h3 style={{ margin:0 }}>📦 Evadi Ordine</h3>
+                    <div style={{ fontSize:14, color:'var(--text-secondary)', marginTop:4 }}>{fulfillModal.name} · €{parseFloat(fulfillModal.total_price).toFixed(2)}</div>
+                  </div>
+                  <button onClick={() => setFulfillModal(null)} style={{ background:'none', border:'none', fontSize:22, cursor:'pointer', color:'var(--text-tertiary)' }}>×</button>
+                </div>
+
+                {/* Prodotti */}
+                <div style={{ background:'var(--bg-surface)', borderRadius:10, padding:12, marginBottom:16 }}>
+                  <div style={{ fontSize:12, fontWeight:700, color:'var(--text-secondary)', marginBottom:8 }}>ARTICOLI</div>
+                  {fulfillModal.line_items.map((li, i) => (
+                    <div key={i} style={{ display:'flex', justifyContent:'space-between', fontSize:13, padding:'4px 0', borderBottom: i < fulfillModal.line_items.length-1 ? '1px solid var(--border-subtle)' : 'none' }}>
+                      <span>{li.title}</span>
+                      <span style={{ fontWeight:600 }}>×{li.quantity}</span>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Destinatario */}
+                {fulfillModal.shipping_address && (
+                  <div style={{ background:'var(--bg-surface)', borderRadius:10, padding:12, marginBottom:16 }}>
+                    <div style={{ fontSize:12, fontWeight:700, color:'var(--text-secondary)', marginBottom:6 }}>DESTINATARIO</div>
+                    <div style={{ fontSize:13 }}>📍 {fulfillModal.shipping_address.name}</div>
+                    <div style={{ fontSize:12, color:'var(--text-secondary)' }}>{fulfillModal.shipping_address.address1}, {fulfillModal.shipping_address.city}, {fulfillModal.shipping_address.country}</div>
+                  </div>
+                )}
+
+                {/* Tracking */}
+                <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:10, marginBottom:12 }}>
+                  <div>
+                    <label style={{ fontSize:12, fontWeight:600, color:'var(--text-secondary)', display:'block', marginBottom:4 }}>Corriere (opzionale)</label>
+                    <input className="input" placeholder="Es: GLS, DHL..." value={fulfillForm.trackingCompany} onChange={e => setFulfillForm(f => ({...f, trackingCompany:e.target.value}))} style={{ height:36, fontSize:13 }} />
+                  </div>
+                  <div>
+                    <label style={{ fontSize:12, fontWeight:600, color:'var(--text-secondary)', display:'block', marginBottom:4 }}>N° Tracking (opzionale)</label>
+                    <input className="input" placeholder="Es: 1Z999AA1..." value={fulfillForm.trackingNumber} onChange={e => setFulfillForm(f => ({...f, trackingNumber:e.target.value}))} style={{ height:36, fontSize:13 }} />
+                  </div>
+                </div>
+
+                {/* Notifica cliente */}
+                <div style={{ display:'flex', alignItems:'center', gap:10, marginBottom:20, padding:12, background:'var(--bg-surface)', borderRadius:10, cursor:'pointer' }} onClick={() => setFulfillForm(f => ({...f, notifyCustomer:!f.notifyCustomer}))}>
+                  <div style={{ width:20, height:20, borderRadius:5, border:`2px solid ${fulfillForm.notifyCustomer ? 'var(--brand-primary)' : 'var(--border-default)'}`, background:fulfillForm.notifyCustomer ? 'var(--brand-primary)' : 'transparent', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
+                    {fulfillForm.notifyCustomer && <span style={{ color:'white', fontSize:12, fontWeight:700 }}>✓</span>}
+                  </div>
+                  <div>
+                    <div style={{ fontSize:13, fontWeight:600 }}>📧 Notifica il cliente</div>
+                    <div style={{ fontSize:11, color:'var(--text-secondary)' }}>Shopify invierà un&apos;email di conferma spedizione</div>
+                  </div>
+                </div>
+
+                {fulfillError && <div style={{ background:'#FEF2F2', border:'1px solid var(--danger)', borderRadius:8, padding:10, marginBottom:12, fontSize:13, color:'var(--danger)' }}>⚠️ {fulfillError}</div>}
+
+                <div style={{ display:'flex', gap:10 }}>
+                  <button className="btn btn-secondary" style={{ flex:1 }} onClick={() => setFulfillModal(null)}>Annulla</button>
+                  <button className="btn btn-primary" style={{ flex:2, background:'var(--brand-primary)' }} onClick={fulfillOrder} disabled={fulfilling}>
+                    {fulfilling ? '⏳ Evasione in corso...' : '✅ Conferma Evasione'}
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
         </div>
       )}
     </div>
