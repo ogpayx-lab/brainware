@@ -1,19 +1,27 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
+import { createClient } from '@supabase/supabase-js'
+
+const supabaseAdmin = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY!,
+  { auth: { autoRefreshToken: false, persistSession: false } }
+)
 
 // Proxy sicuro per Shopify Admin API
-// Il token non viene mai esposto al browser
 export async function GET(req: NextRequest) {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return NextResponse.json({ error: 'Non autorizzato' }, { status: 401 })
+  const authHeader = req.headers.get('Authorization')
+  if (!authHeader?.startsWith('Bearer ')) {
+    return NextResponse.json({ error: 'Non autorizzato' }, { status: 401 })
+  }
+  const token = authHeader.replace('Bearer ', '')
+  const { data: { user }, error: authError } = await supabaseAdmin.auth.getUser(token)
+  if (authError || !user) return NextResponse.json({ error: 'Non autorizzato' }, { status: 401 })
 
-  // Recupera la configurazione Shopify per lo store dell'utente
-  const { data: profile } = await supabase.from('users').select('store_id').eq('id', user.id).single()
+  const { data: profile } = await supabaseAdmin.from('users').select('store_id').eq('id', user.id).single()
   if (!profile?.store_id) return NextResponse.json({ error: 'Store non trovato' }, { status: 404 })
 
   // Prima prova la tabella DB, poi fallback alle env vars
-  const { data: dbConfig } = await supabase
+  const { data: dbConfig } = await supabaseAdmin
     .from('shopify_config')
     .select('*')
     .eq('store_id', profile.store_id)

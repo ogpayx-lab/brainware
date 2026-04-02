@@ -39,6 +39,11 @@ export default function ShopifyOrdersPage() {
 
   useEffect(() => { checkAuthAndLoad() }, [])
 
+  async function getAuthHeader() {
+    const { data: { session } } = await supabase.auth.getSession()
+    return { 'Authorization': `Bearer ${session?.access_token}`, 'Content-Type': 'application/json' }
+  }
+
   async function checkAuthAndLoad() {
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) { router.push('/login'); return }
@@ -63,7 +68,8 @@ export default function ShopifyOrdersPage() {
   async function fetchOrders() {
     setLoading(true); setError('')
     try {
-      const res = await fetch('/api/shopify?endpoint=orders.json?status=any&limit=100')
+      const headers = await getAuthHeader()
+      const res = await fetch('/api/shopify?endpoint=orders.json?status=any&limit=100', { headers })
       const json = await res.json()
       if (json.not_configured) { setNotConfigured(true); setLoading(false); return }
       if (json.error) { setError(json.error); setLoading(false); return }
