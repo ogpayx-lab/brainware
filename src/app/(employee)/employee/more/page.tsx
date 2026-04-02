@@ -5,14 +5,15 @@ import { createClient } from '@/lib/supabase/client'
 import { BottomNav } from '@/components/employee/BottomNav'
 
 const MORE_ACTIONS = [
-  { href: '/employee/stock',        icon: '', label: 'Ricarica Stock', desc: 'Aggiungi quantita ai prodotti' },
-  { href: '/employee/reorder',      icon: '', label: 'Richiedi Ricarica', desc: 'Invia richiesta al magazzino' },
-  { href: '/employee/transfers',    icon: '', label: 'Trasferimenti', desc: 'Sposta prodotti tra store' },
-  { href: '/employee/photos',       icon: '', label: 'Foto Registro', desc: 'Carica foto del registro' },
-  { href: '/employee/maintenance',  icon: '', label: 'Manutenzione', desc: 'Checklist giornaliera' },
-  { href: '/employee/inventory',    icon: '', label: 'Conteggio', desc: 'Inventario prodotti' },
-  { href: '/employee/vending',      icon: '', label: 'Vending Machine', desc: 'Ricarica macchine H24' },
-  { href: '/employee/ai',           icon: '', label: 'Assistente AI', desc: 'Aiuto e procedure' },
+  { href: '/employee/orders',       icon: '🛍️', label: 'Ordini Shopify', desc: 'Evadi ordini con tracking obbligatorio' },
+  { href: '/employee/stock',        icon: '📦', label: 'Ricarica Stock', desc: 'Aggiungi quantita ai prodotti' },
+  { href: '/employee/reorder',      icon: '🔄', label: 'Richiedi Ricarica', desc: 'Invia richiesta al magazzino' },
+  { href: '/employee/transfers',    icon: '↔️', label: 'Trasferimenti', desc: 'Sposta prodotti tra store' },
+  { href: '/employee/photos',       icon: '📷', label: 'Foto Registro', desc: 'Carica foto del registro' },
+  { href: '/employee/maintenance',  icon: '🔧', label: 'Manutenzione', desc: 'Checklist giornaliera' },
+  { href: '/employee/inventory',    icon: '📊', label: 'Conteggio', desc: 'Inventario prodotti' },
+  { href: '/employee/vending',      icon: '🏧', label: 'Vending Machine', desc: 'Ricarica macchine H24' },
+  { href: '/employee/ai',           icon: '🤖', label: 'Assistente AI', desc: 'Aiuto e procedure' },
 ]
 
 export default function MorePage() {
