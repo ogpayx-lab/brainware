@@ -65,7 +65,7 @@ export default function LoginPage() {
       ? window.location.origin
       : 'https://brainware-vq7o.vercel.app'
     const { error: err } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: `${origin}/auth/callback?next=/auth/reset-password&type=recovery`,
+      redirectTo: `${origin}/auth/reset-password`,
     })
     if (err) {
       setError('Errore: ' + err.message)

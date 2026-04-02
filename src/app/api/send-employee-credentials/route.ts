@@ -29,7 +29,7 @@ export async function POST(req: NextRequest) {
   }
 
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://brainware-vq7o.vercel.app'
-  const redirectTo = `${siteUrl}/auth/callback?next=/auth/reset-password&type=recovery`
+  const redirectTo = `${siteUrl}/auth/reset-password`
 
   // RESEND: usa resetPasswordForEmail per utenti già registrati
   if (resend) {
