@@ -36,20 +36,34 @@ export default function ShopifyOrdersPage() {
   const [storeId, setStoreId] = useState<string|null>(null)
   const [shopifyConfig, setShopifyConfig] = useState<any>(null)
   const [stores, setStores] = useState<any[]>([])
+  const [accessToken, setAccessToken] = useState<string|null>(null)
 
   useEffect(() => { checkAuthAndLoad() }, [])
 
   async function getAuthHeader() {
-    const { data: { session } } = await supabase.auth.getSession()
-    return { 'Authorization': `Bearer ${session?.access_token}`, 'Content-Type': 'application/json' }
+    // Use saved token, or get fresh session as fallback
+    let token = accessToken
+    if (!token) {
+      const { data: { session } } = await supabase.auth.getSession()
+      token = session?.access_token ?? null
+    }
+    return {
+      'Authorization': `Bearer ${token ?? ''}`,
+      'Content-Type': 'application/json',
+    }
   }
 
   async function checkAuthAndLoad() {
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) { router.push('/login'); return }
+    const { data: { user }, error } = await supabase.auth.getUser()
+    if (!user || error) { router.push('/login'); return }
     const { data: profile } = await supabase.from('users').select('store_id,role,stores(organization_id,name)').eq('id', user.id).single()
     if (profile?.role !== 'owner') { router.push('/login'); return }
     setStoreId(profile.store_id)
+
+    // Salva il token e passa direttamente a fetchOrders (evita race condition React state)
+    const { data: { session } } = await supabase.auth.getSession()
+    const token = session?.access_token ?? ''
+    if (token) setAccessToken(token)
 
     // Recupera tutti gli store dell'org
     const oid = (profile.stores as any)?.organization_id
@@ -62,14 +76,19 @@ export default function ShopifyOrdersPage() {
     const { data: cfg } = await supabase.from('shopify_config').select('*').eq('store_id', profile.store_id).single()
     setShopifyConfig(cfg)
 
-    await fetchOrders()
+    await fetchOrders(token)
   }
 
-  async function fetchOrders() {
+  async function fetchOrders(token?: string) {
     setLoading(true); setError('')
+    const authToken = token ?? accessToken ?? ''
     try {
-      const headers = await getAuthHeader()
-      const res = await fetch('/api/shopify?endpoint=orders.json?status=any&limit=100', { headers })
+      const res = await fetch('/api/shopify?endpoint=orders.json%3Fstatus%3Dany%26limit%3D100', {
+        headers: {
+          'Authorization': `Bearer ${authToken}`,
+          'Content-Type': 'application/json',
+        },
+      })
       const json = await res.json()
       if (json.not_configured) { setNotConfigured(true); setLoading(false); return }
       if (json.error) { setError(json.error); setLoading(false); return }
@@ -113,7 +132,7 @@ export default function ShopifyOrdersPage() {
           </p>
         </div>
         <div style={{ display:'flex', gap:8 }}>
-          <button className="btn btn-secondary" onClick={fetchOrders} style={{ fontSize:12 }}>🔄 Aggiorna</button>
+          <button className="btn btn-secondary" onClick={() => fetchOrders()} style={{ fontSize:12 }}>🔄 Aggiorna</button>
           <button className="btn btn-secondary" onClick={() => router.push('/owner/settings?tab=shopify')} style={{ fontSize:12 }}>⚙️ Impostazioni</button>
         </div>
       </div>
