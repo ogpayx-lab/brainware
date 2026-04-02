@@ -28,7 +28,8 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Dati mancanti' }, { status: 400 })
   }
 
-  const redirectTo = `${process.env.NEXT_PUBLIC_SITE_URL || 'https://brainware-vq7o.vercel.app'}/auth/reset-password`
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://brainware-vq7o.vercel.app'
+  const redirectTo = `${siteUrl}/auth/callback?next=/auth/reset-password&type=recovery`
 
   // RESEND: usa resetPasswordForEmail per utenti già registrati
   if (resend) {

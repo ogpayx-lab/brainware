@@ -18,6 +18,25 @@ function ResetPasswordForm() {
 
   useEffect(() => {
     async function init() {
+      // 0. Sessione già stabilita lato server dal callback route (PKCE cross-device)
+      const sessionReady = searchParams.get('session_ready')
+      if (sessionReady === '1') {
+        // La sessione è già nei cookie — verifica che sia attiva
+        const { data: { session } } = await supabase.auth.getSession()
+        if (session) {
+          setReady(true)
+          setVerifying(false)
+          return
+        }
+        // Se la sessione non è nei cookie client (edge case), prova con getUser
+        const { data: { user } } = await supabase.auth.getUser()
+        if (user) {
+          setReady(true)
+          setVerifying(false)
+          return
+        }
+      }
+
       // 1. Errori espliciti da Supabase nella URL
       const errorCode = searchParams.get('error_code')
       const errorParam = searchParams.get('error')
