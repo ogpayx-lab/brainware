@@ -35,7 +35,7 @@ export default function MaintenancePage() {
     if (!profile?.store_id) return
     setStoreId(profile.store_id)
 
-    const { data: shift } = await supabase.from('shifts').select('id').eq('user_id', user.id).eq('status', 'open').single()
+    const { data: shift } = await supabase.from('shifts').select('id').eq('user_id', user.id).eq('status', 'open').order('created_at',{ascending:false}).limit(1).single()
     if (!shift) { router.push('/employee/shift/open'); return }
     setShiftId(shift.id)
 

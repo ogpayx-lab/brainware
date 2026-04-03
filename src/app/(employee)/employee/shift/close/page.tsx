@@ -43,19 +43,51 @@ export default function ShiftClosePage() {
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) { router.push('/login'); return }
 
-    const { data: sum } = await supabase.from('shift_cash_summary').select('*').eq('user_id', user.id).eq('status', 'open').single()
-    if (!sum) { router.push('/employee/dashboard'); return }
-    setSummary(sum)
+    // Query direttamente dalla tabella shifts
+    const { data: openShift } = await supabase.from('shifts').select('*').eq('user_id', user.id).eq('status', 'open').order('created_at',{ascending:false}).limit(1).single()
+    if (!openShift) { router.push('/employee/dashboard'); return }
 
-    const { data: salesData } = await supabase.from('shift_report_detail').select('*').eq('shift_id', sum.shift_id).order('sale_time')
+    // Carica vendite e spese del turno
+    const { data: salesData } = await supabase.from('sales').select('*').eq('shift_id', openShift.id).order('created_at')
+    const { data: expData } = await supabase.from('expenses').select('*').eq('shift_id', openShift.id).order('created_at')
     setSales(salesData ?? [])
-    const { data: expData } = await supabase.from('expenses').select('*').eq('shift_id', sum.shift_id).order('created_at')
     setExpenses(expData ?? [])
 
-    const { data: store } = await supabase.from('stores').select('name').eq('id', sum.store_id).single()
-    const { data: emp } = await supabase.from('users').select('full_name').eq('id', sum.user_id).single()
-    const { data: brand } = await supabase.from('brand_config').select('brand_name').eq('store_id', sum.store_id).single()
-    const { data: cfg } = await supabase.from('store_config').select('fcu_default').eq('store_id', sum.store_id).single()
+    // Calcola totali
+    const allSales = salesData ?? []
+    const totalSales = allSales.reduce((s: number, r: any) => s + (parseFloat(r.total) || 0), 0)
+    const totalCash = allSales.filter((r: any) => r.payment_method === 'cash').reduce((s: number, r: any) => s + (parseFloat(r.total) || 0), 0)
+    const totalPos = totalSales - totalCash
+    const totalExpenses = (expData ?? []).reduce((s: number, r: any) => s + (parseFloat(r.amount) || 0), 0)
+    const totalResi = allSales.filter((r: any) => r.movement_type === 'return').reduce((s: number, r: any) => s + (parseFloat(r.total) || 0), 0)
+    const totalResiCount = allSales.filter((r: any) => r.movement_type === 'return').length
+
+    const sum: any = {
+      shift_id: openShift.id,
+      user_id: user.id,
+      store_id: openShift.store_id,
+      status: 'open',
+      fce: openShift.fce ?? 0,
+      period: openShift.period,
+      total_sales: totalSales,
+      total_cash: totalCash,
+      total_pos: totalPos,
+      total_expenses: totalExpenses,
+      total_transactions: allSales.length,
+      total_resi: totalResi,
+      total_resi_count: totalResiCount,
+      total_rotti: 0,
+      total_missing: 0,
+      total_autoconsumo: 0,
+      opened_at: openShift.created_at,
+      created_at: openShift.created_at,
+    }
+    setSummary(sum)
+
+    const { data: store } = await supabase.from('stores').select('name').eq('id', openShift.store_id).single()
+    const { data: emp } = await supabase.from('users').select('full_name').eq('id', user.id).single()
+    const { data: brand } = await supabase.from('brand_config').select('brand_name').eq('store_id', openShift.store_id).single()
+    const { data: cfg } = await supabase.from('store_config').select('fcu_default').eq('store_id', openShift.store_id).single()
 
     setStoreName(store?.name ?? '')
     setEmployeeName(emp?.full_name ?? '')

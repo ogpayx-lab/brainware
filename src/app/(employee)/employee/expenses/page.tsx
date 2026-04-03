@@ -39,7 +39,7 @@ export default function ExpensesPage() {
     setEmployeeName(profile.full_name)
 
     const { data: shift } = await supabase
-      .from('shifts').select('id').eq('user_id', user.id).eq('status', 'open').single()
+      .from('shifts').select('id').eq('user_id', user.id).eq('status', 'open').order('created_at',{ascending:false}).limit(1).single()
     if (!shift) { router.push('/employee/shift/open'); return }
     setShiftId(shift.id)
 

@@ -50,7 +50,7 @@ export default function FidelityPage() {
     if (!profile?.store_id) return
     setStoreId(profile.store_id)
 
-    const { data: shift } = await supabase.from('shifts').select('id').eq('user_id', user.id).eq('status', 'open').single()
+    const { data: shift } = await supabase.from('shifts').select('id').eq('user_id', user.id).eq('status', 'open').order('created_at',{ascending:false}).limit(1).single()
     if (shift) setShiftId(shift.id)
 
     const [{ data: allCards }, { count: activeCount }] = await Promise.all([
