@@ -97,41 +97,49 @@ export default function ProductsPage() {
         const workbook = XLSX.read(data, { type: 'array' })
         const sheetName = workbook.SheetNames[0]
         const sheet = workbook.Sheets[sheetName]
-        // Converte il foglio in array di oggetti con headers dalla prima riga
-        const jsonData: any[] = XLSX.utils.sheet_to_json(sheet, { defval: '' })
 
-        if (jsonData.length === 0) { setImportError('File vuoto o solo intestazione.'); return }
+        // Converte tutto il foglio in array di array (righe raw)
+        const rawRows: any[][] = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: '' })
+        if (rawRows.length < 2) { setImportError('File vuoto o solo intestazione.'); return }
 
-        // Normalizza i nomi delle colonne (lowercase, spazi -> underscore)
-        const normalizeKey = (key: string) => key.toLowerCase().trim().replace(/\s+/g, '_')
-        const firstRow = jsonData[0]
-        const keys = Object.keys(firstRow)
-        const keyMap: Record<string, string> = {}
-        keys.forEach(k => { keyMap[normalizeKey(k)] = k })
+        // Normalizza una stringa per match colonne
+        const normalize = (s: any) => String(s ?? '').toLowerCase().trim().replace(/\s+/g, '_')
 
-        // Verifica colonne obbligatorie
-        if (!keyMap['nome'] || !keyMap['categoria'] || !keyMap['prezzo']) {
-          setImportError(`Colonne obbligatorie mancanti: nome, categoria, prezzo. Trovate: [${keys.map(k => normalizeKey(k)).join(', ')}].`)
+        // Auto-detect: cerca la riga che contiene "nome", "categoria", "prezzo"
+        let headerRowIdx = -1
+        for (let i = 0; i < Math.min(rawRows.length, 10); i++) {
+          const cells = rawRows[i].map(normalize)
+          if (cells.includes('nome') && cells.includes('categoria') && cells.includes('prezzo')) {
+            headerRowIdx = i
+            break
+          }
+        }
+
+        if (headerRowIdx === -1) {
+          const allHeaders = rawRows.slice(0, 5).map((r, i) => `Riga ${i + 1}: [${r.map(normalize).join(', ')}]`).join('\n')
+          setImportError(`Colonne obbligatorie non trovate: nome, categoria, prezzo.\n${allHeaders}`)
           return
         }
 
-        const getVal = (row: any, col: string) => {
-          const realKey = keyMap[col]
-          return realKey ? String(row[realKey] ?? '').trim() : ''
-        }
+        // Mappa colonne
+        const headers = rawRows[headerRowIdx].map(normalize)
+        const idx = (k: string) => headers.indexOf(k)
+        const dataRows = rawRows.slice(headerRowIdx + 1).filter(r => r.some((c: any) => String(c).trim() !== ''))
 
-        const rows = jsonData.map((row, i) => {
-          const cat = getVal(row, 'categoria').toLowerCase()
+        if (dataRows.length === 0) { setImportError('Nessun dato trovato dopo le intestazioni.'); return }
+
+        const rows = dataRows.map((cols, i) => {
+          const cat = normalize(cols[idx('categoria')])
           const validCat = CATEGORIES.includes(cat as ProductCategory) ? cat : 'flowers'
-          const name = getVal(row, 'nome')
-          const price = parseFloat(getVal(row, 'prezzo')) || 0
-          const cost = keyMap['costo'] ? parseFloat(getVal(row, 'costo')) || null : null
-          const unit = keyMap['unita'] ? getVal(row, 'unita') || 'g' : 'g'
-          const barcode = keyMap['barcode'] ? getVal(row, 'barcode') || null : null
-          const stockAlert = keyMap['stock_alert'] ? parseInt(getVal(row, 'stock_alert')) || 5 : 5
+          const name = String(cols[idx('nome')] ?? '').trim()
+          const price = parseFloat(cols[idx('prezzo')]) || 0
+          const cost = idx('costo') >= 0 ? parseFloat(cols[idx('costo')]) || null : null
+          const unit = idx('unita') >= 0 && String(cols[idx('unita')]).trim() ? String(cols[idx('unita')]).trim() : 'g'
+          const barcode = idx('barcode') >= 0 && String(cols[idx('barcode')]).trim() ? String(cols[idx('barcode')]).trim() : null
+          const stockAlert = idx('stock_alert') >= 0 ? parseInt(cols[idx('stock_alert')]) || 5 : 5
 
           return {
-            row: i + 2,
+            row: headerRowIdx + i + 2,
             name,
             category: validCat as ProductCategory,
             price,
