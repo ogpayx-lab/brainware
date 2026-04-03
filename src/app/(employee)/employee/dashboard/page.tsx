@@ -51,29 +51,74 @@ export default function EmployeeDashboard() {
   async function loadData() {
     const { data:{ user } } = await supabase.auth.getUser()
     if (!user) { router.push('/login'); return }
+
     const { data: profile } = await supabase.from('users').select('full_name,store_id,stores(name)').eq('id', user.id).single()
     if (!profile) { router.push('/login'); return }
     setName(profile.full_name)
     setStoreName((profile.stores as any)?.name ?? '')
     setUserId(user.id)
+
     if (profile.store_id) {
       const { data: cfg } = await supabase.from('store_config').select('fcu_default').eq('store_id', profile.store_id).single()
       if (cfg) setFcuDefault(cfg.fcu_default)
       const { data: mLogs } = await supabase.from('maintenance_logs').select('id,status').eq('shift_user_id', user.id).gte('created_at', new Date().toISOString().split('T')[0])
       if (mLogs) { setMaintenanceDone(mLogs.filter((m:any) => m.status==='done').length); setMaintenanceTotal(mLogs.length) }
-      // Carica task assegnati al dipendente
       try {
         const { data: tasksData } = await supabase.from('tasks').select('*').eq('store_id', profile.store_id).eq('assigned_to', user.id).neq('status','done').order('created_at',{ascending:false}).limit(5)
         setTasks(tasksData ?? [])
       } catch {}
     }
-    const { data: sum } = await supabase.from('shift_cash_summary').select('*').eq('user_id', user.id).eq('status','open').single()
-    if (!sum) { router.push('/employee/shift/open'); return }
-    setSummary(sum)
-    const { data: salesData } = await supabase.from('sales').select('*').eq('shift_id', sum.shift_id).eq('movement_type','sale').order('created_at',{ascending:false}).limit(8)
+
+    // Cerca turno aperto direttamente dalla tabella shifts (non shift_cash_summary)
+    const { data: openShift } = await supabase
+      .from('shifts')
+      .select('*')
+      .eq('user_id', user.id)
+      .eq('status', 'open')
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .single()
+
+    if (!openShift) { router.push('/employee/shift/open'); return }
+
+    // Carica vendite del turno
+    const { data: salesData } = await supabase
+      .from('sales')
+      .select('*')
+      .eq('shift_id', openShift.id)
+      .order('created_at', { ascending: false })
+      .limit(8)
+
     setSales(salesData ?? [])
+
+    // Carica spese del turno
+    let expensesList: any[] = []
+    try {
+      const { data: expensesData } = await supabase.from('expenses').select('amount').eq('shift_id', openShift.id)
+      expensesList = expensesData ?? []
+    } catch {}
+
+    // Costruisce il summary manualmente dai dati reali
+    const allSales = salesData ?? []
+    const totalSales = allSales.reduce((s: number, r: any) => s + (parseFloat(r.total) || 0), 0)
+    const totalCash = allSales.filter((r: any) => r.payment_method === 'cash').reduce((s: number, r: any) => s + (parseFloat(r.total) || 0), 0)
+    const totalExpenses = expensesList.reduce((s: number, r: any) => s + (parseFloat(r.amount) || 0), 0)
+
+    setSummary({
+      shift_id: openShift.id,
+      user_id: user.id,
+      status: 'open',
+      fce: openShift.fce ?? 0,
+      period: openShift.period,
+      total_sales: totalSales,
+      total_cash: totalCash,
+      total_expenses: totalExpenses,
+      created_at: openShift.created_at,
+    })
+
     setLoading(false)
   }
+
 
   if (loading) return <div style={{ display:'flex', alignItems:'center', justifyContent:'center', height:'100vh' }}><div style={{ color:'var(--text-secondary)' }}>Caricamento...</div></div>
   if (!summary) return null
