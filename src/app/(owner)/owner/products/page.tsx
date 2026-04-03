@@ -148,7 +148,7 @@ export default function ProductsPage() {
             barcode,
             stock: 0,
             stock_alert: stockAlert,
-            valid: !!(name && price > 0),
+            valid: !!name,
           }
         })
         setImportRows(rows)
