@@ -130,10 +130,13 @@ export default function EmployeeDashboard() {
         </div>
       </div>
 
-      <div style={{ padding:'16px', display:'flex', flexDirection:'column', gap:'16px' }}>
+      <div style={{ padding:'16px', display:'flex', flexDirection:'column', gap:'12px' }}>
 
-        <div>
-          <h4 style={{ margin:'0 0 10px', fontSize:15 }}>⚡ Azioni Rapide</h4>
+        {/* ═══════════════════════════════════════════════════════ */}
+        {/*  ZONA MENU / AZIONI                                    */}
+        {/* ═══════════════════════════════════════════════════════ */}
+        <div style={{ background:'var(--bg-primary)', borderRadius:16, padding:'16px', border:'1px solid var(--border-subtle)' }}>
+          <h4 style={{ margin:'0 0 12px', fontSize:15 }}>⚡ Azioni Rapide</h4>
           <Link href={QUICK_ACTIONS[0].href} style={{ textDecoration:'none', display:'block', marginBottom:8 }}>
             <div style={{
               background: `linear-gradient(135deg, ${QUICK_ACTIONS[0].color}, ${QUICK_ACTIONS[0].color}dd)`,
@@ -152,7 +155,6 @@ export default function EmployeeDashboard() {
               <span style={{ color:'white', fontSize:22 }}>→</span>
             </div>
           </Link>
-
           <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:8 }}>
             {QUICK_ACTIONS.slice(1).map(a => (
               <Link key={a.href} href={a.href} style={{ textDecoration:'none' }}>
@@ -162,7 +164,6 @@ export default function EmployeeDashboard() {
                   borderRadius:12, padding:'14px',
                   display:'flex', flexDirection:'column', gap:6,
                   cursor:'pointer',
-                  transition:'transform 0.15s',
                 }}>
                   <div style={{ display:'flex', alignItems:'center', gap:8 }}>
                     <span style={{ fontSize:20, width:32, height:32, borderRadius:8, background:`${a.color}18`, display:'flex', alignItems:'center', justifyContent:'center' }}>{a.icon}</span>
@@ -173,15 +174,16 @@ export default function EmployeeDashboard() {
               </Link>
             ))}
           </div>
-        </div>
 
-        <div>
-          <h4 style={{ margin:'0 0 10px', fontSize:14, color:'var(--text-secondary)' }}>Altre Azioni</h4>
+          {/* Divider tra azioni rapide e altre azioni */}
+          <div style={{ height:1, background:'var(--border-subtle)', margin:'14px 0 10px' }} />
+
+          <h4 style={{ margin:'0 0 10px', fontSize:13, color:'var(--text-tertiary)', fontWeight:600, letterSpacing:'0.03em' }}>ALTRE AZIONI</h4>
           <div style={{ display:'grid', gridTemplateColumns:'repeat(4,1fr)', gap:6 }}>
             {OTHER_ACTIONS.map(a => (
               <Link key={a.href} href={a.href} style={{ textDecoration:'none' }}>
                 <div style={{
-                  background:'var(--bg-primary)', border:'1px solid var(--border-subtle)',
+                  background:'var(--bg-surface)', border:'1px solid var(--border-subtle)',
                   borderRadius:10, padding:'10px 6px',
                   display:'flex', flexDirection:'column', alignItems:'center', gap:4,
                   cursor:'pointer',
@@ -194,25 +196,46 @@ export default function EmployeeDashboard() {
           </div>
         </div>
 
-        <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:8 }}>
-          {[
-            { label:'Vendite', value:fmt(summary.total_sales), sub:`${summary.total_transactions} transazioni`, icon:'📈' },
-            { label:'Contanti', value:fmt(summary.total_cash), sub:'cash raccolto', icon:'💵' },
-            { label:'POS', value:fmt(summary.total_pos || 0), sub:'elettronico', icon:'💳' },
-            { label:'Spese', value:fmt(summary.total_expenses), sub:'uscite', icon:'📤', danger:summary.total_expenses > 0 },
-          ].map(k => (
-            <div key={k.label} style={{ background:'var(--bg-primary)', border:'1px solid var(--border-subtle)', borderRadius:12, padding:'12px 14px' }}>
-              <div style={{ display:'flex', alignItems:'center', gap:6, marginBottom:6 }}>
-                <span style={{ fontSize:16 }}>{k.icon}</span>
-                <span style={{ fontSize:12, color:'var(--text-secondary)', fontWeight:600 }}>{k.label}</span>
-              </div>
-              <div style={{ fontSize:20, fontWeight:700, color: k.danger ? 'var(--danger)' : 'var(--text-primary)' }}>{k.value}</div>
-              <div style={{ fontSize:11, color:'var(--text-tertiary)', marginTop:2 }}>{k.sub}</div>
-            </div>
-          ))}
+        {/* ═══════════════════════════════════════════════════════ */}
+        {/*  DIVISORE VISIVO                                       */}
+        {/* ═══════════════════════════════════════════════════════ */}
+        <div style={{
+          display:'flex', alignItems:'center', gap:12, padding:'8px 0',
+        }}>
+          <div style={{ width:4, height:28, borderRadius:2, background:'var(--brand-primary)' }} />
+          <div>
+            <div style={{ fontSize:16, fontWeight:700, color:'var(--text-primary)' }}>📊 Il Tuo Turno</div>
+            <div style={{ fontSize:11, color:'var(--text-tertiary)' }}>Statistiche e riepilogo in tempo reale</div>
+          </div>
         </div>
 
-        <div className="card" style={{ padding:'14px 16px' }}>
+        {/* ═══════════════════════════════════════════════════════ */}
+        {/*  ZONA STATISTICHE / DATI                               */}
+        {/* ═══════════════════════════════════════════════════════ */}
+        <div style={{ background:'var(--bg-primary)', borderRadius:16, padding:'16px', border:'1px solid var(--border-subtle)' }}>
+          {/* KPI Grid */}
+          <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:8, marginBottom:16 }}>
+            {[
+              { label:'Vendite', value:fmt(summary.total_sales), sub:`${summary.total_transactions} transazioni`, icon:'📈' },
+              { label:'Contanti', value:fmt(summary.total_cash), sub:'cash raccolto', icon:'💵' },
+              { label:'POS', value:fmt(summary.total_pos || 0), sub:'elettronico', icon:'💳' },
+              { label:'Spese', value:fmt(summary.total_expenses), sub:'uscite', icon:'📤', danger:summary.total_expenses > 0 },
+            ].map(k => (
+              <div key={k.label} style={{ background:'var(--bg-surface)', borderRadius:12, padding:'12px 14px' }}>
+                <div style={{ display:'flex', alignItems:'center', gap:6, marginBottom:6 }}>
+                  <span style={{ fontSize:16 }}>{k.icon}</span>
+                  <span style={{ fontSize:12, color:'var(--text-secondary)', fontWeight:600 }}>{k.label}</span>
+                </div>
+                <div style={{ fontSize:20, fontWeight:700, color: k.danger ? 'var(--danger)' : 'var(--text-primary)' }}>{k.value}</div>
+                <div style={{ fontSize:11, color:'var(--text-tertiary)', marginTop:2 }}>{k.sub}</div>
+              </div>
+            ))}
+          </div>
+
+          {/* Divider */}
+          <div style={{ height:1, background:'var(--border-subtle)', margin:'0 0 14px' }} />
+
+          {/* Riepilogo Cassa */}
           <h4 style={{ margin:'0 0 10px', fontSize:14 }}>💰 Riepilogo Cassa</h4>
           {[
             { label:'FCE (Fondo Cassa Entrata)', value:`+${fmt(summary.fce)}`, color:'var(--text-primary)' },
@@ -229,9 +252,11 @@ export default function EmployeeDashboard() {
             <span style={{ fontWeight:700, fontSize:15 }}>Deposito Atteso</span>
             <span style={{ fontWeight:700, fontSize:18, color: depositExpected >= 0 ? 'var(--brand-primary)' : 'var(--danger)' }}>{fmt(depositExpected)}</span>
           </div>
-        </div>
 
-        <div className="card" style={{ padding:'14px 16px' }}>
+          {/* Divider */}
+          <div style={{ height:1, background:'var(--border-subtle)', margin:'14px 0' }} />
+
+          {/* Obiettivi */}
           <h4 style={{ margin:'0 0 10px', fontSize:14 }}>🎯 Obiettivi</h4>
           <div style={{ marginBottom:10 }}>
             <div style={{ display:'flex', justifyContent:'space-between', marginBottom:4 }}>
