@@ -20,8 +20,9 @@ const OTHER_ACTIONS = [
   { href:'/employee/transfers',        icon:'🔄', label:'Trasferimenti',      color:'#8B5CF6', desc:'Sposta tra store' },
   { href:'/employee/stock?request=1',  icon:'🔔', label:'Richiedi Ricarica',  color:'#EC4899', desc:'Ordine al magazzino' },
   { href:'/employee/calendar',         icon:'📅', label:'Giorni Liberi',      color:'#14B8A6', desc:'Richiedi permessi' },
+  { href:'/employee/vending',          icon:'🏧', label:'Vending Machine',    color:'#0EA5E9', desc:'Ricarica macchine H24' },
+  { href:'/employee/ai',              icon:'🤖', label:'Assistente AI',       color:'#6366F1', desc:'Aiuto e procedure' },
   { href:'/employee/shift/close',      icon:'🔒', label:'Chiudi Turno',       color:'#EF4444', desc:'Fine turno e deposito' },
-  { href:'/employee/more',             icon:'⋯',  label:'Altro',              color:'#9CA3AF', desc:'Tutte le funzioni' },
 ]
 
 const PRIORITY_COLOR: Record<string, string> = {
