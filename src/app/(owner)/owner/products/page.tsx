@@ -5,11 +5,12 @@ import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { fmt, categoryLabel, calcMarginPct } from '@/lib/utils'
 import type { Product, ProductCategory } from '@/types/database'
+import * as XLSX from 'xlsx'
 
 const CATEGORIES: ProductCategory[] = ['flowers', 'hashish', 'oils', 'edibles', 'accessories']
 const EMPTY_FORM = {
   name: '', category: 'flowers' as ProductCategory,
-  price: '', cost: '', unit: 'g', barcode: '', stock: '', stock_alert: '5',
+  price: '', cost: '', unit: 'g', barcode: '', stock_alert: '5',
 }
 
 export default function ProductsPage() {
@@ -19,8 +20,14 @@ export default function ProductsPage() {
 
   const [products, setProducts] = useState<Product[]>([])
   const [storeId, setStoreId] = useState<string | null>(null)
+  const [orgId, setOrgId] = useState<string | null>(null)
+  const [orgStores, setOrgStores] = useState<any[]>([])
   const [showForm, setShowForm] = useState(false)
   const [showImport, setShowImport] = useState(false)
+  const [showDistribute, setShowDistribute] = useState(false)
+  const [distributeTargets, setDistributeTargets] = useState<string[]>([])
+  const [distributing, setDistributing] = useState(false)
+  const [distributeResult, setDistributeResult] = useState<{ ok: number; skip: number; stores: number } | null>(null)
   const [editId, setEditId] = useState<string | null>(null)
   const [form, setForm] = useState(EMPTY_FORM)
   const [search, setSearch] = useState('')
@@ -38,9 +45,15 @@ export default function ProductsPage() {
   async function loadData() {
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) { router.push('/login'); return }
-    const { data: profile } = await supabase.from('users').select('store_id, role').eq('id', user.id).single()
+    const { data: profile } = await supabase.from('users').select('store_id, role, stores(organization_id)').eq('id', user.id).single()
     if (profile?.role !== 'owner') { router.push('/login'); return }
     setStoreId(profile.store_id)
+    const oid = (profile.stores as any)?.organization_id
+    setOrgId(oid)
+    if (oid) {
+      const { data: storeList } = await supabase.from('stores').select('id,name').eq('organization_id', oid).eq('is_active', true).neq('id', profile.store_id)
+      setOrgStores(storeList ?? [])
+    }
     const { data: prods } = await supabase.from('products').select('*').eq('store_id', profile.store_id).order('name')
     const p = prods ?? []
     setProducts(p)
@@ -50,16 +63,20 @@ export default function ProductsPage() {
 
   function openAdd() { setForm(EMPTY_FORM); setEditId(null); setShowForm(true) }
   function openEdit(p: Product) {
-    setForm({ name: p.name, category: p.category, price: p.price.toString(), cost: p.cost?.toString() ?? '', unit: p.unit, barcode: p.barcode ?? '', stock: p.stock.toString(), stock_alert: p.stock_alert.toString() })
+    setForm({ name: p.name, category: p.category, price: p.price.toString(), cost: p.cost?.toString() ?? '', unit: p.unit, barcode: p.barcode ?? '', stock_alert: p.stock_alert.toString() })
     setEditId(p.id); setShowForm(true)
   }
 
   async function handleSave() {
     if (!storeId || !form.name || !form.price) return
     setSaving(true)
-    const payload = { store_id: storeId, name: form.name, category: form.category, price: parseFloat(form.price), cost: form.cost ? parseFloat(form.cost) : null, unit: form.unit, barcode: form.barcode || null, stock: parseInt(form.stock) || 0, stock_alert: parseInt(form.stock_alert) || 5 }
-    if (editId) await supabase.from('products').update(payload).eq('id', editId)
-    else await supabase.from('products').insert(payload)
+    const payload: any = { store_id: storeId, name: form.name, category: form.category, price: parseFloat(form.price), cost: form.cost ? parseFloat(form.cost) : null, unit: form.unit, barcode: form.barcode || null, stock_alert: parseInt(form.stock_alert) || 5 }
+    if (editId) {
+      await supabase.from('products').update(payload).eq('id', editId)
+    } else {
+      payload.stock = 0
+      await supabase.from('products').insert(payload)
+    }
     setShowForm(false); setSaving(false); loadData()
   }
 
@@ -72,23 +89,66 @@ export default function ProductsPage() {
     const file = e.target.files?.[0]
     if (!file) return
     setImportError(null); setImportDone(null)
+
     const reader = new FileReader()
     reader.onload = (ev) => {
-      const text = ev.target?.result as string
-      const lines = text.trim().split('\n').filter(l => l.trim())
-      if (lines.length < 2) { setImportError('File vuoto o solo intestazione.'); return }
-      const headers = lines[0].split(',').map(h => h.trim().toLowerCase())
-      const idx = (k: string) => headers.indexOf(k)
-      if (idx('nome') === -1 || idx('categoria') === -1 || idx('prezzo') === -1) { setImportError('Colonne obbligatorie mancanti: nome, categoria, prezzo. Scarica il template.'); return }
-      const rows = lines.slice(1).map((line, i) => {
-        const cols = line.split(',').map(c => c.trim())
-        const cat = cols[idx('categoria')]?.toLowerCase()
-        const validCat = CATEGORIES.includes(cat as ProductCategory) ? cat : 'flowers'
-        return { row: i + 2, name: cols[idx('nome')] ?? '', category: validCat as ProductCategory, price: parseFloat(cols[idx('prezzo')]) || 0, cost: idx('costo') >= 0 && cols[idx('costo')] ? parseFloat(cols[idx('costo')]) : null, unit: idx('unita') >= 0 && cols[idx('unita')] ? cols[idx('unita')] : 'g', barcode: idx('barcode') >= 0 && cols[idx('barcode')] ? cols[idx('barcode')] : null, stock: idx('stock') >= 0 ? parseInt(cols[idx('stock')]) || 0 : 0, stock_alert: idx('stock_alert') >= 0 ? parseInt(cols[idx('stock_alert')]) || 5 : 5, valid: !!(cols[idx('nome')] && parseFloat(cols[idx('prezzo')]) > 0) }
-      })
-      setImportRows(rows)
+      try {
+        const data = new Uint8Array(ev.target?.result as ArrayBuffer)
+        const workbook = XLSX.read(data, { type: 'array' })
+        const sheetName = workbook.SheetNames[0]
+        const sheet = workbook.Sheets[sheetName]
+        // Converte il foglio in array di oggetti con headers dalla prima riga
+        const jsonData: any[] = XLSX.utils.sheet_to_json(sheet, { defval: '' })
+
+        if (jsonData.length === 0) { setImportError('File vuoto o solo intestazione.'); return }
+
+        // Normalizza i nomi delle colonne (lowercase, spazi -> underscore)
+        const normalizeKey = (key: string) => key.toLowerCase().trim().replace(/\s+/g, '_')
+        const firstRow = jsonData[0]
+        const keys = Object.keys(firstRow)
+        const keyMap: Record<string, string> = {}
+        keys.forEach(k => { keyMap[normalizeKey(k)] = k })
+
+        // Verifica colonne obbligatorie
+        if (!keyMap['nome'] || !keyMap['categoria'] || !keyMap['prezzo']) {
+          setImportError(`Colonne obbligatorie mancanti: nome, categoria, prezzo. Trovate: [${keys.map(k => normalizeKey(k)).join(', ')}].`)
+          return
+        }
+
+        const getVal = (row: any, col: string) => {
+          const realKey = keyMap[col]
+          return realKey ? String(row[realKey] ?? '').trim() : ''
+        }
+
+        const rows = jsonData.map((row, i) => {
+          const cat = getVal(row, 'categoria').toLowerCase()
+          const validCat = CATEGORIES.includes(cat as ProductCategory) ? cat : 'flowers'
+          const name = getVal(row, 'nome')
+          const price = parseFloat(getVal(row, 'prezzo')) || 0
+          const cost = keyMap['costo'] ? parseFloat(getVal(row, 'costo')) || null : null
+          const unit = keyMap['unita'] ? getVal(row, 'unita') || 'g' : 'g'
+          const barcode = keyMap['barcode'] ? getVal(row, 'barcode') || null : null
+          const stockAlert = keyMap['stock_alert'] ? parseInt(getVal(row, 'stock_alert')) || 5 : 5
+
+          return {
+            row: i + 2,
+            name,
+            category: validCat as ProductCategory,
+            price,
+            cost,
+            unit,
+            barcode,
+            stock: 0,
+            stock_alert: stockAlert,
+            valid: !!(name && price > 0),
+          }
+        })
+        setImportRows(rows)
+      } catch (err: any) {
+        setImportError(`Errore nella lettura del file: ${err.message || 'formato non supportato'}`)
+      }
     }
-    reader.readAsText(file)
+    reader.readAsArrayBuffer(file)
   }
 
   async function confirmImport() {
@@ -98,12 +158,49 @@ export default function ProductsPage() {
     const skip = importRows.length - valid.length
     let ok = 0
     for (const row of valid) {
-      const { error } = await supabase.from('products').insert({ store_id: storeId, name: row.name, category: row.category, price: row.price, cost: row.cost, unit: row.unit, barcode: row.barcode, stock: row.stock, stock_alert: row.stock_alert })
+      const { error } = await supabase.from('products').insert({ store_id: storeId, name: row.name, category: row.category, price: row.price, cost: row.cost, unit: row.unit, barcode: row.barcode, stock: 0, stock_alert: row.stock_alert })
       if (!error) ok++
     }
     setImporting(false); setImportDone({ ok, skip }); setImportRows([])
     if (fileRef.current) fileRef.current.value = ''
     loadData()
+  }
+
+  async function distributeToStores() {
+    if (!storeId || distributeTargets.length === 0) return
+    setDistributing(true)
+    const activeProducts = products.filter(p => p.is_active)
+    let totalOk = 0, totalSkip = 0
+    for (const targetStoreId of distributeTargets) {
+      const { data: existing } = await supabase.from('products').select('name').eq('store_id', targetStoreId)
+      const existingNames = new Set((existing ?? []).map((p: any) => p.name.toLowerCase()))
+      const newProducts = activeProducts.filter(p => !existingNames.has(p.name.toLowerCase()))
+      totalSkip += activeProducts.length - newProducts.length
+      if (newProducts.length > 0) {
+        const { error } = await supabase.from('products').insert(
+          newProducts.map(p => ({
+            store_id: targetStoreId,
+            name: p.name,
+            category: p.category,
+            price: p.price,
+            cost: p.cost,
+            unit: p.unit,
+            barcode: p.barcode,
+            stock: 0,
+            stock_alert: p.stock_alert,
+          }))
+        )
+        if (!error) totalOk += newProducts.length
+      }
+    }
+    setDistributeResult({ ok: totalOk, skip: totalSkip, stores: distributeTargets.length })
+    setDistributing(false)
+  }
+
+  function toggleDistributeTarget(id: string) {
+    setDistributeTargets(prev =>
+      prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]
+    )
   }
 
   const filtered = products.filter(p => (filterCat === 'all' || p.category === filterCat) && (!search || p.name.toLowerCase().includes(search.toLowerCase()) || (p.barcode && p.barcode.includes(search))))
@@ -140,9 +237,10 @@ export default function ProductsPage() {
                   Margine: {calcMarginPct(parseFloat(form.price), parseFloat(form.cost))?.toFixed(1)}%  Profitto: {fmt(parseFloat(form.price) - parseFloat(form.cost))}/{form.unit}
                 </div>
               )}
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--space-md)' }}>
-                <div className="input-group"><label className="input-label">Stock iniziale (opzionale)</label><input className="input" type="number" min="0" placeholder="0" value={form.stock} onChange={e => setForm(f => ({ ...f, stock: e.target.value }))} /></div>
-                <div className="input-group"><label className="input-label">Soglia alert (opzionale)</label><input className="input" type="number" min="0" placeholder="5" value={form.stock_alert} onChange={e => setForm(f => ({ ...f, stock_alert: e.target.value }))} /></div>
+              <div className="input-group">
+                <label className="input-label">Soglia alert stock</label>
+                <input className="input" type="number" min="0" placeholder="5" value={form.stock_alert} onChange={e => setForm(f => ({ ...f, stock_alert: e.target.value }))} />
+                <div style={{ fontSize: 11, color: 'var(--text-tertiary)', marginTop: 4 }}>💡 Lo stock verrà gestito dalla pagina Inventario Iniziale per ogni store</div>
               </div>
               <div className="input-group"><label className="input-label">Barcode / ID interno</label><input className="input" placeholder="Es. 8901234567890" value={form.barcode} onChange={e => setForm(f => ({ ...f, barcode: e.target.value }))} /></div>
             </div>
@@ -158,22 +256,27 @@ export default function ProductsPage() {
       {showImport && (
         <div className="modal-overlay">
           <div className="modal" style={{ maxWidth: 640 }}>
-            <h3 style={{ marginBottom: 8 }}>Importa Prodotti da CSV</h3>
-            <p style={{ color: 'var(--text-secondary)', fontSize: 14, marginBottom: 'var(--space-lg)' }}>Carica un file CSV con i tuoi prodotti. Scarica il template per vedere il formato corretto.</p>
+            <h3 style={{ marginBottom: 8 }}>Importa Prodotti</h3>
+            <p style={{ color: 'var(--text-secondary)', fontSize: 14, marginBottom: 'var(--space-lg)' }}>Carica un file con i tuoi prodotti. Formati supportati: <strong>CSV, Excel (.xlsx), Numbers</strong>.</p>
 
             {/* Template download */}
-            <div style={{ background: 'var(--bg-surface)', borderRadius: 'var(--radius-md)', padding: 'var(--space-md)', marginBottom: 'var(--space-lg)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <div>
-                <div style={{ fontWeight: 600, fontSize: 14 }}>📄 Template CSV</div>
-                <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginTop: 2 }}>Colonne: nome, categoria, prezzo, costo, unita, barcode (stock e stock_alert opzionali)</div>
-                <div style={{ fontSize: 11, color: 'var(--text-tertiary)', marginTop: 2 }}>Categorie valide: flowers, hashish, oils, edibles, accessories</div>
+            <div style={{ background: 'var(--bg-surface)', borderRadius: 'var(--radius-md)', padding: 'var(--space-md)', marginBottom: 'var(--space-lg)' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+                <div>
+                  <div style={{ fontWeight: 600, fontSize: 14 }}>📄 Template CSV</div>
+                  <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginTop: 2 }}>Colonne: nome, categoria, prezzo, costo, unita, barcode, stock_alert</div>
+                  <div style={{ fontSize: 11, color: 'var(--text-tertiary)', marginTop: 2 }}>Categorie valide: flowers, hashish, oils, edibles, accessories</div>
+                </div>
+                <a href="/prodotti_template.csv" download className="btn btn-secondary" style={{ flexShrink: 0, textDecoration: 'none' }}> Scarica Template</a>
               </div>
-              <a href="/prodotti_template.csv" download className="btn btn-secondary" style={{ flexShrink: 0, textDecoration: 'none' }}> Scarica Template</a>
+              <div style={{ background: 'var(--brand-primary-light)', borderRadius: 'var(--radius-sm)', padding: '8px 12px', fontSize: 12, color: 'var(--brand-primary-dark)', marginTop: 6 }}>
+                💡 Questo è il <strong>catalogo prodotti</strong> dell&apos;azienda. I prodotti vengono caricati con stock = 0. Usa &quot;Inventario Iniziale&quot; per impostare le quantità per ogni store.
+              </div>
             </div>
 
             <div className="input-group" style={{ marginBottom: 'var(--space-lg)' }}>
-              <label className="input-label">Carica file CSV</label>
-              <input ref={fileRef} type="file" accept=".csv" onChange={handleFileChange} style={{ padding: '10px', border: '1px solid var(--border-default)', borderRadius: 'var(--radius-sm)', width: '100%', fontSize: 14 }} />
+              <label className="input-label">Carica file (CSV, Excel, Numbers)</label>
+              <input ref={fileRef} type="file" accept=".csv,.xlsx,.xls,.numbers" onChange={handleFileChange} style={{ padding: '10px', border: '1px solid var(--border-default)', borderRadius: 'var(--radius-sm)', width: '100%', fontSize: 14 }} />
             </div>
 
             {importError && <div style={{ background: 'var(--danger-light)', border: '1px solid var(--danger)', borderRadius: 'var(--radius-sm)', padding: '10px 14px', fontSize: 13, color: 'var(--danger)', marginBottom: 'var(--space-md)' }}> {importError}</div>}
@@ -229,12 +332,72 @@ export default function ProductsPage() {
         <div className="kpi-card"><div className="kpi-label">Disattivati</div><div className="kpi-value">{stats.inactive}</div></div>
       </div>
 
+      {/* Distribute modal */}
+      {showDistribute && (
+        <div className="modal-overlay">
+          <div className="modal" style={{ maxWidth: 520 }}>
+            <h3 style={{ marginBottom: 8 }}>📦 Distribuisci Catalogo a Store</h3>
+            <p style={{ color: 'var(--text-secondary)', fontSize: 14, marginBottom: 'var(--space-lg)' }}>
+              Copia tutti i {products.filter(p => p.is_active).length} prodotti attivi del catalogo verso gli store selezionati. I prodotti verranno creati con stock = 0.
+            </p>
+
+            {orgStores.length === 0 ? (
+              <div style={{ textAlign: 'center', padding: 'var(--space-xl)', color: 'var(--text-tertiary)' }}>
+                <div style={{ fontSize: 36, marginBottom: 8 }}>🏪</div>
+                <div style={{ fontSize: 14 }}>Nessun altro store trovato nella tua organizzazione</div>
+              </div>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-sm)', marginBottom: 'var(--space-lg)' }}>
+                {orgStores.map(s => {
+                  const isSelected = distributeTargets.includes(s.id)
+                  return (
+                    <div key={s.id} onClick={() => toggleDistributeTarget(s.id)} style={{
+                      display: 'flex', alignItems: 'center', gap: 12, padding: '12px 14px',
+                      background: isSelected ? 'var(--brand-primary-light)' : 'var(--bg-surface)',
+                      border: `1.5px solid ${isSelected ? 'var(--brand-primary)' : 'var(--border-default)'}`,
+                      borderRadius: 10, cursor: 'pointer',
+                    }}>
+                      <div style={{ width: 22, height: 22, borderRadius: 6, border: `2px solid ${isSelected ? 'var(--brand-primary)' : 'var(--border-strong)'}`, background: isSelected ? 'var(--brand-primary)' : 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', fontSize: 12, flexShrink: 0 }}>
+                        {isSelected && '✓'}
+                      </div>
+                      <div style={{ flex: 1 }}>
+                        <div style={{ fontWeight: 600, fontSize: 14 }}>🏪 {s.name}</div>
+                      </div>
+                    </div>
+                  )
+                })}
+                <button
+                  onClick={() => setDistributeTargets(distributeTargets.length === orgStores.length ? [] : orgStores.map(s => s.id))}
+                  style={{ background: 'none', border: 'none', color: 'var(--brand-primary)', fontSize: 13, cursor: 'pointer', padding: 0, textAlign: 'left', fontWeight: 600 }}
+                >
+                  {distributeTargets.length === orgStores.length ? 'Deseleziona tutti' : 'Seleziona tutti'}
+                </button>
+              </div>
+            )}
+
+            {distributeResult && (
+              <div style={{ background: 'var(--success-light)', border: '1px solid var(--brand-primary)', borderRadius: 'var(--radius-sm)', padding: '10px 14px', fontSize: 13, color: 'var(--brand-primary-dark)', marginBottom: 'var(--space-md)' }}>
+                ✅ Distribuiti <strong>{distributeResult.ok}</strong> prodotti a <strong>{distributeResult.stores}</strong> store{distributeResult.skip > 0 && ` · ${distributeResult.skip} già esistenti (saltati)`}
+              </div>
+            )}
+
+            <div style={{ display: 'flex', gap: 'var(--space-sm)' }}>
+              <button className="btn btn-secondary" style={{ flex: 1 }} onClick={() => { setShowDistribute(false); setDistributeTargets([]); setDistributeResult(null) }}>Chiudi</button>
+              {orgStores.length > 0 && (
+                <button className="btn btn-primary" style={{ flex: 2 }} onClick={distributeToStores} disabled={distributing || distributeTargets.length === 0}>
+                  {distributing ? 'Distribuzione...' : `📦 Distribuisci a ${distributeTargets.length} Store`}
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Header */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--space-xl)' }}>
         <h2>Gestione Prodotti</h2>
         <div style={{ display: 'flex', gap: 'var(--space-sm)' }}>
-          <button className="btn btn-secondary" style={{ fontSize:12 }}> Export PDF</button>
-          <button className="btn btn-secondary" style={{ fontSize:12 }}> Export Excel</button>
+          {orgStores.length > 0 && <button className="btn btn-secondary" onClick={() => { setShowDistribute(true); setDistributeResult(null) }} style={{ fontSize: 12 }}>📦 Distribuisci a Store</button>}
           <button className="btn btn-secondary" onClick={() => setShowImport(true)}> Import CSV</button>
           <button className="btn btn-primary" onClick={openAdd}>+ Nuovo Prodotto</button>
         </div>
