@@ -141,8 +141,8 @@ export default function ProductsPage() {
                 </div>
               )}
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--space-md)' }}>
-                <div className="input-group"><label className="input-label">Stock iniziale</label><input className="input" type="number" min="0" placeholder="0" value={form.stock} onChange={e => setForm(f => ({ ...f, stock: e.target.value }))} /></div>
-                <div className="input-group"><label className="input-label">Soglia alert</label><input className="input" type="number" min="0" placeholder="5" value={form.stock_alert} onChange={e => setForm(f => ({ ...f, stock_alert: e.target.value }))} /></div>
+                <div className="input-group"><label className="input-label">Stock iniziale (opzionale)</label><input className="input" type="number" min="0" placeholder="0" value={form.stock} onChange={e => setForm(f => ({ ...f, stock: e.target.value }))} /></div>
+                <div className="input-group"><label className="input-label">Soglia alert (opzionale)</label><input className="input" type="number" min="0" placeholder="5" value={form.stock_alert} onChange={e => setForm(f => ({ ...f, stock_alert: e.target.value }))} /></div>
               </div>
               <div className="input-group"><label className="input-label">Barcode / ID interno</label><input className="input" placeholder="Es. 8901234567890" value={form.barcode} onChange={e => setForm(f => ({ ...f, barcode: e.target.value }))} /></div>
             </div>
@@ -164,8 +164,8 @@ export default function ProductsPage() {
             {/* Template download */}
             <div style={{ background: 'var(--bg-surface)', borderRadius: 'var(--radius-md)', padding: 'var(--space-md)', marginBottom: 'var(--space-lg)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <div>
-                <div style={{ fontWeight: 600, fontSize: 14 }}> Template CSV</div>
-                <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginTop: 2 }}>Colonne: nome, categoria, prezzo, costo, unita, barcode, stock, stock_alert</div>
+                <div style={{ fontWeight: 600, fontSize: 14 }}>📄 Template CSV</div>
+                <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginTop: 2 }}>Colonne: nome, categoria, prezzo, costo, unita, barcode (stock e stock_alert opzionali)</div>
                 <div style={{ fontSize: 11, color: 'var(--text-tertiary)', marginTop: 2 }}>Categorie valide: flowers, hashish, oils, edibles, accessories</div>
               </div>
               <a href="/prodotti_template.csv" download className="btn btn-secondary" style={{ flexShrink: 0, textDecoration: 'none' }}> Scarica Template</a>
