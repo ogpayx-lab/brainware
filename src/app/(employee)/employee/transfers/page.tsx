@@ -40,9 +40,17 @@ export default function TransfersPage() {
     if (!profile?.store_id) return
     setStoreId(profile.store_id)
 
+    // Recupera organization_id dello store del dipendente
+    const { data: myStore } = await supabase.from('stores').select('organization_id').eq('id', profile.store_id).single()
+    const orgId = myStore?.organization_id
+
+    // Carica solo store della stessa organizzazione (stesso owner)
+    let storeQuery = supabase.from('stores').select('*').eq('is_active', true).neq('id', profile.store_id)
+    if (orgId) storeQuery = storeQuery.eq('organization_id', orgId)
+
     const [{ data: prods }, { data: storeList }, { data: xfers }] = await Promise.all([
       supabase.from('products').select('*').eq('store_id', profile.store_id).eq('is_active', true).order('name'),
-      supabase.from('stores').select('*').eq('is_active', true).neq('id', profile.store_id),
+      storeQuery,
       supabase.from('transfers').select('*, transfer_items(product_name, qty)')
         .or(`from_store_id.eq.${profile.store_id},to_store_id.eq.${profile.store_id}`)
         .order('created_at', { ascending: false }).limit(20),
@@ -127,7 +135,7 @@ export default function TransfersPage() {
     <div className="page" style={{ paddingBottom: 80 }}>
       <div style={{ background: 'var(--bg-primary)', borderBottom: '1px solid var(--border-subtle)', padding: 'var(--space-lg)', display: 'flex', alignItems: 'center', gap: 'var(--space-md)' }}>
         <Link href="/employee/dashboard" style={{ textDecoration: 'none', color: 'var(--text-primary)', fontSize: 20 }}></Link>
-        <h3>Trasferimenti & Spedizioni</h3>
+        <h3>Trasferimenti</h3>
       </div>
 
       {/* Tabs */}
