@@ -14,14 +14,14 @@ const QUICK_ACTIONS = [
   { href:'/employee/stock',       icon:'📦', label:'Ricarica Stock',        color:'#EF4444', desc:'Aggiungi quantità' },
 ]
 const OTHER_ACTIONS = [
-  { href:'/employee/expenses',    icon:'💸', label:'Aggiungi Spesa' },
-  { href:'/employee/maintenance', icon:'🔧', label:'Manutenzione' },
-  { href:'/employee/photos',      icon:'📷', label:'Foto Registro' },
-  { href:'/employee/transfers',   icon:'🔄', label:'Trasferimenti' },
-  { href:'/employee/stock?request=1', icon:'🔔', label:'Richiedi Ricarica' },
-  { href:'/employee/calendar',    icon:'📅', label:'Giorni Liberi' },
-  { href:'/employee/shift/close', icon:'🔒', label:'Chiudi Turno' },
-  { href:'/employee/more',        icon:'⋯',  label:'Altro' },
+  { href:'/employee/expenses',         icon:'💸', label:'Aggiungi Spesa',     color:'#F97316', desc:'Registra uscite' },
+  { href:'/employee/maintenance',      icon:'🔧', label:'Manutenzione',       color:'#6B7280', desc:'Checklist giornaliera' },
+  { href:'/employee/photos',           icon:'📷', label:'Foto Registro',      color:'#06B6D4', desc:'Carica foto registro' },
+  { href:'/employee/transfers',        icon:'🔄', label:'Trasferimenti',      color:'#8B5CF6', desc:'Sposta tra store' },
+  { href:'/employee/stock?request=1',  icon:'🔔', label:'Richiedi Ricarica',  color:'#EC4899', desc:'Ordine al magazzino' },
+  { href:'/employee/calendar',         icon:'📅', label:'Giorni Liberi',      color:'#14B8A6', desc:'Richiedi permessi' },
+  { href:'/employee/shift/close',      icon:'🔒', label:'Chiudi Turno',       color:'#EF4444', desc:'Fine turno e deposito' },
+  { href:'/employee/more',             icon:'⋯',  label:'Altro',              color:'#9CA3AF', desc:'Tutte le funzioni' },
 ]
 
 const PRIORITY_COLOR: Record<string, string> = {
@@ -178,18 +178,21 @@ export default function EmployeeDashboard() {
           {/* Divider tra azioni rapide e altre azioni */}
           <div style={{ height:1, background:'var(--border-subtle)', margin:'14px 0 10px' }} />
 
-          <h4 style={{ margin:'0 0 10px', fontSize:13, color:'var(--text-tertiary)', fontWeight:600, letterSpacing:'0.03em' }}>ALTRE AZIONI</h4>
-          <div style={{ display:'grid', gridTemplateColumns:'repeat(4,1fr)', gap:6 }}>
+          <h4 style={{ margin:'0 0 12px', fontSize:15 }}>📋 Altre Azioni</h4>
+          <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:8 }}>
             {OTHER_ACTIONS.map(a => (
               <Link key={a.href} href={a.href} style={{ textDecoration:'none' }}>
                 <div style={{
-                  background:'var(--bg-surface)', border:'1px solid var(--border-subtle)',
-                  borderRadius:10, padding:'10px 6px',
-                  display:'flex', flexDirection:'column', alignItems:'center', gap:4,
+                  background:'var(--bg-surface)', border:`1.5px solid ${a.color}20`,
+                  borderRadius:12, padding:'12px',
+                  display:'flex', alignItems:'center', gap:10,
                   cursor:'pointer',
                 }}>
-                  <span style={{ fontSize:20 }}>{a.icon}</span>
-                  <span style={{ fontSize:10, color:'var(--text-secondary)', textAlign:'center', fontWeight:500, lineHeight:1.3 }}>{a.label}</span>
+                  <span style={{ fontSize:22, width:36, height:36, borderRadius:8, background:`${a.color}12`, display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>{a.icon}</span>
+                  <div>
+                    <div style={{ fontWeight:700, fontSize:13, color:'var(--text-primary)' }}>{a.label}</div>
+                    <div style={{ fontSize:11, color:'var(--text-tertiary)', marginTop:1 }}>{a.desc}</div>
+                  </div>
                 </div>
               </Link>
             ))}
