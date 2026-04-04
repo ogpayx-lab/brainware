@@ -85,6 +85,12 @@ export default function ProductsPage() {
     loadData()
   }
 
+  async function deleteProduct(p: Product) {
+    if (!confirm(`Eliminare definitivamente "${p.name}"? Questa azione non è reversibile.`)) return
+    await supabase.from('products').delete().eq('id', p.id)
+    loadData()
+  }
+
   function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
     if (!file) return
@@ -460,6 +466,7 @@ export default function ProductsPage() {
                     <div style={{ display: 'flex', gap: 6 }}>
                       <button onClick={() => openEdit(p)} className="btn btn-secondary" style={{ padding: '4px 10px', fontSize: 12 }}>Modifica</button>
                       <button onClick={() => toggleActive(p)} className="btn btn-ghost" style={{ padding: '4px 10px', fontSize: 12 }}>{p.is_active ? 'Disabilita' : 'Abilita'}</button>
+                      <button onClick={() => deleteProduct(p)} className="btn btn-ghost" style={{ padding: '4px 10px', fontSize: 12, color: 'var(--danger)' }} title="Elimina prodotto">🗑️</button>
                     </div>
                   </td>
                 </tr>
