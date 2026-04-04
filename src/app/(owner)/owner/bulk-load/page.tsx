@@ -8,23 +8,13 @@ const PRODUCTS_DATA = [
   { name: "Accendino MM", category: "accessories", stock: 22 },
   { name: "Accendino no logo", category: "accessories", stock: 76 },
   { name: "Actitube filtri pack of 10 pcs", category: "accessories", stock: 34 },
-  { name: "Afghan 2g", category: "hashish", stock: 0 },
-  { name: "Afghan 3g", category: "hashish", stock: 0 },
-  { name: "Afghan 5g", category: "hashish", stock: 0 },
-  { name: "Afghan Sfuso", category: "hashish", stock: 0 },
   { name: "Amnesia 2g", category: "flowers", stock: 0 },
   { name: "Amnesia 3g", category: "flowers", stock: 0 },
   { name: "Amnesia 5g", category: "flowers", stock: 0 },
   { name: "Amnesia Sfuso", category: "flowers", stock: 0 },
-  { name: "Balsamo cane Verdesativa", category: "cosmetics", stock: 0 },
-  { name: "Biodermo Neutro Verdesativa", category: "cosmetics", stock: 0 },
   { name: "Bob my Box", category: "accessories", stock: 10 },
   { name: "Bong Big", category: "accessories", stock: 0 },
   { name: "Bong Small", category: "accessories", stock: 0 },
-  { name: "Borbuka 2g", category: "hashish", stock: 0 },
-  { name: "Borbuka 3g", category: "hashish", stock: 0 },
-  { name: "Borbuka 5g", category: "hashish", stock: 0 },
-  { name: "Borbuka Sfuso", category: "hashish", stock: 0 },
   { name: "Box da 3 Pre-roll", category: "accessories", stock: 24 },
   { name: "Brain-E (Happy Caps) DISPLAY", category: "food", stock: 0 },
   { name: "Bubble Hash 10g", category: "hashish", stock: 19 },
@@ -32,10 +22,6 @@ const PRODUCTS_DATA = [
   { name: "Bubble Hash 3g", category: "hashish", stock: 0 },
   { name: "bubble hash Sfuso", category: "hashish", stock: 0 },
   { name: "Cappello MM", category: "clothes", stock: 0 },
-  { name: "Caramello 2g", category: "hashish", stock: 0 },
-  { name: "Caramello 3g", category: "hashish", stock: 0 },
-  { name: "Caramello 5g", category: "hashish", stock: 0 },
-  { name: "Caramello Sfuso", category: "hashish", stock: 0 },
   { name: "Cartine MM", category: "accessories", stock: 0 },
   { name: "cartine no logo", category: "accessories", stock: 70 },
   { name: "Cassata Kush 2g", category: "flowers", stock: 0 },
@@ -63,12 +49,6 @@ const PRODUCTS_DATA = [
   { name: "Cherry Pie 3g", category: "flowers", stock: 8 },
   { name: "Cherry Pie 5g", category: "flowers", stock: 12 },
   { name: "Cherry Pie Sfuso", category: "flowers", stock: 0 },
-  { name: "Chewing Gum", category: "food", stock: 0 },
-  { name: "Chocolate", category: "food", stock: 0 },
-  { name: "Cioccolato 2g", category: "hashish", stock: 0 },
-  { name: "Cioccolato 3g", category: "hashish", stock: 0 },
-  { name: "Cioccolato 5g", category: "hashish", stock: 0 },
-  { name: "Cioccolato Sfuso", category: "hashish", stock: 0 },
   { name: "Clipper Accendino", category: "accessories", stock: 28 },
   { name: "Color Changing Pipe", category: "accessories", stock: 0 },
   { name: "Cookies 2g", category: "flowers", stock: 0 },
@@ -131,7 +111,7 @@ const PRODUCTS_DATA = [
   { name: "Latte Corpo Verdesativa", category: "cosmetics", stock: 2 },
   { name: "Latte Detergente Verdesativa", category: "cosmetics", stock: 0 },
   { name: "Lemon Hash 10g", category: "hashish", stock: 10 },
-  { name: "Lemon hash 2g", category: "hashish", stock: 0 },
+  { name: "Lemon hash 2g", category: "hashish", stock: -1 },
   { name: "Lemon hash 3g", category: "hashish", stock: 0 },
   { name: "Lemon hash Sfuso", category: "hashish", stock: 0 },
   { name: "Lions's Name gummies", category: "food", stock: 13 },
@@ -141,10 +121,6 @@ const PRODUCTS_DATA = [
   { name: "Mango 3g", category: "flowers", stock: 19 },
   { name: "Mango 5g", category: "flowers", stock: 8 },
   { name: "Mango Sfuso", category: "flowers", stock: 0 },
-  { name: "Maroccan 2g", category: "hashish", stock: 0 },
-  { name: "Maroccan 3g", category: "hashish", stock: 0 },
-  { name: "Maroccan 5g", category: "hashish", stock: 0 },
-  { name: "Maroccan Sfuso", category: "hashish", stock: 0 },
   { name: "Metal Pipe", category: "accessories", stock: 0 },
   { name: "OG Kush 2G", category: "flowers", stock: 16 },
   { name: "OG Kush 3G", category: "flowers", stock: 19 },
@@ -169,10 +145,6 @@ const PRODUCTS_DATA = [
   { name: "Plants for pet CBD Calming Balm Stick 12g", category: "cosmetics", stock: 0 },
   { name: "Plants for pet CBD Fortifying Balm Stick 12g", category: "cosmetics", stock: 0 },
   { name: "Plants for pet CBD Repair Balm Stick 12g", category: "cosmetics", stock: 0 },
-  { name: "pollen ketama 2g", category: "hashish", stock: 0 },
-  { name: "pollen ketama 3g", category: "hashish", stock: 0 },
-  { name: "pollen ketama 5g", category: "hashish", stock: 0 },
-  { name: "pollen ketama Sfuso", category: "hashish", stock: 0 },
   { name: "Porta Pre-roll", category: "accessories", stock: 0 },
   { name: "Pre-roll", category: "accessories", stock: 2 },
   { name: "Premium Hemp cones (blunt)", category: "accessories", stock: 29 },
@@ -272,6 +244,7 @@ export default function BulkLoadPage() {
 
   async function handleLoad() {
     if (!storeId) return
+    if (!confirm(`⚠️ ATTENZIONE: Questo cancellerà TUTTI i prodotti esistenti nello store "${storeName}" e li ricaricherà con i dati corretti.\n\nContinuare?`)) return
     setStatus('loading')
     try {
       const res = await fetch('/api/bulk-products', {
@@ -281,34 +254,50 @@ export default function BulkLoadPage() {
       })
       const data = await res.json()
       setResult(data)
-      setStatus('done')
+      setStatus(data.errors > 0 ? 'error' : 'done')
     } catch (err: any) {
       setResult({ error: err.message })
       setStatus('error')
     }
   }
 
+  const withStock = PRODUCTS_DATA.filter(p => p.stock > 0).length
+  const categories = [...new Set(PRODUCTS_DATA.map(p => p.category))]
+
   return (
-    <div style={{ maxWidth: 600, margin: '60px auto', padding: 'var(--space-xl)' }}>
-      <h2 style={{ marginBottom: 'var(--space-lg)' }}>📦 Caricamento Prodotti + Stock</h2>
+    <div style={{ maxWidth: 700, margin: '40px auto', padding: 'var(--space-xl)' }}>
+      <h2 style={{ marginBottom: 'var(--space-lg)' }}>📦 Caricamento Prodotti + Stock (v2)</h2>
       <p style={{ color: 'var(--text-secondary)', fontSize: 14, marginBottom: 'var(--space-xl)' }}>
-        Questa pagina carica {PRODUCTS_DATA.length} prodotti nello store <strong>{storeName}</strong>.
-        Se un prodotto esiste già (match per nome), aggiorna solo lo stock e la categoria.
-        Se non esiste, lo crea con prezzo 0.
+        Questa pagina <strong>sostituisce completamente</strong> i prodotti nello store <strong>{storeName}</strong> con la lista corretta.
       </p>
 
-      <div style={{ background: 'var(--bg-surface)', borderRadius: 'var(--radius-md)', padding: 'var(--space-lg)', marginBottom: 'var(--space-lg)' }}>
-        <div style={{ fontSize: 13, color: 'var(--text-secondary)', marginBottom: 8 }}>Riepilogo dati</div>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12 }}>
-          <div><div style={{ fontSize: 24, fontWeight: 700 }}>{PRODUCTS_DATA.length}</div><div style={{ fontSize: 11, color: 'var(--text-tertiary)' }}>Prodotti totali</div></div>
-          <div><div style={{ fontSize: 24, fontWeight: 700 }}>{PRODUCTS_DATA.filter(p => p.stock > 0).length}</div><div style={{ fontSize: 11, color: 'var(--text-tertiary)' }}>Con stock</div></div>
-          <div><div style={{ fontSize: 24, fontWeight: 700 }}>{new Set(PRODUCTS_DATA.map(p => p.category)).size}</div><div style={{ fontSize: 11, color: 'var(--text-tertiary)' }}>Categorie</div></div>
+      <div style={{ background: 'var(--bg-surface)', borderRadius: 'var(--radius-lg)', padding: 'var(--space-lg)', marginBottom: 'var(--space-lg)' }}>
+        <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-secondary)', marginBottom: 12 }}>Riepilogo dati</div>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 16, marginBottom: 16 }}>
+          <div><div style={{ fontSize: 28, fontWeight: 700 }}>{PRODUCTS_DATA.length}</div><div style={{ fontSize: 11, color: 'var(--text-tertiary)' }}>Prodotti totali</div></div>
+          <div><div style={{ fontSize: 28, fontWeight: 700 }}>{withStock}</div><div style={{ fontSize: 11, color: 'var(--text-tertiary)' }}>Con stock &gt; 0</div></div>
+          <div><div style={{ fontSize: 28, fontWeight: 700 }}>{categories.length}</div><div style={{ fontSize: 11, color: 'var(--text-tertiary)' }}>Categorie</div></div>
+        </div>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+          {categories.map(c => (
+            <span key={c} className="badge badge-gray" style={{ fontSize: 11 }}>
+              {c} ({PRODUCTS_DATA.filter(p => p.category === c).length})
+            </span>
+          ))}
         </div>
       </div>
 
+      <div style={{ background: 'var(--warning-light)', border: '1px solid var(--warning)', borderRadius: 'var(--radius-md)', padding: 'var(--space-md)', marginBottom: 'var(--space-lg)', fontSize: 13 }}>
+        ⚠️ <strong>Prerequisito:</strong> Prima di procedere, vai nella <strong>Dashboard Supabase → SQL Editor</strong> ed esegui:<br/>
+        <code style={{ display: 'block', background: 'rgba(0,0,0,0.05)', padding: 8, borderRadius: 4, marginTop: 8, fontSize: 12, whiteSpace: 'pre-wrap' }}>
+{`ALTER TABLE products ALTER COLUMN category TYPE text;`}
+        </code>
+        <div style={{ marginTop: 6, color: 'var(--text-tertiary)', fontSize: 11 }}>Questo rimuove il vincolo ENUM e permette categorie come seeds, cosmetics, food, ecc.</div>
+      </div>
+
       {status === 'idle' && (
-        <button onClick={handleLoad} className="btn btn-primary btn-full btn-lg">
-          🚀 Carica {PRODUCTS_DATA.length} prodotti in &quot;{storeName}&quot;
+        <button onClick={handleLoad} className="btn btn-primary btn-full" style={{ padding: '14px 24px', fontSize: 16, fontWeight: 700 }}>
+          🚀 Sostituisci e carica {PRODUCTS_DATA.length} prodotti in &quot;{storeName}&quot;
         </button>
       )}
 
@@ -323,7 +312,7 @@ export default function BulkLoadPage() {
           <div style={{ fontSize: 36, marginBottom: 8 }}>✅</div>
           <div style={{ fontWeight: 700, fontSize: 16, marginBottom: 8 }}>Caricamento completato!</div>
           <div style={{ fontSize: 14, color: 'var(--brand-primary-dark)' }}>
-            Creati: <strong>{result.created}</strong> · Aggiornati: <strong>{result.updated}</strong> · Errori: {result.errors}
+            Creati: <strong>{result.created}</strong> · Errori: {result.errors}
           </div>
           <button onClick={() => router.push('/owner/products')} className="btn btn-primary" style={{ marginTop: 16 }}>
             Vai a Gestione Prodotti →
@@ -331,9 +320,16 @@ export default function BulkLoadPage() {
         </div>
       )}
 
-      {status === 'error' && (
+      {status === 'error' && result && (
         <div style={{ background: 'var(--danger-light)', border: '1px solid var(--danger)', borderRadius: 'var(--radius-md)', padding: 'var(--space-lg)' }}>
-          ❌ Errore: {result?.error}
+          <div style={{ fontWeight: 700, marginBottom: 8 }}>❌ Errori nel caricamento</div>
+          <div style={{ fontSize: 13 }}>Creati: {result.created} · Errori: {result.errors}</div>
+          {result.errorDetails?.map((e: any, i: number) => (
+            <div key={i} style={{ fontSize: 12, marginTop: 4, color: 'var(--danger)' }}>{JSON.stringify(e)}</div>
+          ))}
+          <div style={{ marginTop: 12, fontSize: 12, color: 'var(--text-secondary)' }}>
+            Se vedi errori tipo &quot;invalid input value for enum&quot;, devi prima eseguire il comando SQL sopra in Supabase.
+          </div>
         </div>
       )}
     </div>

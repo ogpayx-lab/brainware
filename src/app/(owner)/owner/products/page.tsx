@@ -71,11 +71,19 @@ export default function ProductsPage() {
     if (!storeId || !form.name || !form.price) return
     setSaving(true)
     const payload: any = { store_id: storeId, name: form.name, category: form.category, price: parseFloat(form.price), cost: form.cost ? parseFloat(form.cost) : null, unit: form.unit, barcode: form.barcode || null, stock_alert: parseInt(form.stock_alert) || 5 }
+    let error: any = null
     if (editId) {
-      await supabase.from('products').update(payload).eq('id', editId)
+      const res = await supabase.from('products').update(payload).eq('id', editId)
+      error = res.error
     } else {
       payload.stock = 0
-      await supabase.from('products').insert(payload)
+      const res = await supabase.from('products').insert(payload)
+      error = res.error
+    }
+    if (error) {
+      alert(`Errore nel salvataggio: ${error.message}`)
+      setSaving(false)
+      return
     }
     setShowForm(false); setSaving(false); loadData()
   }
