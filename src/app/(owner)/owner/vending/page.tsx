@@ -232,6 +232,7 @@ export default function VendingPage() {
                 <button onClick={() => setShowAddProduct(m.id)} className="btn btn-primary" style={{ flex: 1, fontSize: 11, padding: '5px 0' }}>+ Prodotto</button>
                 <button onClick={() => setShowRestock(m.id)} className="btn btn-secondary" style={{ flex: 1, fontSize: 11, padding: '5px 0' }}>Ricarica</button>
                 <button onClick={() => setTab('inventory')} className="btn btn-ghost" style={{ flex: 1, fontSize: 11, padding: '5px 0' }}>Stock</button>
+                <button onClick={() => { if (confirm(`Eliminare la macchina "${m.name}" (${m.location})? Questa azione non è reversibile.`)) { /* TODO: delete from DB when connected */ alert('Macchina eliminata (demo)') } }} className="btn btn-ghost" style={{ fontSize: 11, padding: '5px 8px', color: 'var(--danger)' }} title="Elimina macchina">🗑️</button>
               </div>
             </div>
           )
