@@ -209,8 +209,18 @@ export default function POSContent() {
     if (!validateCustomer()) return
     if (!shiftId||!storeId||!userId||cart.length===0) return
     setSaving(true)
+
+    // Map canale acquisizione al valore corretto dell'enum
+    const channelMap: Record<string, string> = {
+      'walk-in': 'walk-in', 'walkin': 'walk-in',
+      'social': 'social', 'google': 'google',
+      'referral': 'referral', 'other': 'other',
+    }
+    const rawChannel = customer.channel.toLowerCase().replace(/\s+/g, '-')
+    const channel = channelMap[rawChannel] || 'walk-in'
+
     const mvType = mode==='trasferimento' ? 'trasferimento' : 'sale'
-    const { data: sale } = await supabase.from('sales').insert({
+    const { data: sale, error: saleError } = await supabase.from('sales').insert({
       shift_id:shiftId, store_id:storeId, user_id:userId,
       movement_type:mvType, payment_method:method,
       subtotal, discount_amount:discAmt, discount_pct:discPct,
@@ -218,26 +228,38 @@ export default function POSContent() {
       cash_received:method==='cash'?cashNum:null, cash_change:method==='cash'?change:null,
       pos_reference:method==='pos'?posRef:null,
       customer_name:customer.name||null, customer_nationality:customer.nationality||null,
-      acquisition_channel:customer.channel.toLowerCase().replace('-','') as any,
+      acquisition_channel:channel as any,
       customer_email:customer.email||null,
     }).select('id').single()
 
-    if (sale) {
-      // Inserisci righe vendita
-      await supabase.from('sale_items').insert(
-        cart.map(i => ({ sale_id:sale.id, product_id:i.product.id, product_name:i.product.name, qty:i.qty, unit_price:i.product.price, line_total:i.line_total }))
-      )
-      // ✅ Scala stock dall'inventario
-      for (const item of cart) {
-        await supabase
-          .from('products')
-          .update({ stock: Math.max(0, item.product.stock - item.qty) })
-          .eq('id', item.product.id)
-      }
-      if (mode==='online') {
-        await supabase.from('online_orders').insert({ sale_id:sale.id, store_id:storeId, user_id:userId, delivery_type:shipping.type, recipient_name:shipping.name, address:shipping.address, city:shipping.city, cap:shipping.cap, phone:shipping.phone, courier:shipping.courier, tracking_number:shipping.tracking||null, delivery_notes:shipping.notes||null, shipping_cost:shippingCost })
-      }
-      // Notifica store
+    if (saleError || !sale) {
+      alert(`❌ Errore nel salvataggio della vendita: ${saleError?.message || 'Nessun dato restituito'}`)
+      setSaving(false)
+      return
+    }
+
+    // Inserisci righe vendita
+    const { error: itemsError } = await supabase.from('sale_items').insert(
+      cart.map(i => ({ sale_id:sale.id, product_id:i.product.id, product_name:i.product.name, qty:i.qty, unit_price:i.product.price, line_total:i.line_total }))
+    )
+    if (itemsError) {
+      console.error('Errore inserimento items:', itemsError.message)
+    }
+
+    // ✅ Scala stock dall'inventario
+    for (const item of cart) {
+      await supabase
+        .from('products')
+        .update({ stock: Math.max(0, item.product.stock - item.qty) })
+        .eq('id', item.product.id)
+    }
+
+    if (mode==='online') {
+      await supabase.from('online_orders').insert({ sale_id:sale.id, store_id:storeId, user_id:userId, delivery_type:shipping.type, recipient_name:shipping.name, address:shipping.address, city:shipping.city, cap:shipping.cap, phone:shipping.phone, courier:shipping.courier, tracking_number:shipping.tracking||null, delivery_notes:shipping.notes||null, shipping_cost:shippingCost })
+    }
+
+    // Notifica store (non blocca se fallisce)
+    try {
       await supabase.from('notifications').insert({
         store_id: storeId,
         type: 'sale',
@@ -245,7 +267,8 @@ export default function POSContent() {
         message: `${method === 'cash' ? 'Contanti' : 'POS'} — ${fmt(mode==='online'?finalTotal:total)} — Cliente: ${customer.name || 'Anonimo'}`,
         user_id: userId,
       })
-    }
+    } catch {}
+
     setCart([])
     setCustomer({name:'',nationality:'Italia',channel:'Walk-in',email:''})
     setDiscount({type:'pct',value:'',applied:false,promoCode:'',promoId:'',promoDiscount:0})
