@@ -54,13 +54,14 @@ export default function VendingPage() {
   const supabase = createClient()
   const [tab, setTab] = useState<'sales' | 'inventory'>('sales')
   const [showRestock, setShowRestock] = useState<string | null>(null)
-  const [showAddProduct, setShowAddProduct] = useState<string | null>(null) // machine id
+  const [showAddProduct, setShowAddProduct] = useState<string | null>(null)
   const [showAddMachine, setShowAddMachine] = useState(false)
   const [restockQty, setRestockQty] = useState<Record<string, string>>({})
   const [loading, setLoading] = useState(true)
   const [products, setProducts] = useState<any[]>([])
   const [newProduct, setNewProduct] = useState({ product_id: '', qty_loaded: '', price: '' })
   const [machineForm, setMachineForm] = useState({ name: '', location: '' })
+  const [machines, setMachines] = useState(MOCK_MACHINES)
 
   useEffect(() => {
     async function load() {
@@ -77,10 +78,23 @@ export default function VendingPage() {
     load()
   }, [])
 
-  const totalRevDay = MOCK_MACHINES.reduce((s, m) => s + m.revenue_day, 0)
-  const machine = showRestock ? MOCK_MACHINES.find(m => m.id === showRestock) : null
-  const addProdMachine = showAddProduct ? MOCK_MACHINES.find(m => m.id === showAddProduct) : null
+  const totalRevDay = machines.reduce((s, m) => s + m.revenue_day, 0)
+  const machine = showRestock ? machines.find(m => m.id === showRestock) : null
+  const addProdMachine = showAddProduct ? machines.find(m => m.id === showAddProduct) : null
   const machineInv = showRestock ? (MOCK_INVENTORY[showRestock] ?? []) : []
+
+  function deleteMachine(id: string, name: string, location: string) {
+    if (!confirm(`Eliminare la macchina "${name}" (${location})? Questa azione non è reversibile.`)) return
+    setMachines(prev => prev.filter(m => m.id !== id))
+  }
+
+  function addMachine() {
+    if (!machineForm.name || !machineForm.location) return
+    const newId = `vm-${Date.now()}`
+    setMachines(prev => [...prev, { id: newId, name: machineForm.name, location: machineForm.location, status: 'offline' as const, stock_pct: 0, last_restock: '-', revenue_day: 0 }])
+    setShowAddMachine(false)
+    setMachineForm({ name: '', location: '' })
+  }
 
   if (loading) return <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '60vh' }}>Caricamento...</div>
 
@@ -180,7 +194,7 @@ export default function VendingPage() {
             </div>
             <div style={{ display: 'flex', gap: 8, marginTop: 'var(--space-xl)' }}>
               <button className="btn btn-secondary" style={{ flex: 1 }} onClick={() => setShowAddMachine(false)}>Annulla</button>
-              <button className="btn btn-primary" style={{ flex: 2 }} disabled={!machineForm.name || !machineForm.location} onClick={() => { setShowAddMachine(false); setMachineForm({ name: '', location: '' }) }}>
+              <button className="btn btn-primary" style={{ flex: 2 }} disabled={!machineForm.name || !machineForm.location} onClick={addMachine}>
                 Aggiungi Macchina
               </button>
             </div>
@@ -192,19 +206,19 @@ export default function VendingPage() {
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 'var(--space-xl)' }}>
         <div>
           <h2>Macchine H24</h2>
-          <p style={{ color: 'var(--text-secondary)', fontSize: 14, marginTop: 4 }}>{MOCK_MACHINES.length} macchine attive</p>
+          <p style={{ color: 'var(--text-secondary)', fontSize: 14, marginTop: 4 }}>{machines.length} macchine attive</p>
         </div>
         <div style={{ display: 'flex', gap: 8 }}>
           <button className="btn btn-secondary" style={{ fontSize: 12 }}> Export PDF</button>
           <button className="btn btn-secondary" style={{ fontSize: 12 }}> Export Excel</button>
-          <button className="btn btn-secondary" onClick={() => setShowRestock(MOCK_MACHINES[0].id)}> Ricarica Macchina</button>
+          <button className="btn btn-secondary" onClick={() => { if (machines.length > 0) setShowRestock(machines[0].id) }}>📦 Ricarica Macchina</button>
           <button className="btn btn-primary" onClick={() => setShowAddMachine(true)}>+ Aggiungi Macchina</button>
         </div>
       </div>
 
       {/* Machine cards */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 'var(--space-md)', marginBottom: 'var(--space-xl)' }}>
-        {MOCK_MACHINES.map(m => {
+        {machines.map(m => {
           const cfg = STATUS_CONFIG[m.status]
           return (
             <div key={m.id} className="card">
@@ -232,7 +246,7 @@ export default function VendingPage() {
                 <button onClick={() => setShowAddProduct(m.id)} className="btn btn-primary" style={{ flex: 1, fontSize: 11, padding: '5px 0' }}>+ Prodotto</button>
                 <button onClick={() => setShowRestock(m.id)} className="btn btn-secondary" style={{ flex: 1, fontSize: 11, padding: '5px 0' }}>Ricarica</button>
                 <button onClick={() => setTab('inventory')} className="btn btn-ghost" style={{ flex: 1, fontSize: 11, padding: '5px 0' }}>Stock</button>
-                <button onClick={() => { if (confirm(`Eliminare la macchina "${m.name}" (${m.location})? Questa azione non è reversibile.`)) { /* TODO: delete from DB when connected */ alert('Macchina eliminata (demo)') } }} className="btn btn-ghost" style={{ fontSize: 11, padding: '5px 8px', color: 'var(--danger)' }} title="Elimina macchina">🗑️</button>
+                <button onClick={() => deleteMachine(m.id, m.name, m.location)} className="btn btn-ghost" style={{ fontSize: 11, padding: '5px 8px', color: 'var(--danger)' }} title="Elimina macchina">🗑️</button>
               </div>
             </div>
           )
@@ -274,7 +288,7 @@ export default function VendingPage() {
 
       {tab === 'inventory' && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-xl)' }}>
-          {MOCK_MACHINES.map(m => {
+          {machines.map(m => {
             const inv = MOCK_INVENTORY[m.id] ?? []
             const cfg = STATUS_CONFIG[m.status]
             return (
