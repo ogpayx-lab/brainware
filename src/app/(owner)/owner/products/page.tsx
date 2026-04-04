@@ -7,7 +7,7 @@ import { fmt, categoryLabel, calcMarginPct } from '@/lib/utils'
 import type { Product, ProductCategory } from '@/types/database'
 import * as XLSX from 'xlsx'
 
-const CATEGORIES: ProductCategory[] = ['flowers', 'hashish', 'oils', 'edibles', 'accessories']
+const CATEGORIES: ProductCategory[] = ['flowers', 'hashish', 'oils', 'edibles', 'accessories', 'cosmetics', 'clothes', 'seeds', 'vape', 'food']
 const EMPTY_FORM = {
   name: '', category: 'flowers' as ProductCategory,
   price: '', cost: '', unit: 'g', barcode: '', stock_alert: '5',

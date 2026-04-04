@@ -7,7 +7,7 @@ import { categoryLabel } from '@/lib/utils'
 import type { Product, ProductCategory, Store } from '@/types/database'
 import * as XLSX from 'xlsx'
 
-const CATEGORIES: ProductCategory[] = ['flowers', 'hashish', 'oils', 'edibles', 'accessories']
+const CATEGORIES: ProductCategory[] = ['flowers', 'hashish', 'oils', 'edibles', 'accessories', 'cosmetics', 'clothes', 'seeds', 'vape', 'food']
 const QUICK_AMOUNTS = [10, 25, 50, 100]
 
 interface StockEntry {

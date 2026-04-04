@@ -58,6 +58,11 @@ export const categoryLabel: Record<string, string> = {
   oils:        'Oli & Estratti',
   edibles:     'Edibili',
   accessories: 'Accessori',
+  cosmetics:   'Cosmetici',
+  clothes:     'Abbigliamento',
+  seeds:       'Semi',
+  vape:        'Vape',
+  food:        'Alimentari',
 }
 
 export const movementLabel: Record<string, string> = {

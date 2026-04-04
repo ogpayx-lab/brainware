@@ -7,7 +7,7 @@ import type { Product, ProductCategory } from '@/types/database'
 import { BottomNav } from '@/components/employee/BottomNav'
 
 type Mode = 'negozio' | 'online' | 'trasferimento'
-const CATEGORIES: ProductCategory[] = ['flowers','hashish','oils','edibles','accessories']
+const CATEGORIES: ProductCategory[] = ['flowers','hashish','oils','edibles','accessories','cosmetics','clothes','seeds','vape','food']
 
 interface RecentSale {
   id: string
