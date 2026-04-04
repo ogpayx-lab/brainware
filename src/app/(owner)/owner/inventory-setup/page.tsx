@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { categoryLabel } from '@/lib/utils'
 import type { Product, ProductCategory, Store } from '@/types/database'
+import * as XLSX from 'xlsx'
 
 const CATEGORIES: ProductCategory[] = ['flowers', 'hashish', 'oils', 'edibles', 'accessories']
 const QUICK_AMOUNTS = [10, 25, 50, 100]
@@ -126,7 +127,7 @@ export default function InventorySetupPage() {
     loadProducts(selectedStore)
   }
 
-  // CSV stock import
+  // Stock file import (CSV, XLSX, Numbers)
   function handleCsvFile(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
     if (!file) return
@@ -134,26 +135,64 @@ export default function InventorySetupPage() {
     setCsvApplied(false)
     const reader = new FileReader()
     reader.onload = (ev) => {
-      const text = ev.target?.result as string
-      const lines = text.trim().split('\n').filter(l => l.trim())
-      if (lines.length < 2) { setCsvError('File vuoto o solo intestazione.'); return }
-      const headers = lines[0].split(',').map(h => h.trim().toLowerCase())
-      const nameIdx = headers.indexOf('nome')
-      const stockIdx = headers.indexOf('stock')
-      if (nameIdx === -1 || stockIdx === -1) {
-        setCsvError('Colonne obbligatorie mancanti: nome, stock')
-        return
+      try {
+        const data = new Uint8Array(ev.target?.result as ArrayBuffer)
+        const workbook = XLSX.read(data, { type: 'array' })
+        const sheetName = workbook.SheetNames[0]
+        const sheet = workbook.Sheets[sheetName]
+        const rawRows: any[][] = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: '' })
+
+        if (rawRows.length < 2) { setCsvError('File vuoto o solo intestazione.'); return }
+
+        const normalize = (s: any) => String(s ?? '').toLowerCase().trim().replace(/\s+/g, '_')
+
+        // Auto-detect header row: cerca la riga con "nome" e "stock"
+        let headerRowIdx = -1
+        for (let i = 0; i < Math.min(rawRows.length, 10); i++) {
+          const cells = rawRows[i].map(normalize)
+          if (cells.includes('nome') && cells.includes('stock')) {
+            headerRowIdx = i
+            break
+          }
+        }
+
+        if (headerRowIdx === -1) {
+          setCsvError('Colonne obbligatorie non trovate: nome, stock. Assicurati che il file abbia queste colonne.')
+          return
+        }
+
+        const headers = rawRows[headerRowIdx].map(normalize)
+        const nameIdx = headers.indexOf('nome')
+        const stockIdx = headers.indexOf('stock')
+        const dataRows = rawRows.slice(headerRowIdx + 1).filter(r => r.some((c: any) => String(c).trim() !== ''))
+
+        if (dataRows.length === 0) { setCsvError('Nessun dato trovato dopo le intestazioni.'); return }
+
+        const rows = dataRows.map(cols => {
+          const name = String(cols[nameIdx] ?? '').trim()
+          const stock = parseInt(cols[stockIdx]) || 0
+          const match = entries.find(e => e.name.toLowerCase() === name.toLowerCase())
+          return { name, stock, matched: !!match, product_id: match?.product_id ?? null }
+        }).filter(r => r.name)
+        setCsvRows(rows)
+      } catch (err: any) {
+        setCsvError(`Errore nella lettura del file: ${err.message || 'formato non supportato'}`)
       }
-      const rows = lines.slice(1).map(line => {
-        const cols = line.split(',').map(c => c.trim())
-        const name = cols[nameIdx] ?? ''
-        const stock = parseInt(cols[stockIdx]) || 0
-        const match = entries.find(e => e.name.toLowerCase() === name.toLowerCase())
-        return { name, stock, matched: !!match, product_id: match?.product_id ?? null }
-      })
-      setCsvRows(rows)
     }
-    reader.readAsText(file)
+    reader.readAsArrayBuffer(file)
+  }
+
+  // Genera template con i prodotti attuali dello store
+  function downloadTemplate() {
+    if (entries.length === 0) return
+    const csvContent = 'nome,stock\n' + entries.map(e => `${e.name},${e.current_stock}`).join('\n')
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
+    const url = URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.href = url
+    link.download = `stock_${stores.find(s => s.id === selectedStore)?.name?.replace(/\s+/g, '_') || 'store'}.csv`
+    link.click()
+    URL.revokeObjectURL(url)
   }
 
   function applyCsvStock() {
@@ -198,27 +237,34 @@ export default function InventorySetupPage() {
 
   return (
     <div>
-      {/* CSV Import Modal */}
+      {/* Stock Import Modal */}
       {showCsvImport && (
         <div className="modal-overlay">
           <div className="modal" style={{ maxWidth: 560 }}>
-            <h3 style={{ marginBottom: 8 }}>📊 Importa Stock da CSV</h3>
+            <h3 style={{ marginBottom: 8 }}>📊 Importa Stock</h3>
             <p style={{ color: 'var(--text-secondary)', fontSize: 14, marginBottom: 'var(--space-lg)' }}>
-              Carica un CSV con colonne <strong>nome, stock</strong> per aggiornare le quantità in bulk.
+              Carica un file con colonne <strong>nome, stock</strong> per aggiornare le quantità in bulk. Formati: <strong>CSV, Excel, Numbers</strong>.
             </p>
 
+            {/* Template section */}
             <div style={{ background: 'var(--bg-surface)', borderRadius: 'var(--radius-md)', padding: 'var(--space-md)', marginBottom: 'var(--space-lg)' }}>
-              <div style={{ fontSize: 12, color: 'var(--text-secondary)' }}>
-                <strong>Formato richiesto:</strong> CSV con colonne <code>nome, stock</code>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+                <div>
+                  <div style={{ fontWeight: 600, fontSize: 13 }}>📄 Template Stock</div>
+                  <div style={{ fontSize: 11, color: 'var(--text-tertiary)', marginTop: 2 }}>Colonne: <code>nome, stock</code> — il nome deve corrispondere al prodotto</div>
+                </div>
+                <a href="/stock_template.csv" download className="btn btn-secondary" style={{ flexShrink: 0, textDecoration: 'none', fontSize: 12 }}>Template vuoto</a>
               </div>
-              <div style={{ fontSize: 11, color: 'var(--text-tertiary)', marginTop: 4 }}>
-                Esempio: <code>Amnesia Haze, 50</code> — il nome deve corrispondere esattamente al prodotto
-              </div>
+              {entries.length > 0 && (
+                <button onClick={downloadTemplate} className="btn btn-secondary btn-full" style={{ fontSize: 12, marginTop: 6 }}>
+                  📥 Scarica Template con i {entries.length} prodotti di questo store (pre-compilato)
+                </button>
+              )}
             </div>
 
             <div className="input-group" style={{ marginBottom: 'var(--space-lg)' }}>
-              <label className="input-label">Carica file CSV</label>
-              <input ref={csvRef} type="file" accept=".csv" onChange={handleCsvFile} style={{ padding: '10px', border: '1px solid var(--border-default)', borderRadius: 'var(--radius-sm)', width: '100%', fontSize: 14 }} />
+              <label className="input-label">Carica file (CSV, Excel, Numbers)</label>
+              <input ref={csvRef} type="file" accept=".csv,.xlsx,.xls,.numbers" onChange={handleCsvFile} style={{ padding: '10px', border: '1px solid var(--border-default)', borderRadius: 'var(--radius-sm)', width: '100%', fontSize: 14 }} />
             </div>
 
             {csvError && <div style={{ background: 'var(--danger-light)', border: '1px solid var(--danger)', borderRadius: 'var(--radius-sm)', padding: '10px 14px', fontSize: 13, color: 'var(--danger)', marginBottom: 'var(--space-md)' }}>⚠️ {csvError}</div>}
