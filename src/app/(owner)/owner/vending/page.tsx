@@ -40,6 +40,9 @@ export default function VendingPage() {
   const [addForm, setAddForm] = useState({ product_id: '', qty: '', price: '' })
   const [restockQty, setRestockQty] = useState<Record<string, string>>({})
   const [loadingProducts, setLoadingProducts] = useState(false)
+  // CyberEtna Sync
+  const [syncing, setSyncing] = useState(false)
+  const [syncResult, setSyncResult] = useState<{ success?: boolean; message?: string } | null>(null)
 
   useEffect(() => { loadData() }, [])
 
@@ -94,6 +97,31 @@ export default function VendingPage() {
     setMachineForm({ name: '', location: '', status: 'offline' })
     setSaving(false)
     loadData()
+  }
+
+  // ---- CyberEtna Sync ----
+  async function syncCyberEtna() {
+    if (!storeId || syncing) return
+    setSyncing(true)
+    setSyncResult(null)
+    try {
+      const res = await fetch('/api/vending-sync', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ storeId, action: 'all' }),
+      })
+      const data = await res.json()
+      if (data.success) {
+        setSyncResult({ success: true, message: `✅ Sincronizzati ${data.synced?.length || 0} dati macchina` })
+        loadData()
+      } else {
+        setSyncResult({ success: false, message: `❌ ${data.error || 'Errore sync'}` })
+      }
+    } catch (e: any) {
+      setSyncResult({ success: false, message: `❌ Errore: ${e.message}` })
+    }
+    setSyncing(false)
+    setTimeout(() => setSyncResult(null), 5000)
   }
 
   function openEdit(m: VendingMachine) {
@@ -406,8 +434,25 @@ export default function VendingPage() {
           <h2>🏪 Macchine H24</h2>
           <p style={{ color: 'var(--text-secondary)', fontSize: 14, marginTop: 4 }}>{machines.length} macchine registrate</p>
         </div>
-        <button className="btn btn-primary" onClick={() => setShowAddMachine(true)}>+ Aggiungi Macchina</button>
+        <div style={{ display: 'flex', gap: 8 }}>
+          <button className="btn btn-secondary" onClick={syncCyberEtna} disabled={syncing} style={{ fontSize: 12 }}>
+            {syncing ? '🔄 Sincronizzazione...' : '🔗 Sync CyberEtna'}
+          </button>
+          <button className="btn btn-primary" onClick={() => setShowAddMachine(true)}>+ Aggiungi Macchina</button>
+        </div>
       </div>
+
+      {/* Sync result banner */}
+      {syncResult && (
+        <div style={{
+          padding: '10px 16px', borderRadius: 10, marginBottom: 'var(--space-md)',
+          background: syncResult.success ? 'var(--success-light)' : 'var(--danger-light)',
+          color: syncResult.success ? 'var(--success)' : 'var(--danger)',
+          fontSize: 13, fontWeight: 600,
+        }}>
+          {syncResult.message}
+        </div>
+      )}
 
       {/* Empty state */}
       {machines.length === 0 && (
