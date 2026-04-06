@@ -27,8 +27,8 @@ SUPABASE_URL = "https://jksuysdzvxlzfycchcwe.supabase.co"
 SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imprc3V5c2R6dnhsemZ5Y2NoY3dlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ1ODcwMzMsImV4cCI6MjA5MDE2MzAzM30.XqmP6idyMKI4OvbeJp716O-omFiZ3HILBFvey6ZckX8"
 
 # Machine identity
-STORE_ID = "d08ceb4a-1a11-40c4-b9c4-1b2e5f68d2bb"
-VENDING_MACHINE_ID = "cd94a16d-36fe-43b2-8a62-fc7c4266fc0a"
+STORE_ID = "65e7b013-8f66-48e6-ac0c-94d018809e15"
+VENDING_MACHINE_ID = "54b25fc8-13ea-4e1b-978c-8292dc20e80e"
 MACHINE_NAME = "Sistina"  # CyberEtna name: Cavour
 
 # Product mapping: CyberEtna productId -> BrainWare product name

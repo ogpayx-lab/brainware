@@ -48,8 +48,43 @@ export default function VendingPage() {
   const [showAddCollection, setShowAddCollection] = useState(false)
   const [collectionForm, setCollectionForm] = useState({ amount: '', notes: '' })
   // Vendite reali (da machine.db sync)
-  const [realSales, setRealSales] = useState<any[]>([])
-  const [salesTotals, setSalesTotals] = useState({ count: 0, revenue: 0, today: 0, todayCount: 0 })
+  const [allSalesData, setAllSalesData] = useState<any[]>([])
+  const [salesFilter, setSalesFilter] = useState<'today'|'7d'|'30d'|'all'|'custom'>('all')
+  const [dateFrom, setDateFrom] = useState('')
+  const [dateTo, setDateTo] = useState('')
+
+  // Filtra vendite in base al periodo selezionato
+  const filteredSales = allSalesData.filter(s => {
+    if (salesFilter === 'all') return true
+    const saleDate = new Date(s.sold_at)
+    const now = new Date()
+    if (salesFilter === 'today') {
+      return saleDate.toISOString().slice(0,10) === now.toISOString().slice(0,10)
+    }
+    if (salesFilter === '7d') {
+      const diff = (now.getTime() - saleDate.getTime()) / (1000*60*60*24)
+      return diff <= 7
+    }
+    if (salesFilter === '30d') {
+      const diff = (now.getTime() - saleDate.getTime()) / (1000*60*60*24)
+      return diff <= 30
+    }
+    if (salesFilter === 'custom') {
+      const saleDateStr = saleDate.toISOString().slice(0,10)
+      if (dateFrom && saleDateStr < dateFrom) return false
+      if (dateTo && saleDateStr > dateTo) return false
+      return true
+    }
+    return true
+  })
+  const salesTotals = {
+    count: filteredSales.length,
+    revenue: filteredSales.reduce((sum, s) => sum + (s.price || 0), 0),
+  }
+  const filterLabels: Record<string, string> = { today: 'Oggi', '7d': '7 Giorni', '30d': '30 Giorni', all: 'Tutto', custom: 'Personalizzato' }
+  const activeFilterLabel = salesFilter === 'custom' && (dateFrom || dateTo)
+    ? `${dateFrom ? new Date(dateFrom).toLocaleDateString('it-IT') : '...'} → ${dateTo ? new Date(dateTo).toLocaleDateString('it-IT') : '...'}`
+    : filterLabels[salesFilter]
 
   useEffect(() => { loadData() }, [])
 
@@ -154,28 +189,13 @@ export default function VendingPage() {
       .order('collected_at', { ascending: false })
       .limit(20)
     setCollections(cols ?? [])
-    // Carica vendite reali
+    // Carica vendite reali (tutte)
     const { data: sales } = await supabase
       .from('vending_sales')
       .select('*')
       .eq('vending_machine_id', m.id)
       .order('sold_at', { ascending: false })
-      .limit(30)
-    setRealSales(sales ?? [])
-    // Calcola totali
-    const { data: allSales } = await supabase
-      .from('vending_sales')
-      .select('price, sold_at')
-      .eq('vending_machine_id', m.id)
-    const today = new Date().toISOString().slice(0, 10)
-    const all = allSales ?? []
-    const todaySales = all.filter(s => s.sold_at?.startsWith(today))
-    setSalesTotals({
-      count: all.length,
-      revenue: all.reduce((sum, s) => sum + (s.price || 0), 0),
-      today: todaySales.reduce((sum, s) => sum + (s.price || 0), 0),
-      todayCount: todaySales.length,
-    })
+    setAllSalesData(sales ?? [])
     setLoadingProducts(false)
   }
 
@@ -433,33 +453,56 @@ export default function VendingPage() {
 
         {/* ---- SEZIONE VENDITE REALI ---- */}
         <div style={{ marginTop: 'var(--space-xl)' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--space-md)' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--space-md)', flexWrap: 'wrap', gap: 8 }}>
             <h3>📊 Vendite Reali (Auto-Sync)</h3>
-            <span style={{ fontSize: 11, color: 'var(--text-tertiary)', background: 'var(--bg-surface-alt)', padding: '4px 10px', borderRadius: 20 }}>🔄 Sync ogni 5 min</span>
+            <div style={{ display: 'flex', gap: 4, alignItems: 'center', flexWrap: 'wrap' }}>
+              {(['today','7d','30d','all','custom'] as const).map(f => (
+                <button key={f} onClick={() => setSalesFilter(f)} style={{
+                  padding: '5px 14px', borderRadius: 20, fontSize: 12, fontWeight: 600, border: 'none', cursor: 'pointer',
+                  background: salesFilter === f ? 'var(--primary)' : 'var(--bg-surface-alt)',
+                  color: salesFilter === f ? '#fff' : 'var(--text-secondary)',
+                  transition: 'all 0.2s',
+                }}>{f === 'custom' ? '📅 Periodo' : filterLabels[f]}</button>
+              ))}
+              <span style={{ fontSize: 11, color: 'var(--text-tertiary)', background: 'var(--bg-surface-alt)', padding: '4px 10px', borderRadius: 20, marginLeft: 4 }}>🔄 Sync ogni 5 min</span>
+            </div>
           </div>
 
+          {/* Date picker per filtro personalizzato */}
+          {salesFilter === 'custom' && (
+            <div style={{ display: 'flex', gap: 'var(--space-md)', alignItems: 'center', marginBottom: 'var(--space-lg)', padding: '12px 16px', background: 'var(--bg-surface-alt)', borderRadius: 12, flexWrap: 'wrap' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <label style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-secondary)' }}>Da:</label>
+                <input type="date" className="input" value={dateFrom} onChange={e => setDateFrom(e.target.value)} style={{ fontSize: 13, padding: '6px 10px', borderRadius: 8, maxWidth: 160 }} />
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <label style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-secondary)' }}>A:</label>
+                <input type="date" className="input" value={dateTo} onChange={e => setDateTo(e.target.value)} style={{ fontSize: 13, padding: '6px 10px', borderRadius: 8, maxWidth: 160 }} />
+              </div>
+              {(dateFrom || dateTo) && (
+                <button className="btn btn-ghost" style={{ fontSize: 11, padding: '4px 10px' }} onClick={() => { setDateFrom(''); setDateTo('') }}>✕ Reset</button>
+              )}
+            </div>
+          )}
+
           {/* KPI Vendite Reali */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 'var(--space-md)', marginBottom: 'var(--space-lg)' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 'var(--space-md)', marginBottom: 'var(--space-lg)' }}>
             <div className="kpi-card">
-              <div className="kpi-label">Vendite Totali</div>
+              <div className="kpi-label">Vendite ({activeFilterLabel})</div>
               <div className="kpi-value">{salesTotals.count}</div>
             </div>
             <div className="kpi-card">
-              <div className="kpi-label">Revenue Totale</div>
+              <div className="kpi-label">Revenue ({activeFilterLabel})</div>
               <div className="kpi-value" style={{ color: 'var(--success)' }}>{fmt(salesTotals.revenue)}</div>
             </div>
             <div className="kpi-card">
-              <div className="kpi-label">Vendite Oggi</div>
-              <div className="kpi-value" style={{ color: 'var(--primary)' }}>{salesTotals.todayCount}</div>
-            </div>
-            <div className="kpi-card">
-              <div className="kpi-label">Revenue Oggi</div>
-              <div className="kpi-value" style={{ color: 'var(--success)' }}>{fmt(salesTotals.today)}</div>
+              <div className="kpi-label">Media per Vendita</div>
+              <div className="kpi-value" style={{ color: 'var(--primary)' }}>{salesTotals.count > 0 ? fmt(salesTotals.revenue / salesTotals.count) : '—'}</div>
             </div>
           </div>
 
           {/* Lista ultime vendite */}
-          {realSales.length > 0 ? (
+          {filteredSales.length > 0 ? (
             <div className="table-wrapper">
               <table>
                 <thead>
@@ -472,7 +515,7 @@ export default function VendingPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {realSales.map((s: any) => (
+                  {filteredSales.slice(0, 50).map((s: any) => (
                     <tr key={s.id}>
                       <td style={{ fontSize: 12 }}>{new Date(s.sold_at).toLocaleString('it-IT')}</td>
                       <td><span style={{ background: 'var(--bg-surface-alt)', padding: '2px 8px', borderRadius: 12, fontSize: 12, fontWeight: 600 }}>#{s.dispenser_id}</span></td>
