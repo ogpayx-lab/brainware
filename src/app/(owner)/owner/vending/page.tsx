@@ -508,22 +508,30 @@ export default function VendingPage() {
                 <thead>
                   <tr>
                     <th>Data/Ora</th>
-                    <th>Dispenser</th>
+                    <th>Prodotto</th>
+                    <th>Motore</th>
                     <th>Prezzo</th>
                     <th>Pagamento</th>
                     <th>Stato</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {filteredSales.slice(0, 50).map((s: any) => (
-                    <tr key={s.id}>
-                      <td style={{ fontSize: 12 }}>{new Date(s.sold_at).toLocaleString('it-IT')}</td>
-                      <td><span style={{ background: 'var(--bg-surface-alt)', padding: '2px 8px', borderRadius: 12, fontSize: 12, fontWeight: 600 }}>#{s.dispenser_id}</span></td>
-                      <td style={{ fontWeight: 700, color: 'var(--success)' }}>{fmt(s.price)}</td>
-                      <td style={{ fontSize: 12 }}>{s.payment_type === 'cash' ? '💵 Contanti' : '💳 Altro'}</td>
-                      <td>{s.status === 'success' ? <span className="badge badge-success" style={{ fontSize: 10 }}>✅ OK</span> : <span className="badge badge-danger" style={{ fontSize: 10 }}>❌ Err</span>}</td>
-                    </tr>
-                  ))}
+                  {filteredSales.slice(0, 50).map((s: any) => {
+                    // Product name: from note field (new sync) or price-based fallback
+                    const productName = s.note || (s.price >= 40 ? 'PRE ROLL MIX' : s.price >= 35 ? 'GELATO 3G' : 'Infiorescenza 3G')
+                    return (
+                      <tr key={s.id}>
+                        <td style={{ fontSize: 12 }}>{new Date(s.sold_at).toLocaleString('it-IT')}</td>
+                        <td>
+                          <div style={{ fontWeight: 600, fontSize: 13 }}>{productName}</div>
+                        </td>
+                        <td><span style={{ background: 'var(--bg-surface-alt)', padding: '2px 8px', borderRadius: 12, fontSize: 11, fontWeight: 600 }}>#{s.dispenser_id}</span></td>
+                        <td style={{ fontWeight: 700, color: 'var(--success)' }}>{fmt(s.price)}</td>
+                        <td style={{ fontSize: 12 }}>{s.payment_type === 'cash' ? '💵 Contanti' : '💳 Altro'}</td>
+                        <td>{s.status === 'success' ? <span className="badge badge-success" style={{ fontSize: 10 }}>✅ OK</span> : <span className="badge badge-danger" style={{ fontSize: 10 }}>❌ Err</span>}</td>
+                      </tr>
+                    )
+                  })}
                 </tbody>
               </table>
             </div>

@@ -31,18 +31,18 @@ STORE_ID = "65e7b013-8f66-48e6-ac0c-94d018809e15"
 VENDING_MACHINE_ID = "54b25fc8-13ea-4e1b-978c-8292dc20e80e"
 MACHINE_NAME = "Sistina"  # CyberEtna name: Cavour
 
-# Product mapping: CyberEtna productId -> BrainWare product name
-PRODUCT_MAP = {
-    2525: "Prodotto 4",   # dispenserId 4, €40
-    2531: "Prodotto 5",   # dispenserId 5, €40
-    2526: "Prodotto 6",   # dispenserId 6, €40
-    2528: "Prodotto 7",   # dispenserId 7, €40
-    2534: "Prodotto 8",   # dispenserId 8, €40
-    2532: "Prodotto 9",   # dispenserId 9, €30
-    2529: "Prodotto 10",  # dispenserId 10, €30
-    2530: "Prodotto 11",  # dispenserId 11, €30
-    2533: "Prodotto 12",  # dispenserId 12, €35
-    2527: "Prodotto 13",  # dispenserId 13, €30
+# Dispenser ID -> Product name mapping (from CyberEtna panel)
+DISPENSER_MAP = {
+    4: "PRE ROLL MIX",
+    5: "PRE ROLL MIX",
+    6: "PRE ROLL MIX",
+    7: "SUPER SKUNK 3G",
+    8: "AMNESIA 3G",
+    9: "GELATO 3G",
+    10: "STRAWBERRY 3G",
+    11: "WHITE WIDOW 3G",
+    12: "PRE ROLL MIX",
+    13: "PRE ROLL MIX",
 }
 
 
@@ -169,7 +169,7 @@ def sync_sales_to_supabase(sales):
             "dispenser_id": sale["dispenserId"],
             "price": sale["price"],
             "payment_type": "cash" if sale.get("tipoPagamento") == 1 else "other",
-            "note": sale.get("note", ""),
+            "note": sale.get("nomeProdotto") or DISPENSER_MAP.get(sale["dispenserId"], f"Dispenser {sale['dispenserId']}"),
             "status": "success" if sale.get("tipoErogazione") == 1 else "failed",
             "sold_at": ms_to_iso(sale["dateOra"]),
         }
