@@ -43,6 +43,10 @@ export default function VendingPage() {
   // CyberEtna Sync
   const [syncing, setSyncing] = useState(false)
   const [syncResult, setSyncResult] = useState<{ success?: boolean; message?: string } | null>(null)
+  // Incassi
+  const [collections, setCollections] = useState<any[]>([])
+  const [showAddCollection, setShowAddCollection] = useState(false)
+  const [collectionForm, setCollectionForm] = useState({ amount: '', notes: '' })
 
   useEffect(() => { loadData() }, [])
 
@@ -139,7 +143,45 @@ export default function VendingPage() {
       .eq('vending_machine_id', m.id)
       .order('loaded_at', { ascending: false })
     setMachineProducts(data ?? [])
+    // Carica incassi
+    const { data: cols } = await supabase
+      .from('vending_collections')
+      .select('*')
+      .eq('vending_machine_id', m.id)
+      .order('collected_at', { ascending: false })
+      .limit(20)
+    setCollections(cols ?? [])
     setLoadingProducts(false)
+  }
+
+  async function addCollection() {
+    if (!selectedMachine || !collectionForm.amount) return
+    setSaving(true)
+    const amount = parseFloat(collectionForm.amount) || 0
+    if (amount <= 0) { setSaving(false); return }
+    
+    await supabase.from('vending_collections').insert({
+      vending_machine_id: selectedMachine.id,
+      store_id: storeId,
+      amount,
+      notes: collectionForm.notes || null,
+      collected_at: new Date().toISOString(),
+    })
+
+    // Crea anche una notifica
+    try {
+      await supabase.from('notifications').insert({
+        store_id: storeId,
+        type: 'sale',
+        title: '🏧 Incasso H24',
+        message: `${selectedMachine.name} — ${fmt(amount)}${collectionForm.notes ? ` — ${collectionForm.notes}` : ''}`,
+      })
+    } catch {}
+
+    setShowAddCollection(false)
+    setCollectionForm({ amount: '', notes: '' })
+    setSaving(false)
+    openMachineDetail(selectedMachine)
   }
 
   async function addProductToMachine() {
@@ -361,6 +403,95 @@ export default function VendingPage() {
         {selectedMachine.last_restock_at && (
           <div style={{ marginTop: 'var(--space-lg)', fontSize: 12, color: 'var(--text-tertiary)', textAlign: 'center' }}>
             Ultima ricarica: {new Date(selectedMachine.last_restock_at).toLocaleString('it-IT')}
+          </div>
+        )}
+
+        {/* ---- SEZIONE INCASSI ---- */}
+        <div style={{ marginTop: 'var(--space-xl)' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--space-md)' }}>
+            <h3>💰 Incassi & Vendite</h3>
+            <button className="btn btn-primary" style={{ fontSize: 12 }} onClick={() => setShowAddCollection(true)}>+ Registra Incasso</button>
+          </div>
+
+          {/* KPI Vendite */}
+          {collections.length > 0 && (
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 'var(--space-md)', marginBottom: 'var(--space-lg)' }}>
+              <div className="kpi-card">
+                <div className="kpi-label">Totale Incassato</div>
+                <div className="kpi-value" style={{ color: 'var(--success)' }}>{fmt(collections.reduce((s, c) => s + (c.amount || 0), 0))}</div>
+              </div>
+              <div className="kpi-card">
+                <div className="kpi-label">Ultimo Incasso</div>
+                <div className="kpi-value">{fmt(collections[0]?.amount || 0)}</div>
+                <div style={{ fontSize: 11, color: 'var(--text-tertiary)', marginTop: 4 }}>
+                  {collections[0]?.collected_at ? new Date(collections[0].collected_at).toLocaleDateString('it-IT') : '—'}
+                </div>
+              </div>
+              <div className="kpi-card">
+                <div className="kpi-label">N. Ritiri</div>
+                <div className="kpi-value">{collections.length}</div>
+              </div>
+            </div>
+          )}
+
+          {/* Lista incassi */}
+          {collections.length === 0 ? (
+            <div className="card" style={{ textAlign: 'center', padding: 'var(--space-xl)' }}>
+              <div style={{ fontSize: 36, marginBottom: 8 }}>💰</div>
+              <p style={{ color: 'var(--text-secondary)', fontSize: 14, marginBottom: 'var(--space-md)' }}>
+                Nessun incasso registrato. Quando raccogli i contanti dalla macchina, registra l'incasso qui.
+              </p>
+              <button className="btn btn-primary" onClick={() => setShowAddCollection(true)}>+ Registra Primo Incasso</button>
+            </div>
+          ) : (
+            <div className="table-wrapper">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Data</th>
+                    <th>Importo</th>
+                    <th>Note</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {collections.map((c: any) => (
+                    <tr key={c.id}>
+                      <td style={{ fontSize: 13 }}>{new Date(c.collected_at).toLocaleString('it-IT')}</td>
+                      <td style={{ fontWeight: 700, color: 'var(--success)' }}>{fmt(c.amount)}</td>
+                      <td style={{ fontSize: 13, color: 'var(--text-secondary)' }}>{c.notes || '—'}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+
+        {/* Modal Registra Incasso */}
+        {showAddCollection && (
+          <div className="modal-overlay">
+            <div className="modal" style={{ maxWidth: 420 }}>
+              <h3 style={{ marginBottom: 'var(--space-xl)' }}>💰 Registra Incasso</h3>
+              <p style={{ color: 'var(--text-secondary)', fontSize: 13, marginBottom: 'var(--space-lg)' }}>
+                Macchina: <strong>{selectedMachine.name}</strong>
+              </p>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-md)' }}>
+                <div className="input-group">
+                  <label className="input-label">Importo incassato (€) *</label>
+                  <input className="input" type="number" step="0.01" min="0" placeholder="Es. 150.00" value={collectionForm.amount} onChange={e => setCollectionForm(f => ({ ...f, amount: e.target.value }))} />
+                </div>
+                <div className="input-group">
+                  <label className="input-label">Note (opzionale)</label>
+                  <input className="input" placeholder="Es. Ritiro settimanale" value={collectionForm.notes} onChange={e => setCollectionForm(f => ({ ...f, notes: e.target.value }))} />
+                </div>
+              </div>
+              <div style={{ display: 'flex', gap: 8, marginTop: 'var(--space-xl)' }}>
+                <button className="btn btn-secondary" style={{ flex: 1 }} onClick={() => { setShowAddCollection(false); setCollectionForm({ amount: '', notes: '' }) }}>Annulla</button>
+                <button className="btn btn-primary" style={{ flex: 2 }} disabled={!collectionForm.amount || saving} onClick={addCollection}>
+                  {saving ? 'Salvataggio...' : '💰 Registra Incasso'}
+                </button>
+              </div>
+            </div>
           </div>
         )}
       </div>
