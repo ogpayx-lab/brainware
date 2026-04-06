@@ -47,6 +47,9 @@ export default function VendingPage() {
   const [collections, setCollections] = useState<any[]>([])
   const [showAddCollection, setShowAddCollection] = useState(false)
   const [collectionForm, setCollectionForm] = useState({ amount: '', notes: '' })
+  // Vendite reali (da machine.db sync)
+  const [realSales, setRealSales] = useState<any[]>([])
+  const [salesTotals, setSalesTotals] = useState({ count: 0, revenue: 0, today: 0, todayCount: 0 })
 
   useEffect(() => { loadData() }, [])
 
@@ -151,6 +154,28 @@ export default function VendingPage() {
       .order('collected_at', { ascending: false })
       .limit(20)
     setCollections(cols ?? [])
+    // Carica vendite reali
+    const { data: sales } = await supabase
+      .from('vending_sales')
+      .select('*')
+      .eq('vending_machine_id', m.id)
+      .order('sold_at', { ascending: false })
+      .limit(30)
+    setRealSales(sales ?? [])
+    // Calcola totali
+    const { data: allSales } = await supabase
+      .from('vending_sales')
+      .select('price, sold_at')
+      .eq('vending_machine_id', m.id)
+    const today = new Date().toISOString().slice(0, 10)
+    const all = allSales ?? []
+    const todaySales = all.filter(s => s.sold_at?.startsWith(today))
+    setSalesTotals({
+      count: all.length,
+      revenue: all.reduce((sum, s) => sum + (s.price || 0), 0),
+      today: todaySales.reduce((sum, s) => sum + (s.price || 0), 0),
+      todayCount: todaySales.length,
+    })
     setLoadingProducts(false)
   }
 
@@ -405,6 +430,67 @@ export default function VendingPage() {
             Ultima ricarica: {new Date(selectedMachine.last_restock_at).toLocaleString('it-IT')}
           </div>
         )}
+
+        {/* ---- SEZIONE VENDITE REALI ---- */}
+        <div style={{ marginTop: 'var(--space-xl)' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--space-md)' }}>
+            <h3>📊 Vendite Reali (Auto-Sync)</h3>
+            <span style={{ fontSize: 11, color: 'var(--text-tertiary)', background: 'var(--bg-surface-alt)', padding: '4px 10px', borderRadius: 20 }}>🔄 Sync ogni 5 min</span>
+          </div>
+
+          {/* KPI Vendite Reali */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 'var(--space-md)', marginBottom: 'var(--space-lg)' }}>
+            <div className="kpi-card">
+              <div className="kpi-label">Vendite Totali</div>
+              <div className="kpi-value">{salesTotals.count}</div>
+            </div>
+            <div className="kpi-card">
+              <div className="kpi-label">Revenue Totale</div>
+              <div className="kpi-value" style={{ color: 'var(--success)' }}>{fmt(salesTotals.revenue)}</div>
+            </div>
+            <div className="kpi-card">
+              <div className="kpi-label">Vendite Oggi</div>
+              <div className="kpi-value" style={{ color: 'var(--primary)' }}>{salesTotals.todayCount}</div>
+            </div>
+            <div className="kpi-card">
+              <div className="kpi-label">Revenue Oggi</div>
+              <div className="kpi-value" style={{ color: 'var(--success)' }}>{fmt(salesTotals.today)}</div>
+            </div>
+          </div>
+
+          {/* Lista ultime vendite */}
+          {realSales.length > 0 ? (
+            <div className="table-wrapper">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Data/Ora</th>
+                    <th>Dispenser</th>
+                    <th>Prezzo</th>
+                    <th>Pagamento</th>
+                    <th>Stato</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {realSales.map((s: any) => (
+                    <tr key={s.id}>
+                      <td style={{ fontSize: 12 }}>{new Date(s.sold_at).toLocaleString('it-IT')}</td>
+                      <td><span style={{ background: 'var(--bg-surface-alt)', padding: '2px 8px', borderRadius: 12, fontSize: 12, fontWeight: 600 }}>#{s.dispenser_id}</span></td>
+                      <td style={{ fontWeight: 700, color: 'var(--success)' }}>{fmt(s.price)}</td>
+                      <td style={{ fontSize: 12 }}>{s.payment_type === 'cash' ? '💵 Contanti' : '💳 Altro'}</td>
+                      <td>{s.status === 'success' ? <span className="badge badge-success" style={{ fontSize: 10 }}>✅ OK</span> : <span className="badge badge-danger" style={{ fontSize: 10 }}>❌ Err</span>}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ) : (
+            <div className="card" style={{ textAlign: 'center', padding: 'var(--space-xl)' }}>
+              <div style={{ fontSize: 36, marginBottom: 8 }}>📊</div>
+              <p style={{ color: 'var(--text-secondary)', fontSize: 14 }}>In attesa del primo sync automatico dal distributore...</p>
+            </div>
+          )}
+        </div>
 
         {/* ---- SEZIONE INCASSI ---- */}
         <div style={{ marginTop: 'var(--space-xl)' }}>
