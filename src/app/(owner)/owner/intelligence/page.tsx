@@ -144,7 +144,10 @@ Quando mostri dati in tabella usa markdown. Sii conciso ma esauriente.
         body: JSON.stringify({ messages: newMessages, context: storeContext }),
       })
       const data = await response.json()
-      if (data.error) {
+      if (data.quotaExhausted) {
+        setShowLimitWarning(true)
+        setMessages(prev => [...prev, { role: 'assistant', content: '⏳ Quota AI giornaliera esaurita. Il servizio gratuito ha un limite di richieste al giorno. Riprova domani!' }])
+      } else if (data.error) {
         setMessages(prev => [...prev, { role: 'assistant', content: `⚠️ ${data.error}` }])
       } else {
         setMessages(prev => [...prev, { role: 'assistant', content: data.reply }])

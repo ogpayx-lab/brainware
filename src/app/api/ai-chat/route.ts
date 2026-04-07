@@ -96,8 +96,24 @@ async function callGemini(apiKey: string, messages: any[], context: string) {
   )
 
   if (!response.ok) {
-    const err = await response.text()
-    throw new Error(`Gemini error: ${response.status} - ${err}`)
+    const status = response.status
+    try {
+      const errData = await response.json()
+      const errStatus = errData?.error?.status || ''
+
+      if (status === 429 || errStatus === 'RESOURCE_EXHAUSTED') {
+        return NextResponse.json({
+          error: '⏳ Quota AI giornaliera esaurita. Il servizio gratuito ha un limite di richieste al giorno. Riprova domani oppure contatta il supporto per un piano premium.',
+          quotaExhausted: true,
+        }, { status: 429 })
+      }
+
+      return NextResponse.json({
+        error: `Errore AI (${status}): ${errData?.error?.message || 'Errore sconosciuto'}`,
+      }, { status })
+    } catch {
+      return NextResponse.json({ error: `Errore AI: servizio temporaneamente non disponibile (${status})` }, { status })
+    }
   }
 
   const data = await response.json()
