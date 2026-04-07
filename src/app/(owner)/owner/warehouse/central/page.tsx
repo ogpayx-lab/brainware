@@ -1,9 +1,10 @@
 'use client'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { fmt, categoryLabel } from '@/lib/utils'
 import type { ProductCategory } from '@/types/database'
+import * as XLSX from 'xlsx'
 
 const CATEGORIES: ProductCategory[] = ['flowers', 'hashish', 'oils', 'edibles', 'accessories', 'cosmetics', 'clothes', 'seeds', 'vape', 'food']
 
@@ -23,11 +24,17 @@ export default function WarehouseCentralPage() {
   // Modals
   const [showAddItem, setShowAddItem] = useState(false)
   const [showMovement, setShowMovement] = useState<{ item: any; type: 'in' | 'out' } | null>(null)
+  const [showRename, setShowRename] = useState(false)
+  const [showImport, setShowImport] = useState(false)
   const [saving, setSaving] = useState(false)
+  const csvRef = useRef<HTMLInputElement>(null)
 
   // Form states
   const [newItem, setNewItem] = useState({ product_name: '', category: 'flowers', qty: '0', cost_per_unit: '0', sell_price: '0', stock_alert: '5', is_bulk: false, bulk_unit: 'g', bulk_qty: '0', unit: 'pz', notes: '' })
   const [movementForm, setMovementForm] = useState({ qty: '', notes: '', cost_per_unit: '' })
+  const [renameTo, setRenameTo] = useState('')
+  const [csvRows, setCsvRows] = useState<{ product_name: string; qty: number; category: string; cost: number; price: number; matched: boolean; existing_id: string | null }[]>([])
+  const [csvError, setCsvError] = useState<string | null>(null)
 
   useEffect(() => { loadData() }, [])
 
@@ -133,6 +140,96 @@ export default function WarehouseCentralPage() {
     if (!confirm('Eliminare questo prodotto dal magazzino?')) return
     await supabase.from('warehouse_stock').delete().eq('id', id)
     loadData()
+  }
+
+  async function renameWarehouse() {
+    if (!warehouse || !renameTo.trim()) return
+    setSaving(true)
+    await supabase.from('warehouses').update({ name: renameTo.trim() }).eq('id', warehouse.id)
+    setSaving(false)
+    setShowRename(false)
+    loadData()
+  }
+
+  function handleImportFile(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setCsvError(null)
+    const reader = new FileReader()
+    reader.onload = (ev) => {
+      try {
+        const data = new Uint8Array(ev.target?.result as ArrayBuffer)
+        const workbook = XLSX.read(data, { type: 'array' })
+        const sheet = workbook.Sheets[workbook.SheetNames[0]]
+        const rawRows: any[][] = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: '' })
+        if (rawRows.length < 2) { setCsvError('File vuoto'); return }
+
+        const normalize = (s: any) => String(s ?? '').toLowerCase().trim().replace(/\s+/g, '_')
+        let headerIdx = -1
+        for (let i = 0; i < Math.min(rawRows.length, 10); i++) {
+          const cells = rawRows[i].map(normalize)
+          if (cells.includes('nome') || cells.includes('product_name') || cells.includes('prodotto')) { headerIdx = i; break }
+        }
+        if (headerIdx === -1) { setCsvError('Colonna "nome" o "prodotto" non trovata'); return }
+
+        const headers = rawRows[headerIdx].map(normalize)
+        const nameIdx = headers.findIndex(h => ['nome', 'product_name', 'prodotto'].includes(h))
+        const qtyIdx = headers.findIndex(h => ['qty', 'quantita', 'quantità', 'stock'].includes(h))
+        const catIdx = headers.findIndex(h => ['categoria', 'category', 'cat'].includes(h))
+        const costIdx = headers.findIndex(h => ['costo', 'cost', 'costo_acquisto'].includes(h))
+        const priceIdx = headers.findIndex(h => ['prezzo', 'price', 'prezzo_vendita'].includes(h))
+
+        const rows = rawRows.slice(headerIdx + 1).filter(r => r.some((c: any) => String(c).trim())).map(cols => {
+          const name = String(cols[nameIdx] ?? '').trim()
+          const qty = qtyIdx >= 0 ? parseInt(cols[qtyIdx]) || 0 : 0
+          const category = catIdx >= 0 ? String(cols[catIdx] ?? 'flowers').toLowerCase().trim() : 'flowers'
+          const cost = costIdx >= 0 ? parseFloat(cols[costIdx]) || 0 : 0
+          const price = priceIdx >= 0 ? parseFloat(cols[priceIdx]) || 0 : 0
+          const existing = stock.find(s => s.product_name.toLowerCase() === name.toLowerCase())
+          return { product_name: name, qty, category, cost, price, matched: !!existing, existing_id: existing?.id ?? null }
+        }).filter(r => r.product_name)
+        setCsvRows(rows)
+      } catch (err: any) { setCsvError(`Errore: ${err.message}`) }
+    }
+    reader.readAsArrayBuffer(file)
+  }
+
+  async function applyImport() {
+    if (!warehouse || csvRows.length === 0) return
+    setSaving(true)
+    for (const row of csvRows) {
+      if (row.existing_id) {
+        // Update existing
+        await supabase.from('warehouse_stock').update({ qty: row.qty, cost_per_unit: row.cost || undefined, sell_price: row.price || undefined }).eq('id', row.existing_id)
+      } else {
+        // Insert new
+        await supabase.from('warehouse_stock').insert({
+          warehouse_id: warehouse.id, product_name: row.product_name, category: row.category,
+          qty: row.qty, cost_per_unit: row.cost, sell_price: row.price, stock_alert: 5,
+        })
+      }
+      // Log movement
+      if (row.qty > 0) {
+        await supabase.from('warehouse_movements').insert({
+          warehouse_id: warehouse.id, product_name: row.product_name, movement_type: 'in',
+          qty: row.qty, cost_per_unit: row.cost, total_cost: row.qty * row.cost,
+          reference_type: 'purchase', notes: 'Import CSV/Excel',
+        })
+      }
+    }
+    setShowImport(false)
+    setCsvRows([])
+    if (csvRef.current) csvRef.current.value = ''
+    setSaving(false)
+    loadData()
+  }
+
+  function downloadTemplate() {
+    const csvContent = 'nome,qty,categoria,costo,prezzo\n' + stock.map(s => `${s.product_name},${s.qty},${s.category},${s.cost_per_unit || 0},${s.sell_price || 0}`).join('\n')
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a'); a.href = url; a.download = `magazzino_${warehouse?.name?.replace(/\s+/g, '_') || 'centrale'}.csv`; a.click()
+    URL.revokeObjectURL(url)
   }
 
   // Stats
@@ -267,13 +364,98 @@ export default function WarehouseCentralPage() {
         </div>
       )}
 
+      {/* Rename Modal */}
+      {showRename && (
+        <div className="modal-overlay">
+          <div className="modal" style={{ maxWidth: 400 }}>
+            <h3 style={{ marginBottom: 'var(--space-lg)' }}>✏️ Rinomina Magazzino</h3>
+            <div className="input-group">
+              <label className="input-label">Nome</label>
+              <input className="input" value={renameTo} onChange={e => setRenameTo(e.target.value)} autoFocus />
+            </div>
+            <div style={{ display: 'flex', gap: 'var(--space-sm)', marginTop: 'var(--space-xl)' }}>
+              <button className="btn btn-secondary" style={{ flex: 1 }} onClick={() => setShowRename(false)}>Annulla</button>
+              <button className="btn btn-primary" style={{ flex: 2 }} onClick={renameWarehouse} disabled={saving || !renameTo.trim()}>{saving ? '...' : 'Salva'}</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Import Modal */}
+      {showImport && (
+        <div className="modal-overlay">
+          <div className="modal" style={{ maxWidth: 600 }}>
+            <h3 style={{ marginBottom: 8 }}>📊 Importa Stock da File</h3>
+            <p style={{ color: 'var(--text-secondary)', fontSize: 14, marginBottom: 'var(--space-lg)' }}>Carica CSV o Excel con colonne: <strong>nome, qty, categoria, costo, prezzo</strong></p>
+
+            <div style={{ background: 'var(--bg-surface)', borderRadius: 'var(--radius-md)', padding: 'var(--space-md)', marginBottom: 'var(--space-lg)' }}>
+              <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 6 }}>📄 Template</div>
+              <div style={{ display: 'flex', gap: 8 }}>
+                <button onClick={downloadTemplate} className="btn btn-secondary" style={{ fontSize: 12 }} disabled={stock.length === 0}>
+                  📥 Scarica Template ({stock.length} prodotti)
+                </button>
+              </div>
+            </div>
+
+            <div className="input-group" style={{ marginBottom: 'var(--space-lg)' }}>
+              <label className="input-label">Carica file (CSV, Excel, Numbers)</label>
+              <input ref={csvRef} type="file" accept=".csv,.xlsx,.xls,.numbers" onChange={handleImportFile} style={{ padding: 10, border: '1px solid var(--border-default)', borderRadius: 'var(--radius-sm)', width: '100%', fontSize: 14 }} />
+            </div>
+
+            {csvError && <div style={{ background: '#FEF2F2', border: '1px solid var(--danger)', borderRadius: 'var(--radius-sm)', padding: '10px 14px', fontSize: 13, color: 'var(--danger)', marginBottom: 'var(--space-md)' }}>⚠️ {csvError}</div>}
+
+            {csvRows.length > 0 && (
+              <div style={{ marginBottom: 'var(--space-lg)' }}>
+                <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 8 }}>
+                  Anteprima: {csvRows.length} prodotti · {csvRows.filter(r => r.matched).length} già esistenti · {csvRows.filter(r => !r.matched).length} nuovi
+                </div>
+                <div style={{ maxHeight: 220, overflowY: 'auto', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-sm)' }}>
+                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
+                    <thead><tr style={{ background: 'var(--bg-surface)' }}>{['Nome', 'Qty', 'Cat.', 'Costo', 'Prezzo', 'Stato'].map(h => <th key={h} style={{ padding: '6px 10px', textAlign: 'left', fontWeight: 600, fontSize: 11, textTransform: 'uppercase', color: 'var(--text-secondary)' }}>{h}</th>)}</tr></thead>
+                    <tbody>
+                      {csvRows.map((r, i) => (
+                        <tr key={i} style={{ borderTop: '1px solid var(--border-subtle)' }}>
+                          <td style={{ padding: '6px 10px', fontWeight: 600 }}>{r.product_name}</td>
+                          <td style={{ padding: '6px 10px' }}>{r.qty}</td>
+                          <td style={{ padding: '6px 10px' }}>{r.category}</td>
+                          <td style={{ padding: '6px 10px' }}>{r.cost > 0 ? fmt(r.cost) : '—'}</td>
+                          <td style={{ padding: '6px 10px' }}>{r.price > 0 ? fmt(r.price) : '—'}</td>
+                          <td style={{ padding: '6px 10px' }}>
+                            <span style={{ fontSize: 11, padding: '2px 7px', borderRadius: 20, background: r.matched ? 'var(--bg-surface)' : 'var(--success-light)', color: r.matched ? 'var(--text-secondary)' : 'var(--brand-primary)' }}>
+                              {r.matched ? '🔄 Aggiorna' : '✨ Nuovo'}
+                            </span>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+
+            <div style={{ display: 'flex', gap: 'var(--space-sm)' }}>
+              <button className="btn btn-secondary" style={{ flex: 1 }} onClick={() => { setShowImport(false); setCsvRows([]); setCsvError(null) }}>Chiudi</button>
+              {csvRows.length > 0 && (
+                <button className="btn btn-primary" style={{ flex: 2 }} onClick={applyImport} disabled={saving}>
+                  {saving ? 'Importazione...' : `📥 Importa ${csvRows.length} prodotti`}
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Header */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 'var(--space-xl)' }}>
         <div>
-          <h2>🏭 Magazzino Centrale</h2>
-          <p style={{ color: 'var(--text-secondary)', fontSize: 14, marginTop: 4 }}>{warehouse?.name || 'Magazzino Centrale'}</p>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <h2>🏭 {warehouse?.name || 'Magazzino Centrale'}</h2>
+            <button onClick={() => { setRenameTo(warehouse?.name || ''); setShowRename(true) }} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 16, color: 'var(--text-tertiary)', padding: 4 }} title="Rinomina">✏️</button>
+          </div>
+          <p style={{ color: 'var(--text-secondary)', fontSize: 14, marginTop: 4 }}>{warehouse?.city || warehouse?.address || 'Magazzino principale'}</p>
         </div>
         <div style={{ display: 'flex', gap: 8 }}>
+          <button className="btn btn-secondary" onClick={() => setShowImport(true)} style={{ fontSize: 12 }}>📊 Import CSV/Excel</button>
           <button className="btn btn-primary" onClick={() => setShowAddItem(true)}>+ Aggiungi Prodotto</button>
         </div>
       </div>
