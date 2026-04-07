@@ -14,6 +14,9 @@ const SUGGESTIONS = [
   'Trend revenue settimana',
 ]
 
+const DAILY_FREE_LIMIT = 50
+const USAGE_KEY = 'bw_ai_usage'
+
 export default function OwnerIntelligencePage() {
   const router = useRouter()
   const supabase = createClient()
@@ -23,9 +26,32 @@ export default function OwnerIntelligencePage() {
   const [storeContext, setStoreContext] = useState('')
   const [contextLoading, setContextLoading] = useState(true)
   const [storeName, setStoreName] = useState('')
+  const [usageCount, setUsageCount] = useState(0)
+  const [showLimitWarning, setShowLimitWarning] = useState(false)
   const bottomRef = useRef<HTMLDivElement>(null)
 
-  useEffect(() => { loadContext() }, [])
+  // Usage tracking
+  function getUsageToday() {
+    try {
+      const stored = localStorage.getItem(USAGE_KEY)
+      if (!stored) return { date: '', count: 0 }
+      const parsed = JSON.parse(stored)
+      const today = new Date().toISOString().split('T')[0]
+      if (parsed.date !== today) return { date: today, count: 0 }
+      return parsed
+    } catch { return { date: '', count: 0 } }
+  }
+
+  function incrementUsage() {
+    const today = new Date().toISOString().split('T')[0]
+    const current = getUsageToday()
+    const newCount = current.date === today ? current.count + 1 : 1
+    localStorage.setItem(USAGE_KEY, JSON.stringify({ date: today, count: newCount }))
+    setUsageCount(newCount)
+    return newCount
+  }
+
+  useEffect(() => { loadContext(); setUsageCount(getUsageToday().count) }, [])
   useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: 'smooth' }) }, [messages])
 
   async function loadContext() {
@@ -91,31 +117,46 @@ Quando mostri dati in tabella usa markdown. Sii conciso ma esauriente.
   async function sendMessage(text?: string) {
     const msg = text ?? input.trim()
     if (!msg || loading) return
+
+    // Check daily limit
+    const currentUsage = getUsageToday().count
+    if (currentUsage >= DAILY_FREE_LIMIT) {
+      setShowLimitWarning(true)
+      return
+    }
+
+    // Warn at 80% usage
+    if (currentUsage >= DAILY_FREE_LIMIT * 0.8) {
+      setShowLimitWarning(true)
+    }
+
     setInput('')
     setLoading(true)
+    incrementUsage()
 
     const newMessages: Message[] = [...messages, { role: 'user', content: msg }]
     setMessages(newMessages)
 
     try {
-      const response = await fetch('https://api.anthropic.com/v1/messages', {
+      const response = await fetch('/api/ai-chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          model: 'claude-sonnet-4-20250514',
-          max_tokens: 1000,
-          system: storeContext,
-          messages: newMessages.map(m => ({ role: m.role, content: m.content })),
-        }),
+        body: JSON.stringify({ messages: newMessages, context: storeContext }),
       })
       const data = await response.json()
-      const reply = data.content?.[0]?.text ?? 'Errore nella risposta.'
-      setMessages(prev => [...prev, { role: 'assistant', content: reply }])
+      if (data.error) {
+        setMessages(prev => [...prev, { role: 'assistant', content: `⚠️ ${data.error}` }])
+      } else {
+        setMessages(prev => [...prev, { role: 'assistant', content: data.reply }])
+      }
     } catch {
-      setMessages(prev => [...prev, { role: 'assistant', content: 'Errore di connessione.' }])
+      setMessages(prev => [...prev, { role: 'assistant', content: 'Errore di connessione al server AI.' }])
     }
     setLoading(false)
   }
+
+  const remaining = Math.max(0, DAILY_FREE_LIMIT - usageCount)
+  const usagePct = Math.min(100, (usageCount / DAILY_FREE_LIMIT) * 100)
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: 'calc(100vh - 100px)' }}>
@@ -123,10 +164,36 @@ Quando mostri dati in tabella usa markdown. Sii conciso ma esauriente.
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 4 }}>
           <h2>Intelligence AI</h2>
           <span className="badge badge-brand" style={{ fontSize: 10 }}>BETA</span>
-          <span className="badge badge-gray" style={{ fontSize: 11 }}>{contextLoading ? 'Caricamento...' : 'Tutti i dati'}</span>
+          <span className="badge badge-gray" style={{ fontSize: 11 }}>{contextLoading ? 'Caricamento...' : '✅ Dati caricati'}</span>
+          <span className={`badge ${remaining <= 10 ? 'badge-warning' : 'badge-gray'}`} style={{ fontSize: 10, marginLeft: 'auto' }}>
+            {remaining}/{DAILY_FREE_LIMIT} richieste gratuite
+          </span>
         </div>
         <p style={{ color: 'var(--text-secondary)', fontSize: 13 }}>Analizza vendite, performance, inventario del tuo negozio in linguaggio naturale</p>
+
+        {/* Usage bar */}
+        <div style={{ marginTop: 8, background: 'var(--bg-surface)', borderRadius: 20, height: 4, overflow: 'hidden' }}>
+          <div style={{ height: '100%', borderRadius: 20, width: `${usagePct}%`, background: usagePct >= 80 ? 'var(--danger)' : usagePct >= 50 ? 'var(--warning)' : 'var(--brand-primary)', transition: 'width 0.3s' }} />
+        </div>
       </div>
+
+      {/* Limit Warning */}
+      {showLimitWarning && (
+        <div style={{ background: usageCount >= DAILY_FREE_LIMIT ? '#FEF2F2' : '#FFFBEB', border: `1px solid ${usageCount >= DAILY_FREE_LIMIT ? 'var(--danger)' : 'var(--warning)'}`, borderRadius: 'var(--radius-md)', padding: '12px 16px', marginBottom: 12, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <div>
+            <div style={{ fontWeight: 600, fontSize: 13, color: usageCount >= DAILY_FREE_LIMIT ? 'var(--danger)' : '#92400E' }}>
+              {usageCount >= DAILY_FREE_LIMIT ? '🚫 Limite giornaliero raggiunto' : '⚠️ Quasi al limite'}
+            </div>
+            <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginTop: 2 }}>
+              {usageCount >= DAILY_FREE_LIMIT
+                ? `Hai usato tutte le ${DAILY_FREE_LIMIT} richieste gratuite di oggi. Le richieste si azzerano alla mezzanotte.`
+                : `Hai usato ${usageCount}/${DAILY_FREE_LIMIT} richieste gratuite oggi. Oltre questa soglia l'AI non sarà disponibile fino a domani.`
+              }
+            </div>
+          </div>
+          <button onClick={() => setShowLimitWarning(false)} style={{ background: 'none', border: 'none', fontSize: 16, cursor: 'pointer', color: 'var(--text-tertiary)', padding: 4 }}>✕</button>
+        </div>
+      )}
 
       {/* Chat */}
       <div style={{ flex: 1, overflowY: 'auto', background: 'var(--bg-primary)', borderRadius: 'var(--radius-lg)', border: '1px solid var(--border-subtle)', padding: 'var(--space-lg)', display: 'flex', flexDirection: 'column', gap: 'var(--space-md)' }}>
