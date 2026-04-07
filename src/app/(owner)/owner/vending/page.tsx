@@ -6,9 +6,9 @@ import { fmt, categoryLabel } from '@/lib/utils'
 import type { VendingMachine, VendingStatus, Product } from '@/types/database'
 
 const STATUS_CONFIG: Record<VendingStatus, { label: string; color: string; bg: string }> = {
-  online:      { label: 'Online',       color: 'var(--success)',  bg: 'var(--success-light)' },
-  offline:     { label: 'Offline',      color: 'var(--danger)',   bg: 'var(--danger-light)' },
-  maintenance: { label: 'Manutenzione', color: 'var(--warning)',  bg: '#FFF7ED' },
+  online: { label: 'Online', color: 'var(--success)', bg: 'var(--success-light)' },
+  offline: { label: 'Offline', color: 'var(--danger)', bg: 'var(--danger-light)' },
+  maintenance: { label: 'Manutenzione', color: 'var(--warning)', bg: '#FFF7ED' },
 }
 
 interface VendingProduct {
@@ -49,7 +49,7 @@ export default function VendingPage() {
   const [collectionForm, setCollectionForm] = useState({ amount: '', notes: '' })
   // Vendite reali (da machine.db sync)
   const [allSalesData, setAllSalesData] = useState<any[]>([])
-  const [salesFilter, setSalesFilter] = useState<'today'|'7d'|'30d'|'all'|'custom'>('all')
+  const [salesFilter, setSalesFilter] = useState<'today' | '7d' | '30d' | 'all' | 'custom'>('all')
   const [dateFrom, setDateFrom] = useState('')
   const [dateTo, setDateTo] = useState('')
 
@@ -59,18 +59,18 @@ export default function VendingPage() {
     const saleDate = new Date(s.sold_at)
     const now = new Date()
     if (salesFilter === 'today') {
-      return saleDate.toISOString().slice(0,10) === now.toISOString().slice(0,10)
+      return saleDate.toISOString().slice(0, 10) === now.toISOString().slice(0, 10)
     }
     if (salesFilter === '7d') {
-      const diff = (now.getTime() - saleDate.getTime()) / (1000*60*60*24)
+      const diff = (now.getTime() - saleDate.getTime()) / (1000 * 60 * 60 * 24)
       return diff <= 7
     }
     if (salesFilter === '30d') {
-      const diff = (now.getTime() - saleDate.getTime()) / (1000*60*60*24)
+      const diff = (now.getTime() - saleDate.getTime()) / (1000 * 60 * 60 * 24)
       return diff <= 30
     }
     if (salesFilter === 'custom') {
-      const saleDateStr = saleDate.toISOString().slice(0,10)
+      const saleDateStr = saleDate.toISOString().slice(0, 10)
       if (dateFrom && saleDateStr < dateFrom) return false
       if (dateTo && saleDateStr > dateTo) return false
       return true
@@ -204,7 +204,7 @@ export default function VendingPage() {
     setSaving(true)
     const amount = parseFloat(collectionForm.amount) || 0
     if (amount <= 0) { setSaving(false); return }
-    
+
     await supabase.from('vending_collections').insert({
       vending_machine_id: selectedMachine.id,
       store_id: storeId,
@@ -221,7 +221,7 @@ export default function VendingPage() {
         title: '🏧 Incasso H24',
         message: `${selectedMachine.name} — ${fmt(amount)}${collectionForm.notes ? ` — ${collectionForm.notes}` : ''}`,
       })
-    } catch {}
+    } catch { }
 
     setShowAddCollection(false)
     setCollectionForm({ amount: '', notes: '' })
@@ -456,7 +456,7 @@ export default function VendingPage() {
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--space-md)', flexWrap: 'wrap', gap: 8 }}>
             <h3>📊 Vendite Reali (Auto-Sync)</h3>
             <div style={{ display: 'flex', gap: 4, alignItems: 'center', flexWrap: 'wrap' }}>
-              {(['today','7d','30d','all','custom'] as const).map(f => (
+              {(['today', '7d', '30d', 'all', 'custom'] as const).map(f => (
                 <button key={f} onClick={() => setSalesFilter(f)} style={{
                   padding: '5px 14px', borderRadius: 20, fontSize: 12, fontWeight: 600, border: 'none', cursor: 'pointer',
                   background: salesFilter === f ? 'var(--primary)' : 'var(--bg-surface-alt)',
@@ -486,7 +486,7 @@ export default function VendingPage() {
           )}
 
           {/* KPI Vendite Reali */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 'var(--space-md)', marginBottom: 'var(--space-lg)' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 'var(--space-md)', marginBottom: 'var(--space-lg)' }}>
             <div className="kpi-card">
               <div className="kpi-label">Vendite ({activeFilterLabel})</div>
               <div className="kpi-value">{salesTotals.count}</div>
@@ -498,6 +498,13 @@ export default function VendingPage() {
             <div className="kpi-card">
               <div className="kpi-label">Media per Vendita</div>
               <div className="kpi-value" style={{ color: 'var(--primary)' }}>{salesTotals.count > 0 ? fmt(salesTotals.revenue / salesTotals.count) : '—'}</div>
+            </div>
+            <div className="kpi-card" style={{ borderLeft: '3px solid var(--success)' }}>
+              <div className="kpi-label">💵 Cash Netto in Macchina</div>
+              <div className="kpi-value" style={{ color: 'var(--success)' }}>{fmt((selectedMachine as any)?.total_cash_in - ((selectedMachine as any)?.total_cash_out || 0) || 0)}</div>
+              <div style={{ fontSize: 10, color: 'var(--text-tertiary)', marginTop: 4 }}>
+                In: {fmt((selectedMachine as any)?.total_cash_in || 0)} · Out: {fmt((selectedMachine as any)?.total_cash_out || 0)}
+              </div>
             </div>
           </div>
 
@@ -517,8 +524,8 @@ export default function VendingPage() {
                 </thead>
                 <tbody>
                   {filteredSales.slice(0, 50).map((s: any) => {
-                    // Product name: from note field (new sync) or price-based fallback
-                    const productName = s.note || (s.price >= 40 ? 'PRE ROLL MIX' : s.price >= 35 ? 'GELATO 3G' : 'Infiorescenza 3G')
+                    // Product name by price (note field contains image filenames, not useful)
+                    const productName = s.price >= 40 ? 'PRE ROLL MIX' : s.price >= 35 ? 'GELATO 3G' : 'Infiorescenza 3G'
                     return (
                       <tr key={s.id}>
                         <td style={{ fontSize: 12 }}>{new Date(s.sold_at).toLocaleString('it-IT')}</td>

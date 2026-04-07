@@ -190,6 +190,9 @@ def update_machine_status(summary):
     
     data = {
         "total_dispensed": summary["total_sales"],
+        "total_cash_in": summary["total_cash_in"],
+        "total_cash_out": summary["total_cash_out"],
+        "total_revenue": summary["total_revenue"],
         "last_sync_at": datetime.now().isoformat(),
         "status": "online",
     }
