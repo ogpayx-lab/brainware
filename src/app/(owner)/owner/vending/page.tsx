@@ -524,15 +524,14 @@ export default function VendingPage() {
                 </thead>
                 <tbody>
                   {filteredSales.slice(0, 50).map((s: any) => {
-                    // Product name by price (note field contains image filenames, not useful)
-                    const productName = s.price >= 40 ? 'PRE ROLL MIX' : s.price >= 35 ? 'GELATO 3G' : 'Infiorescenza 3G'
+                    const motor = (s.dispenser_id || 0) - 3
+                    const pn: Record<number, string> = { 1:'PRE ROLL MIX',2:'PRE ROLL MIX',3:'PRE ROLL MIX',4:'PRE ROLL MIX',5:'PRE ROLL MIX',6:'WHITE WIDOW 3G',7:'SUPER SKUNK 3G',8:'AMNESIA 3G',9:'GELATO 3G',10:'STRAWBERRY 3G' }
+                    const productName = pn[motor] || `Motore ${motor}`
                     return (
                       <tr key={s.id}>
                         <td style={{ fontSize: 12 }}>{new Date(s.sold_at).toLocaleString('it-IT')}</td>
-                        <td>
-                          <div style={{ fontWeight: 600, fontSize: 13 }}>{productName}</div>
-                        </td>
-                        <td><span style={{ background: 'var(--bg-surface-alt)', padding: '2px 8px', borderRadius: 12, fontSize: 11, fontWeight: 600 }}>#{s.dispenser_id}</span></td>
+                        <td><div style={{ fontWeight: 600, fontSize: 13 }}>{productName}</div></td>
+                        <td><span style={{ background: 'var(--bg-surface-alt)', padding: '2px 8px', borderRadius: 12, fontSize: 11, fontWeight: 600 }}>#{motor}</span></td>
                         <td style={{ fontWeight: 700, color: 'var(--success)' }}>{fmt(s.price)}</td>
                         <td style={{ fontSize: 12 }}>{s.payment_type === 'cash' ? '💵 Contanti' : '💳 Altro'}</td>
                         <td>{s.status === 'success' ? <span className="badge badge-success" style={{ fontSize: 10 }}>✅ OK</span> : <span className="badge badge-danger" style={{ fontSize: 10 }}>❌ Err</span>}</td>
