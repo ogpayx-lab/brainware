@@ -28,6 +28,7 @@ export default function OwnerIntelligencePage() {
   const [storeName, setStoreName] = useState('')
   const [usageCount, setUsageCount] = useState(0)
   const [showLimitWarning, setShowLimitWarning] = useState(false)
+  const [serviceDown, setServiceDown] = useState(false)
   const bottomRef = useRef<HTMLDivElement>(null)
 
   // Usage tracking
@@ -59,55 +60,112 @@ export default function OwnerIntelligencePage() {
     if (!user) { router.push('/login'); return }
 
     const { data: profile } = await supabase
-      .from('users').select('store_id, role, stores(name)').eq('id', user.id).single()
+      .from('users').select('store_id, role, stores(name, organization_id)').eq('id', user.id).single()
     if (profile?.role !== 'owner') { router.push('/login'); return }
 
+    const orgId = (profile.stores as any)?.organization_id
     setStoreName((profile.stores as any)?.name ?? 'Il tuo negozio')
+
+    // Load ALL stores in the organization
+    const { data: allStores } = await supabase.from('stores').select('id, name, city').eq('organization_id', orgId).eq('is_active', true)
+    const stores = allStores ?? []
 
     const now = new Date()
     const today = new Date(now.setHours(0, 0, 0, 0)).toISOString()
     const weekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString()
 
-    const [{ data: todaySales }, { data: weekSales }, { data: lowStock }, { data: employees }, { data: openShifts }] = await Promise.all([
-      supabase.from('sales').select('total, payment_method, movement_type, customer_name, customer_nationality').eq('store_id', profile.store_id).gte('created_at', today),
-      supabase.from('sales').select('total, movement_type, created_at').eq('store_id', profile.store_id).eq('movement_type', 'sale').gte('created_at', weekAgo),
-      supabase.from('low_stock_products').select('name, stock, stock_alert').eq('store_id', profile.store_id),
-      supabase.from('users').select('full_name').eq('store_id', profile.store_id).eq('role', 'employee').eq('is_active', true),
-      supabase.from('shifts').select('period, opened_at, users(full_name)').eq('store_id', profile.store_id).eq('status', 'open'),
-    ])
+    let storeContextParts: string[] = []
+    let totalTodayRevenue = 0
+    let totalWeekRevenue = 0
+    let totalTodayTxn = 0
+    let allLowStock: string[] = []
 
-    const todayRevenue = (todaySales ?? []).filter(s => s.movement_type === 'sale').reduce((s, x) => s + x.total, 0)
-    const todayTxn = (todaySales ?? []).filter(s => s.movement_type === 'sale').length
-    const todayResi = (todaySales ?? []).filter(s => s.movement_type === 'reso').length
-    const weekRevenue = (weekSales ?? []).reduce((s, x) => s + x.total, 0)
+    for (const store of stores) {
+      const [{ data: todaySales }, { data: weekSales }, { data: lowStock }, { data: openShifts }] = await Promise.all([
+        supabase.from('sales').select('total, payment_method, movement_type').eq('store_id', store.id).gte('created_at', today),
+        supabase.from('sales').select('total, movement_type, created_at').eq('store_id', store.id).eq('movement_type', 'sale').gte('created_at', weekAgo),
+        supabase.from('low_stock_products').select('name, stock, stock_alert').eq('store_id', store.id),
+        supabase.from('shifts').select('period, users(full_name)').eq('store_id', store.id).eq('status', 'open'),
+      ])
 
-    // Revenue by day this week
-    const byDay: Record<string, number> = {}
-    for (const sale of (weekSales ?? [])) {
-      const day = sale.created_at.split('T')[0]
-      byDay[day] = (byDay[day] ?? 0) + sale.total
+      const storeRevenue = (todaySales ?? []).filter(s => s.movement_type === 'sale').reduce((s, x) => s + x.total, 0)
+      const storeTxn = (todaySales ?? []).filter(s => s.movement_type === 'sale').length
+      const storeResi = (todaySales ?? []).filter(s => s.movement_type === 'reso').length
+      const storeWeekRev = (weekSales ?? []).reduce((s, x) => s + x.total, 0)
+      const staffOnDuty = (openShifts ?? []).map(s => (s.users as any)?.full_name).filter(Boolean).join(', ') || 'Nessuno'
+
+      totalTodayRevenue += storeRevenue
+      totalWeekRevenue += storeWeekRev
+      totalTodayTxn += storeTxn
+
+      // Revenue by day
+      const byDay: Record<string, number> = {}
+      for (const sale of (weekSales ?? [])) {
+        const day = sale.created_at.split('T')[0]
+        byDay[day] = (byDay[day] ?? 0) + sale.total
+      }
+
+      const lowStockList = (lowStock ?? []).map(p => `  - ${p.name}: ${p.stock} rimasti (soglia: ${p.stock_alert})`)
+      if (lowStockList.length > 0) allLowStock.push(...lowStockList.map(l => `[${store.name}] ${l.trim()}`))
+
+      storeContextParts.push(`
+STORE "${store.name}"${store.city ? ` (${store.city})` : ''}:
+- Revenue oggi: ${fmt(storeRevenue)} (${storeTxn} vendite, ${storeResi} resi)
+- Revenue settimana: ${fmt(storeWeekRev)}
+- Trend giornaliero: ${Object.entries(byDay).map(([d, v]) => `${d}: ${fmt(v)}`).join(', ') || 'Nessun dato'}
+- Staff in turno: ${staffOnDuty}
+- Alert stock: ${lowStockList.length === 0 ? 'Nessuno ✅' : lowStockList.length + ' prodotti sotto soglia'}${lowStockList.length > 0 ? '\n' + lowStockList.join('\n') : ''}`)
     }
 
+    // Load warehouse data
+    let warehouseCtx = ''
+    const { data: warehouses } = await supabase.from('warehouses').select('id, name, type').eq('organization_id', orgId).eq('is_active', true)
+    if (warehouses && warehouses.length > 0) {
+      const whParts: string[] = []
+      for (const wh of warehouses) {
+        const { data: whStock } = await supabase.from('warehouse_stock').select('product_name, qty, stock_alert, cost_per_unit').eq('warehouse_id', wh.id)
+        const totalItems = (whStock ?? []).reduce((s, i) => s + i.qty, 0)
+        const totalValue = (whStock ?? []).reduce((s, i) => s + i.qty * (i.cost_per_unit || 0), 0)
+        const lowWh = (whStock ?? []).filter(i => i.qty > 0 && i.qty <= i.stock_alert)
+        const zeroWh = (whStock ?? []).filter(i => i.qty === 0)
+        whParts.push(`${wh.type === 'central' ? '🏭' : '📦'} ${wh.name}: ${(whStock ?? []).length} SKU, ${totalItems} unità, valore ${fmt(totalValue)}${lowWh.length > 0 ? `, ${lowWh.length} bassi` : ''}${zeroWh.length > 0 ? `, ${zeroWh.length} esauriti` : ''}`)
+      }
+      warehouseCtx = `\n\nMAGAZZINI:\n${whParts.join('\n')}`
+    }
+
+    // Load vending data
+    let vendingCtx = ''
+    const { data: vendingSales } = await supabase.from('vending_sales').select('cash_in, dispenser_id, created_at').gte('created_at', today)
+    if (vendingSales && vendingSales.length > 0) {
+      const vendingRevenue = vendingSales.reduce((s, v) => s + (v.cash_in || 0), 0)
+      vendingCtx = `\n\nH24 VENDING:\n- Vendite oggi: ${vendingSales.length} erogazioni, ${fmt(vendingRevenue)} incassato`
+    }
+
+    // All employees
+    const { data: allEmployees } = await supabase.from('users').select('full_name, stores(name)').eq('role', 'employee').eq('is_active', true).in('store_id', stores.map(s => s.id))
+
     const ctx = `
-Sei l'AI di BrainWare per il negozio "${(profile.stores as any)?.name}".
+Sei l'AI di BrainWare. Gestisci un'organizzazione con ${stores.length} punto/i vendita.
 Rispondi in italiano, in modo diretto e professionale.
-Hai accesso ai dati REALI di questo negozio.
+Hai accesso ai dati REALI di TUTTI gli store dell'organizzazione.
 
-DATI OGGI:
-- Revenue: ${fmt(todayRevenue)} (${todayTxn} transazioni)
-- Resi: ${todayResi}
-- Dipendenti in turno: ${(openShifts ?? []).map(s => (s.users as any)?.full_name).join(', ') || 'Nessuno'}
+RIEPILOGO ORGANIZZAZIONE:
+- Store totali: ${stores.length} (${stores.map(s => s.name).join(', ')})
+- Revenue TOTALE oggi: ${fmt(totalTodayRevenue)} (${totalTodayTxn} transazioni)
+- Revenue TOTALE settimana: ${fmt(totalWeekRevenue)}
+- Dipendenti totali: ${(allEmployees ?? []).length}
+- Alert inventario: ${allLowStock.length === 0 ? 'Nessuno ✅' : allLowStock.length + ' prodotti'}
 
-DATI SETTIMANA (ultimi 7 giorni):
-- Revenue totale: ${fmt(weekRevenue)}
-- Andamento per giorno: ${Object.entries(byDay).map(([d, v]) => `${d}: ${fmt(v)}`).join(', ')}
+--- DETTAGLIO PER STORE ---
+${storeContextParts.join('\n')}
+${warehouseCtx}
+${vendingCtx}
 
-ALERT INVENTARIO:
-${(lowStock ?? []).length === 0 ? 'Nessun prodotto sotto scorta' : (lowStock ?? []).map(p => `- ${p.name}: ${p.stock} rimasti (alert: ${p.stock_alert})`).join('\n')}
+${allLowStock.length > 0 ? `\nALERT INVENTARIO GLOBALE:\n${allLowStock.join('\n')}` : ''}
 
-DIPENDENTI ATTIVI: ${(employees ?? []).map(e => e.full_name).join(', ') || 'Nessuno'}
+DIPENDENTI: ${(allEmployees ?? []).map(e => `${e.full_name} (${(e.stores as any)?.name})`).join(', ') || 'Nessuno'}
 
-Quando mostri dati in tabella usa markdown. Sii conciso ma esauriente.
+Quando confronti store usa tabelle markdown. Sii conciso ma esauriente. Se l'utente chiede di uno store specifico, rispondi solo su quello.
     `.trim()
 
     setStoreContext(ctx)
@@ -145,8 +203,8 @@ Quando mostri dati in tabella usa markdown. Sii conciso ma esauriente.
       })
       const data = await response.json()
       if (data.quotaExhausted) {
-        setShowLimitWarning(true)
-        setMessages(prev => [...prev, { role: 'assistant', content: '⏳ Quota AI giornaliera esaurita. Il servizio gratuito ha un limite di richieste al giorno. Riprova domani!' }])
+        setServiceDown(true)
+        setMessages(prev => [...prev, { role: 'assistant', content: '⏳ Il servizio AI ha raggiunto il limite giornaliero di Google. Il servizio si resetta automaticamente (di solito entro qualche ora). Riprova più tardi!' }])
       } else if (data.error) {
         setMessages(prev => [...prev, { role: 'assistant', content: `⚠️ ${data.error}` }])
       } else {
@@ -180,8 +238,19 @@ Quando mostri dati in tabella usa markdown. Sii conciso ma esauriente.
         </div>
       </div>
 
-      {/* Limit Warning */}
-      {showLimitWarning && (
+      {/* Service Quota Warning */}
+      {serviceDown && (
+        <div style={{ background: '#FEF2F2', border: '1px solid var(--danger)', borderRadius: 'var(--radius-md)', padding: '12px 16px', marginBottom: 12, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <div>
+            <div style={{ fontWeight: 600, fontSize: 13, color: 'var(--danger)' }}>⏳ Servizio AI temporaneamente non disponibile</div>
+            <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginTop: 2 }}>La quota giornaliera del servizio Google Gemini è stata raggiunta. Si resetta automaticamente entro qualche ora.</div>
+          </div>
+          <button onClick={() => setServiceDown(false)} style={{ background: 'none', border: 'none', fontSize: 16, cursor: 'pointer', color: 'var(--text-tertiary)', padding: 4 }}>✕</button>
+        </div>
+      )}
+
+      {/* User Limit Warning */}
+      {showLimitWarning && !serviceDown && (
         <div style={{ background: usageCount >= DAILY_FREE_LIMIT ? '#FEF2F2' : '#FFFBEB', border: `1px solid ${usageCount >= DAILY_FREE_LIMIT ? 'var(--danger)' : 'var(--warning)'}`, borderRadius: 'var(--radius-md)', padding: '12px 16px', marginBottom: 12, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <div>
             <div style={{ fontWeight: 600, fontSize: 13, color: usageCount >= DAILY_FREE_LIMIT ? 'var(--danger)' : '#92400E' }}>
