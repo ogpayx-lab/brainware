@@ -7,10 +7,15 @@ import { createClient } from '@/lib/supabase/client'
 const NAV_MAIN = [
   { href: '/owner/dashboard',             icon: '',  label: 'Dashboard' },
   { href: '/owner/products',              icon: '', label: 'Prodotti' },
-  { href: '/owner/inventory-setup',       icon: '📦', label: 'Inventario Iniziale' },
   { href: '/owner/reports',               icon: '', label: 'Report' },
   { href: '/owner/analytics/sales',       icon: '', label: 'Sales Analytics' },
   { href: '/owner/analytics/performance', icon: '', label: 'Performance' },
+]
+const NAV_MAGAZZINO = [
+  { href: '/owner/warehouse/central',     icon: '🏭', label: 'Centrale' },
+  { href: '/owner/warehouse/secondary',   icon: '📦', label: 'Secondari' },
+  { href: '/owner/warehouse/stores',      icon: '🏪', label: 'Stock Store' },
+  { href: '/owner/warehouse/transfers',   icon: '🔄', label: 'Trasferimenti' },
 ]
 const NAV_GESTIONE = [
   { href: '/owner/notifications',      icon: '🔔', label: 'Notifiche' },
@@ -20,8 +25,6 @@ const NAV_GESTIONE = [
   { href: '/owner/shopify',           icon: '🛍️', label: 'Shopify' },
   { href: '/owner/ecommerce',         icon: '🌐', label: 'E-commerce' },
   { href: '/owner/vending',           icon: '🏧', label: 'H24 Vending' },
-  { href: '/owner/warehouse',         icon: '🏪', label: 'Multi-Store' },
-  { href: '/owner/general-warehouse', icon: '📦', label: 'Magazzino' },
   { href: '/owner/maintenance',       icon: '🔧', label: 'Manutenzione' },
   { href: '/owner/intelligence',      icon: '🧠', label: 'Intelligence AI' },
   { href: '/owner/ai-management',     icon: '🤖', label: 'Gestione AI' },
@@ -67,6 +70,8 @@ export function OwnerSidebar() {
       </div>
       <nav style={{ flex: 1, paddingTop: 8, overflowY: 'auto' }}>
         {NAV_MAIN.map(item => <NavItem key={item.href} {...item} />)}
+        <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--text-tertiary)', letterSpacing: '0.08em', textTransform: 'uppercase', padding: '12px 24px 4px' }}>MAGAZZINO</div>
+        {NAV_MAGAZZINO.map(item => <NavItem key={item.href} {...item} />)}
         <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--text-tertiary)', letterSpacing: '0.08em', textTransform: 'uppercase', padding: '12px 24px 4px' }}>GESTIONE</div>
         {NAV_GESTIONE.map(item => <NavItem key={item.href} {...item} />)}
       </nav>
