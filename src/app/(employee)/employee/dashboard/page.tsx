@@ -1,10 +1,11 @@
 'use client'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import { fmt, formatTime, periodLabel } from '@/lib/utils'
 import { BottomNav } from '@/components/employee/BottomNav'
+import { playNotificationSound } from '@/lib/useNotificationSound'
 
 const QUICK_ACTIONS = [
   { href:'/employee/pos',         icon:'🛒', label:'Nuova Vendita',        color:'#22C55E', desc:'Registra vendita' },
@@ -22,6 +23,7 @@ const OTHER_ACTIONS = [
   { href:'/employee/calendar',         icon:'📅', label:'Giorni Liberi',      color:'#14B8A6', desc:'Richiedi permessi' },
   { href:'/employee/vending',          icon:'🏧', label:'Vending Machine',    color:'#0EA5E9', desc:'Ricarica macchine H24' },
   { href:'/employee/ai',              icon:'🤖', label:'Assistente AI',       color:'#6366F1', desc:'Aiuto e procedure' },
+  { href:'#checkout',                  icon:'🚪', label:'Check Out',           color:'#F59E0B', desc:'Esci senza chiudere turno' },
   { href:'/employee/shift/close',      icon:'🔒', label:'Chiudi Turno',       color:'#EF4444', desc:'Fine turno e deposito' },
 ]
 
@@ -43,6 +45,9 @@ export default function EmployeeDashboard() {
   const [objectives, setObjectives] = useState({ sales_target:1500, fidelity_target:3, streak:5, rank:2 })
   const [loading, setLoading] = useState(true)
   const [tasks, setTasks] = useState<any[]>([])
+  const [showCheckout, setShowCheckout] = useState(false)
+  const [checkingOut, setCheckingOut] = useState(false)
+  const prevNotifCount = useRef<number | null>(null)
 
   useEffect(() => { loadData(); const t = setInterval(loadData, 30000); return () => clearInterval(t) }, [])
 
@@ -61,6 +66,15 @@ export default function EmployeeDashboard() {
       try {
         const { data: tasksData } = await supabase.from('tasks').select('*').eq('store_id', profile.store_id).eq('assigned_to', user.id).neq('status','done').order('created_at',{ascending:false}).limit(5)
         setTasks(tasksData ?? [])
+      } catch {}
+      // Notification sound check
+      try {
+        const { count } = await supabase.from('notifications').select('id', { count:'exact', head:true }).eq('store_id', profile.store_id).eq('user_id', user.id).eq('read', false)
+        const unread = count ?? 0
+        if (prevNotifCount.current !== null && unread > prevNotifCount.current) {
+          playNotificationSound()
+        }
+        prevNotifCount.current = unread
       } catch {}
     }
 
@@ -181,22 +195,40 @@ export default function EmployeeDashboard() {
 
           <h4 style={{ margin:'0 0 12px', fontSize:15 }}>📋 Altre Azioni</h4>
           <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:8 }}>
-            {OTHER_ACTIONS.map(a => (
-              <Link key={a.href} href={a.href} style={{ textDecoration:'none' }}>
-                <div style={{
-                  background:'var(--bg-surface)', border:`1.5px solid ${a.color}20`,
-                  borderRadius:12, padding:'12px',
-                  display:'flex', alignItems:'center', gap:10,
-                  cursor:'pointer',
-                }}>
-                  <span style={{ fontSize:22, width:36, height:36, borderRadius:8, background:`${a.color}12`, display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>{a.icon}</span>
-                  <div>
-                    <div style={{ fontWeight:700, fontSize:13, color:'var(--text-primary)' }}>{a.label}</div>
-                    <div style={{ fontSize:11, color:'var(--text-tertiary)', marginTop:1 }}>{a.desc}</div>
+            {OTHER_ACTIONS.map(a => {
+              if (a.href === '#checkout') {
+                return (
+                  <div key={a.href} onClick={() => setShowCheckout(true)} style={{
+                    background:'var(--bg-surface)', border:`1.5px solid ${a.color}20`,
+                    borderRadius:12, padding:'12px',
+                    display:'flex', alignItems:'center', gap:10,
+                    cursor:'pointer',
+                  }}>
+                    <span style={{ fontSize:22, width:36, height:36, borderRadius:8, background:`${a.color}12`, display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>{a.icon}</span>
+                    <div>
+                      <div style={{ fontWeight:700, fontSize:13, color:'var(--text-primary)' }}>{a.label}</div>
+                      <div style={{ fontSize:11, color:'var(--text-tertiary)', marginTop:1 }}>{a.desc}</div>
+                    </div>
                   </div>
-                </div>
-              </Link>
-            ))}
+                )
+              }
+              return (
+                <Link key={a.href} href={a.href} style={{ textDecoration:'none' }}>
+                  <div style={{
+                    background:'var(--bg-surface)', border:`1.5px solid ${a.color}20`,
+                    borderRadius:12, padding:'12px',
+                    display:'flex', alignItems:'center', gap:10,
+                    cursor:'pointer',
+                  }}>
+                    <span style={{ fontSize:22, width:36, height:36, borderRadius:8, background:`${a.color}12`, display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>{a.icon}</span>
+                    <div>
+                      <div style={{ fontWeight:700, fontSize:13, color:'var(--text-primary)' }}>{a.label}</div>
+                      <div style={{ fontSize:11, color:'var(--text-tertiary)', marginTop:1 }}>{a.desc}</div>
+                    </div>
+                  </div>
+                </Link>
+              )
+            })}
           </div>
         </div>
 
@@ -328,6 +360,48 @@ export default function EmployeeDashboard() {
         </div>
 
       </div>
+
+      {/* Check Out Modal */}
+      {showCheckout && (
+        <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.6)', display:'flex', alignItems:'center', justifyContent:'center', zIndex:200, padding:20 }}>
+          <div style={{ background:'var(--bg-primary)', borderRadius:20, padding:28, width:'100%', maxWidth:380, textAlign:'center' }}>
+            <div style={{ fontSize:48, marginBottom:12 }}>🚪</div>
+            <h3 style={{ marginBottom:8 }}>Check Out</h3>
+            <p style={{ color:'var(--text-secondary)', fontSize:14, marginBottom:20, lineHeight:1.6 }}>
+              Stai per uscire <strong>senza chiudere il turno</strong>.<br/>
+              Il turno resterà aperto per il prossimo dipendente o per la chiusura successiva.
+            </p>
+            <div style={{ background:'var(--bg-surface)', borderRadius:12, padding:'12px 16px', marginBottom:20, fontSize:13, color:'var(--text-secondary)', textAlign:'left' }}>
+              <div style={{ marginBottom:4 }}>💡 <strong>Quando usare il Check Out:</strong></div>
+              <div>• Cambio turno con collega</div>
+              <div>• Pausa prolungata / metà turno</div>
+              <div>• Non sei responsabile della chiusura</div>
+            </div>
+            <div style={{ display:'flex', gap:10 }}>
+              <button
+                className="btn btn-secondary"
+                style={{ flex:1 }}
+                onClick={() => setShowCheckout(false)}
+              >
+                Annulla
+              </button>
+              <button
+                className="btn btn-primary"
+                style={{ flex:1, background:'#F59E0B' }}
+                disabled={checkingOut}
+                onClick={async () => {
+                  setCheckingOut(true)
+                  await supabase.auth.signOut()
+                  router.push('/login')
+                }}
+              >
+                {checkingOut ? '⏳ Uscita...' : '🚪 Check Out'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <BottomNav />
     </div>
   )

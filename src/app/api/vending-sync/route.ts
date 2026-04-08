@@ -1,10 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-)
+export const dynamic = 'force-dynamic'
+
+function getSupabase() {
+  return createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!
+  )
+}
 
 const CYBERETNA_BASE = 'http://80.211.151.71:9099'
 const CYBERETNA_EMAIL = process.env.CYBERETNA_EMAIL || ''
@@ -134,6 +138,7 @@ function parseMachineStatus(html: string): Record<string, boolean> {
 // ---- SYNC endpoint ----
 export async function POST(request: NextRequest) {
   try {
+    const supabase = getSupabase()
     const { storeId, action } = await request.json()
     if (!storeId) return NextResponse.json({ error: 'storeId required' }, { status: 400 })
 

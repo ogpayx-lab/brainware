@@ -148,14 +148,66 @@ export default function FidelityPage() {
 
         {/* Actions */}
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 'var(--space-sm)' }}>
-          <button className="btn btn-secondary" style={{ flexDirection: 'column', gap: 4, padding: 'var(--space-md)' }}>
-            <span></span><span style={{ fontSize: 12 }}>Invia SMS</span>
+          <button
+            className="btn btn-secondary"
+            style={{ flexDirection: 'column', gap: 4, padding: 'var(--space-md)' }}
+            onClick={() => {
+              const msg = encodeURIComponent(`Benvenuto! La tua Fidelity e-Card BrainWare è stata attivata.\nNumero Card: ${created.card_number}\nNome: ${created.customer_name}\nPunti: 0\nGrazie per averci scelto!`)
+              window.open(`sms:${created.customer_phone}?body=${msg}`, '_blank')
+            }}
+            disabled={!created.customer_phone}
+          >
+            <span>📱</span><span style={{ fontSize: 12 }}>Invia SMS</span>
           </button>
-          <button className="btn btn-secondary" style={{ flexDirection: 'column', gap: 4, padding: 'var(--space-md)' }}>
-            <span></span><span style={{ fontSize: 12 }}>Invia Email</span>
+          <button
+            className="btn btn-secondary"
+            style={{ flexDirection: 'column', gap: 4, padding: 'var(--space-md)' }}
+            onClick={() => {
+              const subject = encodeURIComponent('La tua Fidelity e-Card BrainWare')
+              const body = encodeURIComponent(`Ciao ${created.customer_name},\n\nLa tua Fidelity e-Card è stata attivata con successo!\n\nNumero Card: ${created.card_number}\nPunti accumulati: 0\n\nPresenta il tuo numero card ad ogni acquisto per accumulare punti e ottenere sconti esclusivi.\n\nGrazie per averci scelto!\nBrainWare`)
+              window.open(`mailto:${created.customer_email}?subject=${subject}&body=${body}`, '_blank')
+            }}
+            disabled={!created.customer_email}
+          >
+            <span>📧</span><span style={{ fontSize: 12 }}>Invia Email</span>
           </button>
-          <button className="btn btn-secondary" style={{ flexDirection: 'column', gap: 4, padding: 'var(--space-md)' }}>
-            <span></span><span style={{ fontSize: 12 }}>Stampa QR</span>
+          <button
+            className="btn btn-secondary"
+            style={{ flexDirection: 'column', gap: 4, padding: 'var(--space-md)' }}
+            onClick={() => {
+              // Generate a printable card with QR code using a QR API
+              const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(created.card_number)}`
+              const w = window.open('', '_blank', 'width=400,height=600')
+              if (w) {
+                w.document.write(`
+                  <html><head><title>Fidelity Card - ${created.card_number}</title>
+                  <style>
+                    body { font-family: -apple-system, sans-serif; text-align: center; padding: 40px 20px; margin: 0; }
+                    .card { max-width: 320px; margin: 0 auto; border: 2px solid #1A1A2E; border-radius: 16px; padding: 30px; }
+                    h2 { color: #1A1A2E; margin: 0 0 4px; font-size: 20px; }
+                    .subtitle { color: #666; font-size: 12px; letter-spacing: 0.1em; margin-bottom: 20px; }
+                    .name { font-size: 18px; font-weight: 700; margin: 16px 0 4px; }
+                    .number { font-size: 14px; color: #999; letter-spacing: 0.05em; margin-bottom: 20px; }
+                    img { margin: 0 auto; display: block; }
+                    .footer { font-size: 11px; color: #999; margin-top: 20px; }
+                    @media print { body { padding: 0; } }
+                  </style></head><body>
+                  <div class="card">
+                    <h2>BrainWare</h2>
+                    <div class="subtitle">FIDELITY e-CARD</div>
+                    <img src="${qrUrl}" width="180" height="180" alt="QR Code" />
+                    <div class="name">${created.customer_name}</div>
+                    <div class="number">${created.card_number}</div>
+                    <div class="footer">Presenta questa card ad ogni acquisto</div>
+                  </div>
+                  <script>setTimeout(() => window.print(), 500)</script>
+                  </body></html>
+                `)
+                w.document.close()
+              }
+            }}
+          >
+            <span>🖨️</span><span style={{ fontSize: 12 }}>Stampa QR</span>
           </button>
         </div>
 

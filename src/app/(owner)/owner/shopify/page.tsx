@@ -456,13 +456,26 @@ export default function ShopifyOrdersPage() {
                 </div>
 
                 {/* Destinatario */}
-                {fulfillModal.shipping_address && (
-                  <div style={{ background:'var(--bg-surface)', borderRadius:10, padding:12, marginBottom:16 }}>
-                    <div style={{ fontSize:12, fontWeight:700, color:'var(--text-secondary)', marginBottom:6 }}>DESTINATARIO</div>
-                    <div style={{ fontSize:13 }}>📍 {fulfillModal.shipping_address.name}</div>
-                    <div style={{ fontSize:12, color:'var(--text-secondary)' }}>{fulfillModal.shipping_address.address1}, {fulfillModal.shipping_address.city}, {fulfillModal.shipping_address.country}</div>
+                <div style={{ background:'var(--bg-surface)', borderRadius:10, padding:12, marginBottom:16 }}>
+                  <div style={{ fontSize:12, fontWeight:700, color:'var(--text-secondary)', marginBottom:6 }}>DESTINATARIO</div>
+                  {fulfillModal.shipping_address && (
+                    <>
+                      <div style={{ fontSize:14, fontWeight:600, marginBottom:2 }}>📍 {fulfillModal.shipping_address.name}</div>
+                      <div style={{ fontSize:12, color:'var(--text-secondary)', lineHeight:1.6 }}>
+                        {fulfillModal.shipping_address.address1}{fulfillModal.shipping_address.address2 ? `, ${fulfillModal.shipping_address.address2}` : ''}<br/>
+                        {fulfillModal.shipping_address.zip && `${fulfillModal.shipping_address.zip} `}{fulfillModal.shipping_address.city}{fulfillModal.shipping_address.province ? ` (${fulfillModal.shipping_address.province})` : ''}, {fulfillModal.shipping_address.country}
+                      </div>
+                    </>
+                  )}
+                  <div style={{ display:'flex', gap:14, marginTop:8, flexWrap:'wrap' }}>
+                    {(fulfillModal.phone || fulfillModal.shipping_address?.phone || fulfillModal.customer?.phone) && (
+                      <div style={{ fontSize:12, color:'var(--text-secondary)' }}>📞 {fulfillModal.shipping_address?.phone || fulfillModal.phone || fulfillModal.customer?.phone}</div>
+                    )}
+                    {fulfillModal.email && (
+                      <div style={{ fontSize:12, color:'var(--text-secondary)' }}>📧 {fulfillModal.email}</div>
+                    )}
                   </div>
-                )}
+                </div>
 
                 {/* Local Delivery Suggestion */}
                 {suggestedStore && (

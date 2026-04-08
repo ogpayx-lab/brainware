@@ -159,15 +159,26 @@ export default function EmployeeOrdersPage() {
                 </div>
 
                 {/* Destinatario */}
-                {fulfillModal.shipping_address && (
-                  <div style={{ background: 'var(--bg-surface)', borderRadius: 12, padding: '12px 14px', marginBottom: 14 }}>
-                    <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-tertiary)', letterSpacing: '0.05em', marginBottom: 6 }}>DESTINATARIO</div>
-                    <div style={{ fontSize: 14, fontWeight: 600 }}>📍 {fulfillModal.shipping_address.name}</div>
-                    <div style={{ fontSize: 13, color: 'var(--text-secondary)', marginTop: 2 }}>
-                      {fulfillModal.shipping_address.address1}, {fulfillModal.shipping_address.city}, {fulfillModal.shipping_address.country}
-                    </div>
+                <div style={{ background: 'var(--bg-surface)', borderRadius: 12, padding: '12px 14px', marginBottom: 14 }}>
+                  <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-tertiary)', letterSpacing: '0.05em', marginBottom: 6 }}>DESTINATARIO</div>
+                  {fulfillModal.shipping_address && (
+                    <>
+                      <div style={{ fontSize: 14, fontWeight: 600, marginBottom: 2 }}>📍 {fulfillModal.shipping_address.name}</div>
+                      <div style={{ fontSize: 13, color: 'var(--text-secondary)', lineHeight: 1.6 }}>
+                        {fulfillModal.shipping_address.address1}{fulfillModal.shipping_address.address2 ? `, ${fulfillModal.shipping_address.address2}` : ''}<br/>
+                        {fulfillModal.shipping_address.zip && `${fulfillModal.shipping_address.zip} `}{fulfillModal.shipping_address.city}{fulfillModal.shipping_address.province ? ` (${fulfillModal.shipping_address.province})` : ''}, {fulfillModal.shipping_address.country}
+                      </div>
+                    </>
+                  )}
+                  <div style={{ display: 'flex', gap: 14, marginTop: 8, flexWrap: 'wrap' }}>
+                    {(fulfillModal.phone || fulfillModal.shipping_address?.phone || fulfillModal.customer?.phone) && (
+                      <div style={{ fontSize: 12, color: 'var(--text-secondary)' }}>📞 {fulfillModal.shipping_address?.phone || fulfillModal.phone || fulfillModal.customer?.phone}</div>
+                    )}
+                    {fulfillModal.email && (
+                      <div style={{ fontSize: 12, color: 'var(--text-secondary)' }}>📧 {fulfillModal.email}</div>
+                    )}
                   </div>
-                )}
+                </div>
 
                 {/* Tracking — OBBLIGATORIO */}
                 <div style={{ marginBottom: 14 }}>

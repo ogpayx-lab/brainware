@@ -1,14 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
-import { createClient as createServerClient } from '@/lib/supabase/server'
 
-const supabaseAdmin = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!,
-  { auth: { autoRefreshToken: false, persistSession: false } }
-)
+export const dynamic = 'force-dynamic'
 
 export async function POST(req: NextRequest) {
+  const supabaseAdmin = createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!,
+    { auth: { autoRefreshToken: false, persistSession: false } }
+  )
+
   const authHeader = req.headers.get('Authorization')
   if (!authHeader?.startsWith('Bearer ')) {
     return NextResponse.json({ error: 'Non autorizzato' }, { status: 401 })

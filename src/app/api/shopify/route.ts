@@ -1,13 +1,18 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 
-const supabaseAdmin = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!,
-  { auth: { autoRefreshToken: false, persistSession: false } }
-)
+export const dynamic = 'force-dynamic'
+
+function getSupabaseAdmin() {
+  return createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!,
+    { auth: { autoRefreshToken: false, persistSession: false } }
+  )
+}
 
 async function getShopifyCredentials(token: string) {
+  const supabaseAdmin = getSupabaseAdmin()
   const { data: { user }, error } = await supabaseAdmin.auth.getUser(token)
   if (error || !user) return null
   const { data: profile } = await supabaseAdmin.from('users').select('store_id').eq('id', user.id).single()
