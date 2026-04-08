@@ -43,9 +43,12 @@ export default function ShopifyOrdersPage() {
   const [accessToken, setAccessToken] = useState<string|null>(null)
   const [fulfillModal, setFulfillModal] = useState<ShopifyOrder|null>(null)
   const [fulfilling, setFulfilling] = useState(false)
-  const [fulfillForm, setFulfillForm] = useState({ trackingCompany:'', trackingNumber:'', notifyCustomer:true })
+  const [fulfillForm, setFulfillForm] = useState({ trackingCompany:'', trackingNumber:'', notifyCustomer:true, sourceType:'store' as 'store'|'warehouse', sourceId:'', deductStock:true })
   const [fulfillError, setFulfillError] = useState('')
   const [fulfillSuccess, setFulfillSuccess] = useState('')
+  const [capturing, setCapturing] = useState<number|null>(null)
+  const [warehouses, setWarehouses] = useState<any[]>([])
+  const [suggestedStore, setSuggestedStore] = useState<string|null>(null)
 
   useEffect(() => { checkAuthAndLoad() }, [])
 
@@ -77,8 +80,12 @@ export default function ShopifyOrdersPage() {
     // Recupera tutti gli store dell'org
     const oid = (profile.stores as any)?.organization_id
     if (oid) {
-      const { data: storesData } = await supabase.from('stores').select('id,name').eq('organization_id', oid)
+      const { data: storesData } = await supabase.from('stores').select('id,name,city').eq('organization_id', oid)
       setStores(storesData ?? [])
+
+      // Load warehouses
+      const { data: whData } = await supabase.from('warehouses').select('id,name,type').eq('organization_id', oid).eq('is_active', true)
+      setWarehouses(whData ?? [])
     }
 
     // Carica config Shopify
@@ -131,6 +138,57 @@ export default function ShopifyOrdersPage() {
       }
       // Aggiorna l'ordine nella lista
       setOrders(prev => prev.map(o => o.id === fulfillModal.id ? { ...o, fulfillment_status: 'fulfilled' } : o))
+
+      // Register sale in BrainWare
+      const saleStoreId = fulfillForm.sourceType === 'store' ? fulfillForm.sourceId : (storeId || stores[0]?.id)
+      if (saleStoreId) {
+        const { data: { user } } = await supabase.auth.getUser()
+        const paymentMethod = (fulfillModal.payment_gateway_names?.[0] || fulfillModal.gateway || '').toLowerCase()
+        const pmMapped = paymentMethod.includes('cash') || paymentMethod.includes('cod') ? 'cash' : 'pos'
+
+        await supabase.from('sales').insert({
+          store_id: saleStoreId,
+          user_id: user?.id,
+          movement_type: 'sale',
+          payment_method: pmMapped,
+          subtotal: parseFloat(fulfillModal.total_price),
+          total: parseFloat(fulfillModal.total_price),
+          acquisition_channel: 'shopify',
+          customer_name: fulfillModal.shipping_address?.name || fulfillModal.email || null,
+          customer_email: fulfillModal.email || null,
+        })
+
+        // Register sale_items
+        await supabase.from('sale_items').insert(
+          fulfillModal.line_items.map(li => ({
+            product_name: li.title,
+            qty: li.quantity,
+            unit_price: parseFloat(li.price),
+            line_total: li.quantity * parseFloat(li.price),
+          }))
+        ).then(() => {}) // fire and forget
+      }
+
+      // Deduct stock if enabled
+      if (fulfillForm.deductStock && fulfillForm.sourceId) {
+        for (const li of fulfillModal.line_items) {
+          const productName = li.title.toLowerCase().trim()
+          if (fulfillForm.sourceType === 'warehouse') {
+            // Deduct from warehouse_stock
+            const { data: whItem } = await supabase.from('warehouse_stock').select('id,qty').eq('warehouse_id', fulfillForm.sourceId).ilike('product_name', `%${productName}%`).single()
+            if (whItem) {
+              await supabase.from('warehouse_stock').update({ qty: Math.max(0, whItem.qty - li.quantity) }).eq('id', whItem.id)
+            }
+          } else {
+            // Deduct from store products
+            const { data: prod } = await supabase.from('products').select('id,stock').eq('store_id', fulfillForm.sourceId).ilike('name', `%${productName}%`).single()
+            if (prod) {
+              await supabase.from('products').update({ stock: Math.max(0, prod.stock - li.quantity) }).eq('id', prod.id)
+            }
+          }
+        }
+      }
+
       setFulfillSuccess(`✅ Ordine ${fulfillModal.name} evaso con successo!`)
       setTimeout(() => { setFulfillModal(null); setFulfillSuccess('') }, 2000)
     } catch (e: any) {
@@ -146,6 +204,28 @@ export default function ShopifyOrdersPage() {
   })
 
   const pending = orders.filter(o => !o.fulfillment_status).length
+
+  async function capturePayment(order: ShopifyOrder) {
+    if (!confirm(`Confermi l'acquisizione del pagamento per l'ordine ${order.name} (€${parseFloat(order.total_price).toFixed(2)})?`)) return
+    setCapturing(order.id)
+    const token = accessToken ?? (await supabase.auth.getSession()).data.session?.access_token ?? ''
+    try {
+      const res = await fetch('/api/shopify', {
+        method: 'PUT',
+        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ orderId: order.id }),
+      })
+      const json = await res.json()
+      if (!res.ok || json.error) {
+        alert(`Errore: ${json.error || 'Errore sconosciuto'}`)
+      } else {
+        setOrders(prev => prev.map(o => o.id === order.id ? { ...o, financial_status: 'paid' } : o))
+      }
+    } catch (e: any) {
+      alert(`Errore: ${e.message}`)
+    }
+    setCapturing(null)
+  }
 
   if (notConfigured) return (
     <div style={{ display:'flex', alignItems:'center', justifyContent:'center', height:'60vh' }}>
@@ -228,16 +308,17 @@ export default function ShopifyOrdersPage() {
                       const gw = (order.payment_gateway_names?.[0] || order.gateway || '').toLowerCase()
                       let icon = '💳'; let label = gw || 'N/D'
                       if (gw.includes('paypal')) { icon = '🌍'; label = 'PayPal' }
-                      else if (gw.includes('stripe') || gw.includes('card') || gw.includes('carta')) { icon = '💳'; label = 'Carta' }
                       else if (gw.includes('shopify_payments') || gw.includes('shopify payments')) { icon = '💳'; label = 'Shopify Pay' }
+                      else if (gw.includes('bank') || gw.includes('bonifico') || gw.includes('transfer') || gw.includes('deposit')) { icon = '🏦'; label = 'Bonifico' }
+                      else if (gw.includes('manual') || gw === '') { icon = '🏦'; label = 'Manuale' }
                       else if (gw.includes('cash') || gw.includes('contanti') || gw.includes('contrassegno') || gw.includes('cod')) { icon = '💵'; label = 'Contrassegno' }
-                      else if (gw.includes('bank') || gw.includes('bonifico') || gw.includes('transfer')) { icon = '🏦'; label = 'Bonifico' }
+                      else if (gw.includes('stripe') || gw.includes('card') || gw.includes('carta') || gw.includes('credit')) { icon = '💳'; label = 'Carta' }
                       else if (gw.includes('apple')) { icon = '🍏'; label = 'Apple Pay' }
                       else if (gw.includes('google')) { icon = '🔵'; label = 'Google Pay' }
                       else if (gw.includes('klarna') || gw.includes('scalapay')) { icon = '🔄'; label = label.charAt(0).toUpperCase() + label.slice(1) }
-                      else if (gw) { label = gw.charAt(0).toUpperCase() + gw.slice(1) }
+                      else if (gw) { label = gw.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase()) }
                       return (
-                        <span style={{ padding:'2px 8px', borderRadius:20, fontSize:10, fontWeight:600, background:'#F3F4F6', color:'#374151' }}>
+                        <span title={gw} style={{ padding:'2px 8px', borderRadius:20, fontSize:10, fontWeight:600, background: icon === '🏦' ? '#DBEAFE' : '#F3F4F6', color: icon === '🏦' ? '#1E40AF' : '#374151' }}>
                           {icon} {label}
                         </span>
                       )
@@ -285,9 +366,38 @@ export default function ShopifyOrdersPage() {
                     <button
                       className="btn btn-primary"
                       style={{ marginTop:8, fontSize:11, padding:'4px 12px', background:'var(--brand-primary)' }}
-                      onClick={() => { setFulfillModal(order); setFulfillForm({ trackingCompany:'', trackingNumber:'', notifyCustomer:true }); setFulfillError('') }}
+                      onClick={() => {
+                        setFulfillModal(order)
+                        setFulfillForm({ trackingCompany:'', trackingNumber:'', notifyCustomer:true, sourceType:'store', sourceId: stores[0]?.id || '', deductStock:true })
+                        setFulfillError('')
+                        // Suggest nearest store for local delivery
+                        const shTitle = order.shipping_lines?.[0]?.title?.toLowerCase() || order.tags?.toLowerCase() || ''
+                        const isLocal = shTitle.includes('local') || shTitle.includes('locale') || shTitle.includes('consegna') || shTitle.includes('pickup') || shTitle.includes('ritiro')
+                        if (isLocal && order.shipping_address?.city && stores.length > 1) {
+                          const destCity = order.shipping_address.city.toLowerCase().trim()
+                          const match = stores.find(s => s.city?.toLowerCase().trim() === destCity)
+                          if (match) {
+                            setSuggestedStore(match.name + (match.city ? ` (${match.city})` : ''))
+                            setFulfillForm(f => ({...f, sourceId: match.id}))
+                          } else {
+                            setSuggestedStore(stores[0].name + ' (nessun match città)')
+                          }
+                        } else {
+                          setSuggestedStore(null)
+                        }
+                      }}
                     >
                       📦 Evadi ordine →
+                    </button>
+                  )}
+                  {(order.financial_status === 'pending' || order.financial_status === 'authorized' || order.financial_status === 'partially_paid') && (
+                    <button
+                      className="btn btn-secondary"
+                      style={{ marginTop:6, fontSize:11, padding:'4px 12px', background:'#DBEAFE', color:'#1E40AF', border:'1px solid #93C5FD' }}
+                      onClick={() => capturePayment(order)}
+                      disabled={capturing === order.id}
+                    >
+                      {capturing === order.id ? '⏳ Acquisizione...' : '💰 Acquisisci pagamento'}
                     </button>
                   )}
                 </div>
@@ -336,6 +446,40 @@ export default function ShopifyOrdersPage() {
                   </div>
                 )}
 
+                {/* Local Delivery Suggestion */}
+                {suggestedStore && (
+                  <div style={{ background:'#EDE9FE', border:'1px solid #A78BFA', borderRadius:10, padding:12, marginBottom:16, fontSize:13 }}>
+                    <div style={{ fontWeight:700, color:'#5B21B6', marginBottom:4 }}>📍 Store suggerito per Local Delivery</div>
+                    <div style={{ color:'#6D28D9' }}>{suggestedStore} — lo store più vicino all'indirizzo di consegna</div>
+                  </div>
+                )}
+
+                {/* Source: from which warehouse/store to deduct */}
+                <div style={{ background:'var(--bg-surface)', borderRadius:10, padding:12, marginBottom:16 }}>
+                  <div style={{ fontSize:12, fontWeight:700, color:'var(--text-secondary)', marginBottom:8 }}>📦 SORGENTE INVENTARIO</div>
+                  <div style={{ display:'flex', gap:6, marginBottom:10 }}>
+                    <button onClick={() => setFulfillForm(f => ({...f, sourceType:'store', sourceId:stores[0]?.id||''}))} style={{ flex:1, padding:'6px 10px', borderRadius:8, border:'none', background: fulfillForm.sourceType==='store' ? 'var(--brand-primary)' : 'var(--bg-primary)', color: fulfillForm.sourceType==='store' ? 'white' : 'var(--text-secondary)', cursor:'pointer', fontSize:12, fontWeight:600 }}>
+                      🏠 Store
+                    </button>
+                    <button onClick={() => setFulfillForm(f => ({...f, sourceType:'warehouse', sourceId:warehouses[0]?.id||''}))} style={{ flex:1, padding:'6px 10px', borderRadius:8, border:'none', background: fulfillForm.sourceType==='warehouse' ? 'var(--brand-primary)' : 'var(--bg-primary)', color: fulfillForm.sourceType==='warehouse' ? 'white' : 'var(--text-secondary)', cursor:'pointer', fontSize:12, fontWeight:600 }}>
+                      🏭 Magazzino
+                    </button>
+                  </div>
+                  <select className="input" value={fulfillForm.sourceId} onChange={e => setFulfillForm(f => ({...f, sourceId:e.target.value}))} style={{ height:36, fontSize:13, marginBottom:8 }}>
+                    <option value="">Seleziona {fulfillForm.sourceType === 'store' ? 'store' : 'magazzino'}...</option>
+                    {fulfillForm.sourceType === 'store'
+                      ? stores.map(s => <option key={s.id} value={s.id}>{s.name}{s.city ? ` (${s.city})` : ''}</option>)
+                      : warehouses.map(w => <option key={w.id} value={w.id}>{w.type === 'central' ? '🏭' : '📦'} {w.name}</option>)
+                    }
+                  </select>
+                  <div style={{ display:'flex', alignItems:'center', gap:8, cursor:'pointer' }} onClick={() => setFulfillForm(f => ({...f, deductStock:!f.deductStock}))}>
+                    <div style={{ width:18, height:18, borderRadius:4, border:`2px solid ${fulfillForm.deductStock ? 'var(--brand-primary)' : 'var(--border-default)'}`, background:fulfillForm.deductStock ? 'var(--brand-primary)' : 'transparent', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
+                      {fulfillForm.deductStock && <span style={{ color:'white', fontSize:11, fontWeight:700 }}>✓</span>}
+                    </div>
+                    <div style={{ fontSize:12 }}>Scala automaticamente dall'inventario</div>
+                  </div>
+                </div>
+
                 {/* Tracking */}
                 <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:10, marginBottom:12 }}>
                   <div>
@@ -357,6 +501,11 @@ export default function ShopifyOrdersPage() {
                     <div style={{ fontSize:13, fontWeight:600 }}>📧 Notifica il cliente</div>
                     <div style={{ fontSize:11, color:'var(--text-secondary)' }}>Shopify invierà un&apos;email di conferma spedizione</div>
                   </div>
+                </div>
+
+                {/* Registrazione vendita info */}
+                <div style={{ background:'#F0FDF4', border:'1px solid var(--success)', borderRadius:8, padding:10, marginBottom:16, fontSize:12, color:'#166534' }}>
+                  📊 La vendita verrà registrata automaticamente come <strong>canale Shopify</strong> nelle vendite giornaliere.
                 </div>
 
                 {fulfillError && <div style={{ background:'#FEF2F2', border:'1px solid var(--danger)', borderRadius:8, padding:10, marginBottom:12, fontSize:13, color:'var(--danger)' }}>⚠️ {fulfillError}</div>}
