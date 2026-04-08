@@ -12,9 +12,13 @@ type ShopifyOrder = {
   total_price: string
   currency: string
   line_items: { title: string; quantity: number; price: string }[]
+  shipping_lines?: { title: string; code: string; price: string }[]
   shipping_address?: { name: string; address1: string; city: string; country: string }
   email: string
   tags: string
+  note?: string
+  gateway?: string
+  payment_gateway_names?: string[]
 }
 
 const FULFILLMENT_COLORS: Record<string, string> = {
@@ -215,14 +219,42 @@ export default function ShopifyOrdersPage() {
             <div key={order.id} style={{ padding:'var(--space-md) var(--space-lg)', borderBottom: i < filtered.length-1 ? '1px solid var(--border-subtle)' : 'none' }}>
               <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', gap:12 }}>
                 <div style={{ flex:1 }}>
-                  <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:4 }}>
+                  <div style={{ display:'flex', alignItems:'center', gap:6, marginBottom:4, flexWrap:'wrap' }}>
                     <span style={{ fontWeight:700, fontSize:14 }}>{order.name}</span>
                     <span className="badge badge-gray" style={{ fontSize:10 }}>
-                      {order.financial_status === 'paid' ? '💳 Pagato' : order.financial_status}
+                      {order.financial_status === 'paid' ? '💳 Pagato' : order.financial_status === 'pending' ? '⏳ In attesa' : order.financial_status === 'refunded' ? '↩️ Rimborsato' : order.financial_status}
                     </span>
+                    {(() => {
+                      const gw = (order.payment_gateway_names?.[0] || order.gateway || '').toLowerCase()
+                      let icon = '💳'; let label = gw || 'N/D'
+                      if (gw.includes('paypal')) { icon = '🌍'; label = 'PayPal' }
+                      else if (gw.includes('stripe') || gw.includes('card') || gw.includes('carta')) { icon = '💳'; label = 'Carta' }
+                      else if (gw.includes('shopify_payments') || gw.includes('shopify payments')) { icon = '💳'; label = 'Shopify Pay' }
+                      else if (gw.includes('cash') || gw.includes('contanti') || gw.includes('contrassegno') || gw.includes('cod')) { icon = '💵'; label = 'Contrassegno' }
+                      else if (gw.includes('bank') || gw.includes('bonifico') || gw.includes('transfer')) { icon = '🏦'; label = 'Bonifico' }
+                      else if (gw.includes('apple')) { icon = '🍏'; label = 'Apple Pay' }
+                      else if (gw.includes('google')) { icon = '🔵'; label = 'Google Pay' }
+                      else if (gw.includes('klarna') || gw.includes('scalapay')) { icon = '🔄'; label = label.charAt(0).toUpperCase() + label.slice(1) }
+                      else if (gw) { label = gw.charAt(0).toUpperCase() + gw.slice(1) }
+                      return (
+                        <span style={{ padding:'2px 8px', borderRadius:20, fontSize:10, fontWeight:600, background:'#F3F4F6', color:'#374151' }}>
+                          {icon} {label}
+                        </span>
+                      )
+                    })()}
                     <span style={{ padding:'2px 8px', borderRadius:20, fontSize:10, fontWeight:600, background: (!order.fulfillment_status) ? '#FEF3C7' : '#D1FAE5', color: (!order.fulfillment_status) ? '#92400E' : '#065F46' }}>
                       {order.fulfillment_status ? '✅ Evaso' : '⏳ Da evadere'}
                     </span>
+                    {(() => {
+                      const shippingTitle = order.shipping_lines?.[0]?.title?.toLowerCase() || order.tags?.toLowerCase() || ''
+                      const isLocal = shippingTitle.includes('local') || shippingTitle.includes('locale') || shippingTitle.includes('consegna') || shippingTitle.includes('pickup') || shippingTitle.includes('ritiro')
+                      return (
+                        <span style={{ padding:'2px 8px', borderRadius:20, fontSize:10, fontWeight:600, background: isLocal ? '#EDE9FE' : '#DBEAFE', color: isLocal ? '#5B21B6' : '#1E40AF', display:'flex', alignItems:'center', gap:3 }}>
+                          {isLocal ? '🚴 Local Delivery' : '🚚 Spedizione'}
+                          {order.shipping_lines?.[0]?.title && !isLocal && <span style={{ fontWeight:400 }}> · {order.shipping_lines[0].title}</span>}
+                        </span>
+                      )
+                    })()}
                   </div>
                   <div style={{ fontSize:13, color:'var(--text-secondary)', marginBottom:4 }}>
                     {order.shipping_address ? `📍 ${order.shipping_address.name} — ${order.shipping_address.city}, ${order.shipping_address.country}` : order.email}
@@ -243,8 +275,11 @@ export default function ShopifyOrdersPage() {
                 </div>
                 <div style={{ textAlign:'right', flexShrink:0 }}>
                   <div style={{ fontWeight:700, fontSize:16, color:'var(--brand-primary)' }}>€{parseFloat(order.total_price).toFixed(2)}</div>
-                  <div style={{ fontSize:11, color:'var(--text-tertiary)', marginTop:2 }}>
-                    {new Date(order.created_at).toLocaleDateString('it-IT', { day:'numeric', month:'short', hour:'2-digit', minute:'2-digit' })}
+                  <div style={{ fontSize:12, color:'var(--text-secondary)', marginTop:2 }}>
+                    📅 {new Date(order.created_at).toLocaleDateString('it-IT', { day:'2-digit', month:'short', year:'numeric' })}
+                  </div>
+                  <div style={{ fontSize:12, color:'var(--text-tertiary)' }}>
+                    🕐 {new Date(order.created_at).toLocaleTimeString('it-IT', { hour:'2-digit', minute:'2-digit' })}
                   </div>
                   {!order.fulfillment_status && (
                     <button
