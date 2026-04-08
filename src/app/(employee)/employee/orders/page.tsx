@@ -36,6 +36,8 @@ export default function EmployeeOrdersPage() {
   const [fulfillSuccess, setFulfillSuccess] = useState('')
   const [search, setSearch] = useState('')
   const [filter, setFilter] = useState<'unfulfilled'|'all'>('unfulfilled')
+  const [dateFrom, setDateFrom] = useState('')
+  const [dateTo, setDateTo] = useState('')
 
   useEffect(() => { init() }, [])
 
@@ -102,7 +104,10 @@ export default function EmployeeOrdersPage() {
   const filtered = orders.filter(o => {
     const matchFilter = filter === 'all' || !o.fulfillment_status
     const matchSearch = !search || o.name.toLowerCase().includes(search.toLowerCase()) || o.shipping_address?.name?.toLowerCase().includes(search.toLowerCase())
-    return matchFilter && matchSearch
+    const orderDate = o.created_at?.split('T')[0] || ''
+    const matchFrom = !dateFrom || orderDate >= dateFrom
+    const matchTo = !dateTo || orderDate <= dateTo
+    return matchFilter && matchSearch && matchFrom && matchTo
   })
 
   if (notConfigured) return (
@@ -252,13 +257,28 @@ export default function EmployeeOrdersPage() {
           </div>
           <div style={{ background: 'var(--bg-surface)', borderRadius: 10, padding: '8px 14px', flex: 1, textAlign: 'center' }}>
             <div style={{ fontSize: 20, fontWeight: 700 }}>{orders.filter(o => o.fulfillment_status === 'fulfilled').length}</div>
-            <div style={{ fontSize: 11, color: 'var(--text-secondary)' }}>Evasi oggi</div>
+            <div style={{ fontSize: 11, color: 'var(--text-secondary)' }}>Evasi</div>
           </div>
           <div style={{ background: 'var(--bg-surface)', borderRadius: 10, padding: '8px 14px', flex: 1, textAlign: 'center' }}>
-            <div style={{ fontSize: 20, fontWeight: 700, color: 'var(--brand-primary)' }}>€{orders.reduce((s, o) => s + parseFloat(o.total_price || '0'), 0).toFixed(0)}</div>
-            <div style={{ fontSize: 11, color: 'var(--text-secondary)' }}>Revenue</div>
+            <div style={{ fontSize: 20, fontWeight: 700, color: 'var(--brand-primary)' }}>{orders.length}</div>
+            <div style={{ fontSize: 11, color: 'var(--text-secondary)' }}>Totali</div>
           </div>
         </div>
+      </div>
+
+      {/* Date filter */}
+      <div style={{ padding: '8px 16px', background: 'var(--bg-primary)', borderBottom: '1px solid var(--border-subtle)', display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap' }}>
+        {[
+          { label:'Oggi', fn:() => { const t=new Date().toISOString().split('T')[0]; setDateFrom(t); setDateTo(t) } },
+          { label:'7gg', fn:() => { const t=new Date(); t.setDate(t.getDate()-7); setDateFrom(t.toISOString().split('T')[0]); setDateTo(new Date().toISOString().split('T')[0]) } },
+          { label:'30gg', fn:() => { const t=new Date(); t.setDate(t.getDate()-30); setDateFrom(t.toISOString().split('T')[0]); setDateTo(new Date().toISOString().split('T')[0]) } },
+          { label:'Tutti', fn:() => { setDateFrom(''); setDateTo('') } },
+        ].map(p => (
+          <button key={p.label} onClick={p.fn} style={{ padding:'4px 10px', borderRadius:8, border:'none', background: (!dateFrom && !dateTo && p.label==='Tutti') ? 'var(--bg-surface)' : 'transparent', fontSize:12, cursor:'pointer', color:'var(--text-secondary)', fontWeight:500 }}>{p.label}</button>
+        ))}
+        <input type="date" value={dateFrom} onChange={e => setDateFrom(e.target.value)} className="input" style={{ height:30, fontSize:11, width:120 }} />
+        <span style={{ fontSize:11, color:'var(--text-tertiary)' }}>→</span>
+        <input type="date" value={dateTo} onChange={e => setDateTo(e.target.value)} className="input" style={{ height:30, fontSize:11, width:120 }} />
       </div>
 
       {/* Filtri + Cerca */}
@@ -320,9 +340,14 @@ export default function EmployeeOrdersPage() {
                 </div>
 
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <span style={{ fontSize: 11, color: 'var(--text-tertiary)' }}>
-                    {new Date(order.created_at).toLocaleDateString('it-IT', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
-                  </span>
+                  <div>
+                    <div style={{ fontSize: 12, color: 'var(--text-secondary)' }}>
+                      📅 {new Date(order.created_at).toLocaleDateString('it-IT', { day: '2-digit', month: 'short', year: 'numeric' })}
+                    </div>
+                    <div style={{ fontSize: 11, color: 'var(--text-tertiary)' }}>
+                      🕐 {new Date(order.created_at).toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' })}
+                    </div>
+                  </div>
                   {!order.fulfillment_status && (
                     <button
                       className="btn btn-primary"

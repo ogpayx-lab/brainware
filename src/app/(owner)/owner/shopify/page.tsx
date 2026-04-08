@@ -38,6 +38,8 @@ export default function ShopifyOrdersPage() {
   const [filter, setFilter] = useState<'all'|'unfulfilled'|'fulfilled'>('unfulfilled')
   const [search, setSearch] = useState('')
   const [storeId, setStoreId] = useState<string|null>(null)
+  const [dateFrom, setDateFrom] = useState('')
+  const [dateTo, setDateTo] = useState('')
   const [shopifyConfig, setShopifyConfig] = useState<any>(null)
   const [stores, setStores] = useState<any[]>([])
   const [accessToken, setAccessToken] = useState<string|null>(null)
@@ -199,7 +201,10 @@ export default function ShopifyOrdersPage() {
   const filtered = orders.filter(o => {
     const matchFilter = filter === 'all' || (filter === 'unfulfilled' && !o.fulfillment_status) || (filter === 'fulfilled' && o.fulfillment_status === 'fulfilled')
     const matchSearch = !search || o.name.toLowerCase().includes(search.toLowerCase()) || o.email?.toLowerCase().includes(search.toLowerCase()) || o.shipping_address?.name?.toLowerCase().includes(search.toLowerCase())
-    return matchFilter && matchSearch
+    const orderDate = o.created_at?.split('T')[0] || ''
+    const matchFrom = !dateFrom || orderDate >= dateFrom
+    const matchTo = !dateTo || orderDate <= dateTo
+    return matchFilter && matchSearch && matchFrom && matchTo
   })
 
   const pending = orders.filter(o => !o.fulfillment_status).length
@@ -251,6 +256,25 @@ export default function ShopifyOrdersPage() {
       </div>
 
       {error && <div style={{ background:'#FEF2F2', border:'1px solid var(--danger)', borderRadius:8, padding:12, marginBottom:16, color:'var(--danger)', fontSize:13 }}>{error}</div>}
+
+      {/* Date filter */}
+      <div style={{ display:'flex', gap:10, marginBottom:'var(--space-md)', alignItems:'center', flexWrap:'wrap' }}>
+        <div style={{ display:'flex', gap:4 }}>
+          {[
+            { label:'Oggi', fn:() => { const t=new Date().toISOString().split('T')[0]; setDateFrom(t); setDateTo(t) } },
+            { label:'7gg', fn:() => { const t=new Date(); t.setDate(t.getDate()-7); setDateFrom(t.toISOString().split('T')[0]); setDateTo(new Date().toISOString().split('T')[0]) } },
+            { label:'30gg', fn:() => { const t=new Date(); t.setDate(t.getDate()-30); setDateFrom(t.toISOString().split('T')[0]); setDateTo(new Date().toISOString().split('T')[0]) } },
+            { label:'Tutti', fn:() => { setDateFrom(''); setDateTo('') } },
+          ].map(p => (
+            <button key={p.label} onClick={p.fn} className="btn btn-ghost" style={{ fontSize:11, padding:'4px 10px', background: (!dateFrom && !dateTo && p.label==='Tutti') ? 'var(--bg-surface)' : 'transparent' }}>{p.label}</button>
+          ))}
+        </div>
+        <div style={{ display:'flex', alignItems:'center', gap:6 }}>
+          <input type="date" value={dateFrom} onChange={e => setDateFrom(e.target.value)} className="input" style={{ height:32, fontSize:12, width:140 }} />
+          <span style={{ fontSize:12, color:'var(--text-tertiary)' }}>→</span>
+          <input type="date" value={dateTo} onChange={e => setDateTo(e.target.value)} className="input" style={{ height:32, fontSize:12, width:140 }} />
+        </div>
+      </div>
 
       {/* Filtri */}
       <div style={{ display:'flex', gap:10, marginBottom:'var(--space-lg)', alignItems:'center' }}>
