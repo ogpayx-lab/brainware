@@ -13,8 +13,10 @@ type ShopifyOrder = {
   total_price: string
   currency: string
   line_items: { title: string; quantity: number; price: string }[]
-  shipping_address?: { name: string; address1: string; city: string; country: string }
+  shipping_address?: { name: string; address1: string; address2?: string; city: string; province?: string; zip?: string; country: string; phone?: string }
+  customer?: { first_name: string; last_name: string; email: string; phone?: string }
   email: string
+  phone?: string
 }
 
 export default function EmployeeOrdersPage() {
@@ -328,11 +330,29 @@ export default function EmployeeOrdersPage() {
                   <span style={{ fontWeight: 700, fontSize: 16, color: 'var(--brand-primary)' }}>€{parseFloat(order.total_price).toFixed(2)}</span>
                 </div>
 
-                {order.shipping_address && (
-                  <div style={{ fontSize: 13, color: 'var(--text-secondary)', marginBottom: 6 }}>
-                    📍 {order.shipping_address.name} — {order.shipping_address.city}
+                {/* Customer info */}
+                <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginBottom: 8 }}>
+                  {order.shipping_address && (
+                    <>
+                      <div style={{ display:'flex', alignItems:'center', gap:4, marginBottom:2 }}>
+                        <span>📍</span>
+                        <span style={{ fontWeight:600 }}>{order.shipping_address.name}</span>
+                      </div>
+                      <div style={{ color:'var(--text-tertiary)', marginLeft:20, fontSize:11, lineHeight:1.5 }}>
+                        {order.shipping_address.address1}{order.shipping_address.address2 ? `, ${order.shipping_address.address2}` : ''}<br/>
+                        {order.shipping_address.zip && `${order.shipping_address.zip} `}{order.shipping_address.city}{order.shipping_address.province ? ` (${order.shipping_address.province})` : ''}, {order.shipping_address.country}
+                      </div>
+                    </>
+                  )}
+                  <div style={{ display:'flex', gap:10, marginTop:4, flexWrap:'wrap' }}>
+                    {(order.phone || order.shipping_address?.phone || order.customer?.phone) && (
+                      <span style={{ fontSize:11, color:'var(--text-tertiary)' }}>📞 {order.shipping_address?.phone || order.phone || order.customer?.phone}</span>
+                    )}
+                    {order.email && (
+                      <span style={{ fontSize:11, color:'var(--text-tertiary)' }}>📧 {order.email}</span>
+                    )}
                   </div>
-                )}
+                </div>
 
                 <div style={{ fontSize: 12, color: 'var(--text-tertiary)', marginBottom: 10 }}>
                   {order.line_items.slice(0, 3).map(li => `${li.title} ×${li.quantity}`).join(' · ')}

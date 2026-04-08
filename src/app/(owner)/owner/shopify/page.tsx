@@ -13,8 +13,11 @@ type ShopifyOrder = {
   currency: string
   line_items: { title: string; quantity: number; price: string }[]
   shipping_lines?: { title: string; code: string; price: string }[]
-  shipping_address?: { name: string; address1: string; city: string; country: string }
+  shipping_address?: { name: string; address1: string; address2?: string; city: string; province?: string; zip?: string; country: string; phone?: string }
+  billing_address?: { name: string; address1: string; city: string; country: string; phone?: string }
+  customer?: { first_name: string; last_name: string; email: string; phone?: string }
   email: string
+  phone?: string
   tags: string
   note?: string
   gateway?: string
@@ -339,13 +342,36 @@ export default function ShopifyOrdersPage() {
                       )
                     })()}
                   </div>
-                  <div style={{ fontSize:13, color:'var(--text-secondary)', marginBottom:4 }}>
-                    {order.shipping_address ? `📍 ${order.shipping_address.name} — ${order.shipping_address.city}, ${order.shipping_address.country}` : order.email}
+                  {/* Customer info */}
+                  <div style={{ fontSize:12, color:'var(--text-secondary)', marginBottom:6 }}>
+                    {order.shipping_address && (
+                      <>
+                        <div style={{ display:'flex', alignItems:'center', gap:4, marginBottom:2 }}>
+                          <span>📍</span>
+                          <span style={{ fontWeight:600 }}>{order.shipping_address.name}</span>
+                        </div>
+                        <div style={{ color:'var(--text-tertiary)', marginLeft:20, fontSize:11, lineHeight:1.5 }}>
+                          {order.shipping_address.address1}{order.shipping_address.address2 ? `, ${order.shipping_address.address2}` : ''}<br/>
+                          {order.shipping_address.zip && `${order.shipping_address.zip} `}{order.shipping_address.city}{order.shipping_address.province ? ` (${order.shipping_address.province})` : ''}, {order.shipping_address.country}
+                        </div>
+                      </>
+                    )}
+                    <div style={{ display:'flex', gap:12, marginTop:4, flexWrap:'wrap' }}>
+                      {(order.phone || order.shipping_address?.phone || order.customer?.phone) && (
+                        <span style={{ fontSize:11, color:'var(--text-tertiary)' }}>📞 {order.shipping_address?.phone || order.phone || order.customer?.phone}</span>
+                      )}
+                      {order.email && (
+                        <span style={{ fontSize:11, color:'var(--text-tertiary)' }}>📧 {order.email}</span>
+                      )}
+                    </div>
                   </div>
                   <div style={{ fontSize:12, color:'var(--text-tertiary)' }}>
                     {order.line_items.slice(0,3).map(li => `${li.title} (x${li.quantity})`).join(' · ')}
                     {order.line_items.length > 3 && ` +${order.line_items.length - 3} altri`}
                   </div>
+                  {order.note && (
+                    <div style={{ fontSize:11, color:'var(--warning)', marginTop:4 }}>📝 Nota: {order.note}</div>
+                  )}
                   {/* Assegnazione store: quale punto evade l'ordine */}
                   {stores.length > 1 && (
                     <div style={{ marginTop:6, display:'flex', alignItems:'center', gap:8 }}>
