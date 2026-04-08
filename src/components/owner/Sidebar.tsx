@@ -5,11 +5,11 @@ import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
 
 const NAV_MAIN = [
-  { href: '/owner/dashboard',             icon: '',  label: 'Dashboard' },
-  { href: '/owner/products',              icon: '', label: 'Prodotti' },
-  { href: '/owner/reports',               icon: '', label: 'Report' },
-  { href: '/owner/analytics/sales',       icon: '', label: 'Sales Analytics' },
-  { href: '/owner/analytics/performance', icon: '', label: 'Performance' },
+  { href: '/owner/dashboard',             icon: '📊',  label: 'Dashboard' },
+  { href: '/owner/reports',               icon: '📋', label: 'Live Report' },
+  { href: '/owner/products',              icon: '📦', label: 'Prodotti' },
+  { href: '/owner/analytics/products',    icon: '📈', label: 'Prodotti Analytics' },
+  { href: '/owner/analytics/team',        icon: '👥', label: 'Team Performance' },
 ]
 const NAV_MAGAZZINO = [
   { href: '/owner/warehouse/central',     icon: '🏭', label: 'Centrale' },
