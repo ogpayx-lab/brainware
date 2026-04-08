@@ -46,7 +46,6 @@ export default function ShopifyOrdersPage() {
   const [fulfillForm, setFulfillForm] = useState({ trackingCompany:'', trackingNumber:'', notifyCustomer:true, sourceType:'store' as 'store'|'warehouse', sourceId:'', deductStock:true })
   const [fulfillError, setFulfillError] = useState('')
   const [fulfillSuccess, setFulfillSuccess] = useState('')
-  const [capturing, setCapturing] = useState<number|null>(null)
   const [warehouses, setWarehouses] = useState<any[]>([])
   const [suggestedStore, setSuggestedStore] = useState<string|null>(null)
 
@@ -205,27 +204,6 @@ export default function ShopifyOrdersPage() {
 
   const pending = orders.filter(o => !o.fulfillment_status).length
 
-  async function capturePayment(order: ShopifyOrder) {
-    if (!confirm(`Confermi l'acquisizione del pagamento per l'ordine ${order.name} (€${parseFloat(order.total_price).toFixed(2)})?`)) return
-    setCapturing(order.id)
-    const token = accessToken ?? (await supabase.auth.getSession()).data.session?.access_token ?? ''
-    try {
-      const res = await fetch('/api/shopify', {
-        method: 'PUT',
-        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ orderId: order.id }),
-      })
-      const json = await res.json()
-      if (!res.ok || json.error) {
-        alert(`Errore: ${json.error || 'Errore sconosciuto'}`)
-      } else {
-        setOrders(prev => prev.map(o => o.id === order.id ? { ...o, financial_status: 'paid' } : o))
-      }
-    } catch (e: any) {
-      alert(`Errore: ${e.message}`)
-    }
-    setCapturing(null)
-  }
 
   if (notConfigured) return (
     <div style={{ display:'flex', alignItems:'center', justifyContent:'center', height:'60vh' }}>
@@ -388,16 +366,6 @@ export default function ShopifyOrdersPage() {
                       }}
                     >
                       📦 Evadi ordine →
-                    </button>
-                  )}
-                  {(order.financial_status === 'pending' || order.financial_status === 'authorized' || order.financial_status === 'partially_paid') && (
-                    <button
-                      className="btn btn-secondary"
-                      style={{ marginTop:6, fontSize:11, padding:'4px 12px', background:'#DBEAFE', color:'#1E40AF', border:'1px solid #93C5FD' }}
-                      onClick={() => capturePayment(order)}
-                      disabled={capturing === order.id}
-                    >
-                      {capturing === order.id ? '⏳ Acquisizione...' : '💰 Acquisisci pagamento'}
                     </button>
                   )}
                 </div>
