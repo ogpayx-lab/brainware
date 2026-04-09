@@ -16,6 +16,9 @@ export default function EmployeesPage() {
   const [totalClients, setTotalClients] = useState(0)
   const [emailStatus, setEmailStatus] = useState<'idle'|'sent'|'error'>('idle')
   const [apiError, setApiError] = useState('')
+  // PIN
+  const [pinSaving, setPinSaving] = useState<string|null>(null)
+  const [pinSaved, setPinSaved] = useState<string|null>(null)
 
   useEffect(() => { loadData() }, [])
 
@@ -75,7 +78,6 @@ export default function EmployeesPage() {
 
   async function toggleActive(emp: any) {
     const newStatus = !emp.is_active
-    // Aggiorna DB
     await supabase.from('users').update({ is_active: newStatus }).eq('id', emp.id)
     const headers = await getAuthHeader()
     await fetch('/api/admin-user', {
@@ -108,6 +110,14 @@ export default function EmployeesPage() {
       }
   }
 
+  async function savePin(empId: string, pin: string | null) {
+    setPinSaving(empId)
+    await supabase.from('users').update({ pin: pin || null }).eq('id', empId)
+    setPinSaving(null)
+    setPinSaved(empId)
+    setTimeout(() => setPinSaved(null), 2000)
+  }
+
   if (loading) return <div style={{ display:'flex', alignItems:'center', justifyContent:'center', height:'60vh' }}>Caricamento...</div>
 
   return (
@@ -137,14 +147,12 @@ export default function EmployeesPage() {
         </div>
       )}
 
-      <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', marginBottom:'var(--space-xl)' }}>
+      <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', marginBottom:'var(--space-xl)', flexWrap:'wrap', gap:12 }}>
         <div>
           <h2>Gestione Dipendenti</h2>
           <p style={{ color:'var(--text-secondary)', fontSize:14, marginTop:4 }}>{employees.length} dipendenti nel negozio</p>
         </div>
         <div style={{ display:'flex', gap:8 }}>
-          <button className="btn btn-secondary" style={{ fontSize:12 }}>Export PDF</button>
-          <button className="btn btn-secondary" style={{ fontSize:12 }}>Export Excel</button>
           <button className="btn btn-primary" onClick={() => setShowForm(true)}>+ Nuovo Dipendente</button>
         </div>
       </div>
@@ -153,14 +161,14 @@ export default function EmployeesPage() {
       {emailStatus === 'sent' && (
         <div style={{ background:'#F0FDF4', border:'1px solid #22C55E', borderRadius:10, padding:'12px 16px', marginBottom:'var(--space-lg)', display:'flex', alignItems:'center', gap:10, fontSize:14, color:'#15803D' }}>
           <span style={{ fontSize:20 }}>✅</span>
-          <span><strong>Dipendente invitato!</strong> Email di invito inviata a {form.email || 'il dipendente'}. Dovrà cliccare il link per impostare la password.</span>
+          <span><strong>Dipendente invitato!</strong> Email inviata. Dovrà cliccare il link per impostare la password.</span>
           <button onClick={() => setEmailStatus('idle')} style={{ marginLeft:'auto', background:'none', border:'none', cursor:'pointer', fontSize:18, color:'#15803D' }}>×</button>
         </div>
       )}
       {emailStatus === 'error' && (
         <div style={{ background:'#FEF2F2', border:'1px solid #EF4444', borderRadius:10, padding:'12px 16px', marginBottom:'var(--space-lg)', display:'flex', alignItems:'center', gap:10, fontSize:14, color:'#B91C1C' }}>
           <span style={{ fontSize:20 }}>⚠️</span>
-          <span><strong>Errore:</strong> {apiError || 'Impossibile inviare l&apos;email di invito.'}</span>
+          <span><strong>Errore:</strong> {apiError || 'Impossibile inviare l\'email di invito.'}</span>
           <button onClick={() => { setEmailStatus('idle'); setApiError('') }} style={{ marginLeft:'auto', background:'none', border:'none', cursor:'pointer', fontSize:18, color:'#B91C1C' }}>×</button>
         </div>
       )}
@@ -170,69 +178,95 @@ export default function EmployeesPage() {
         <div style={{ fontSize:14, color:'var(--brand-primary-dark)' }}>Clienti serviti questo mese</div>
       </div>
 
-      <div style={{ background:'var(--bg-surface)', border:'1px solid var(--border-subtle)', borderRadius:'var(--radius-md)', padding:'var(--space-md)', marginBottom:'var(--space-xl)', fontSize:13, color:'var(--text-secondary)' }}>
-        Solo il proprietario puo abilitare o disabilitare i dipendenti
-      </div>
+      {/* Employee Cards (responsive) */}
+      <div style={{ display:'flex', flexDirection:'column', gap:12 }}>
+        {employees.length === 0 && (
+          <div style={{ textAlign:'center', padding:'var(--space-2xl)', color:'var(--text-tertiary)' }}>Nessun dipendente. Aggiungine uno.</div>
+        )}
+        {employees.map(emp => (
+          <div key={emp.id} className="card" style={{
+            padding:'16px 20px', display:'flex', alignItems:'center', gap:14,
+            flexWrap:'wrap', border: emp.is_active ? '1px solid var(--border-subtle)' : '1px solid var(--border-default)',
+            opacity: emp.is_active ? 1 : 0.6,
+          }}>
+            {/* Avatar */}
+            <div style={{
+              width:42, height:42, borderRadius:12,
+              background: emp.role === 'owner' ? 'var(--brand-primary)' : emp.is_active ? 'var(--accent-blue)' : 'var(--border-default)',
+              display:'flex', alignItems:'center', justifyContent:'center',
+              fontSize:15, fontWeight:700, color:'white', flexShrink:0,
+            }}>
+              {emp.full_name?.split(' ').map((n:string)=>n[0]).join('').slice(0,2)||'?'}
+            </div>
 
-      <div className="table-wrapper">
-        <table>
-          <thead>
-            <tr>
-              <th>Nome</th>
-              <th>Email</th>
-              <th>Ruolo</th>
-              <th>Clienti Serviti</th>
-              <th>Stato</th>
-              <th>Azioni</th>
-            </tr>
-          </thead>
-          <tbody>
-            {employees.length === 0 && (
-              <tr><td colSpan={6} style={{ textAlign:'center', padding:'var(--space-2xl)', color:'var(--text-tertiary)' }}>Nessun dipendente. Aggiungine uno.</td></tr>
+            {/* Name + email */}
+            <div style={{ flex:'1 1 150px', minWidth:120 }}>
+              <div style={{ fontWeight:700, fontSize:15 }}>{emp.full_name}</div>
+              <div style={{ fontSize:12, color:'var(--text-tertiary)' }}>{emp.email || ''}</div>
+            </div>
+
+            {/* Role badge */}
+            <span className={`badge ${emp.role==='owner'?'badge-brand':'badge-indigo'}`} style={{ fontSize:11 }}>
+              {emp.role==='owner'?'Owner':'Employee'}
+            </span>
+
+            {/* Status badge */}
+            <span className={`badge ${emp.is_active?'badge-success':'badge-gray'}`} style={{ fontSize:11 }}>
+              {emp.role==='owner'?'Proprietario':emp.is_active?'Attivo':'Disabilitato'}
+            </span>
+
+            {/* PIN input */}
+            {emp.role !== 'owner' && (
+              <div style={{ display:'flex', alignItems:'center', gap:6, flexShrink:0 }}>
+                <span style={{ fontSize:11, color:'var(--text-tertiary)', fontWeight:600 }}>🔑 PIN</span>
+                <input
+                  className="input"
+                  type="text"
+                  inputMode="numeric"
+                  maxLength={4}
+                  placeholder="• • • •"
+                  value={emp.pin || ''}
+                  onChange={e => {
+                    const val = e.target.value.replace(/\D/g, '').slice(0, 4)
+                    setEmployees(prev => prev.map(em => em.id === emp.id ? { ...em, pin: val || null } : em))
+                  }}
+                  style={{
+                    width:64, textAlign:'center', fontSize:15, fontWeight:700,
+                    letterSpacing:4, padding:'5px 6px', borderRadius:8,
+                    border: pinSaved === emp.id ? '2px solid var(--success)' : '1.5px solid var(--border-default)',
+                  }}
+                />
+                <button
+                  className="btn btn-secondary"
+                  disabled={pinSaving === emp.id}
+                  onClick={() => savePin(emp.id, emp.pin)}
+                  style={{ padding:'5px 10px', fontSize:11, whiteSpace:'nowrap' }}
+                >
+                  {pinSaving === emp.id ? '...' : pinSaved === emp.id ? '✅' : '💾'}
+                </button>
+              </div>
             )}
-            {employees.map(emp => (
-              <tr key={emp.id}>
-                <td>
-                  <div style={{ display:'flex', alignItems:'center', gap:10 }}>
-                    <div style={{ width:32, height:32, borderRadius:'50%', background:'var(--brand-primary)', display:'flex', alignItems:'center', justifyContent:'center', fontSize:12, fontWeight:700, color:'white', flexShrink:0 }}>
-                      {emp.full_name?.split(' ').map((n:string)=>n[0]).join('').slice(0,2)||'?'}
-                    </div>
-                    <span style={{ fontWeight:600 }}>{emp.full_name}</span>
-                  </div>
-                </td>
-                <td style={{ color:'var(--text-secondary)', fontSize:13 }}>{emp.email || ''}</td>
-                <td><span className={`badge ${emp.role==='owner'?'badge-brand':'badge-indigo'}`} style={{ fontSize:11 }}>{emp.role==='owner'?'Owner':'Employee'}</span></td>
-                <td style={{ fontWeight:600 }}></td>
-                <td>
-                  <span className={`badge ${emp.is_active?'badge-success':'badge-gray'}`}>
-                    {emp.role==='owner'?'Proprietario':emp.is_active?'Attivo':'Disabilitato'}
-                  </span>
-                </td>
-                <td>
-                  {emp.role !== 'owner' && (
-                    <div style={{ display:'flex', gap:6 }}>
-                      <button
-                        onClick={() => resendInvite(emp)}
-                        className="btn btn-secondary"
-                        style={{ padding:'4px 10px', fontSize:12 }}
-                        title="Reinvia email di invito"
-                      >
-                        🔁 Reinvita
-                      </button>
-                      <button
-                        onClick={() => toggleActive(emp)}
-                        className={`btn ${emp.is_active ? 'btn-secondary' : 'btn-primary'}`}
-                        style={{ padding:'4px 10px', fontSize:12 }}
-                      >
-                        {emp.is_active ? '🚫 Disabilita' : '✅ Abilita'}
-                      </button>
-                    </div>
-                  )}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+
+            {/* Actions */}
+            {emp.role !== 'owner' && (
+              <div style={{ display:'flex', gap:6, flexShrink:0 }}>
+                <button
+                  onClick={() => resendInvite(emp)}
+                  className="btn btn-secondary"
+                  style={{ padding:'5px 10px', fontSize:11 }}
+                  title="Reinvia email di invito"
+                >🔁 Reinvita</button>
+                <button
+                  onClick={() => toggleActive(emp)}
+                  className={`btn ${emp.is_active ? 'btn-secondary' : 'btn-primary'}`}
+                  style={{ padding:'5px 10px', fontSize:11 }}
+                >
+                  {emp.is_active ? '🚫 Disabilita' : '✅ Abilita'}
+                </button>
+              </div>
+            )}
+          </div>
+        ))}
       </div>
     </div>
   )
