@@ -65,6 +65,9 @@ export default function POSContent() {
   const [storeEmployees, setStoreEmployees] = useState<{id:string;full_name:string}[]>([])
   const [referente, setReferente] = useState<string>('')
   const [checkedInIds, setCheckedInIds] = useState<Set<string>>(new Set())
+  // Storno vendita
+  const [stornoId, setStornoId] = useState<string|null>(null)
+  const [showStornoConfirm, setShowStornoConfirm] = useState<string|null>(null)
 
   useEffect(() => { loadData() }, [])
   useEffect(() => { setShippingCost(shipping.type==='delivery'?5:9.90) }, [shipping.type])
@@ -310,6 +313,52 @@ export default function POSContent() {
   const popular = [...products].filter(p => p.stock > 0).sort((a,b) => b.stock-a.stock).slice(0,3)
 
   if (loading) return <div style={{ display:'flex', alignItems:'center', justifyContent:'center', height:'100vh' }}>Caricamento...</div>
+
+  // ── Storno vendita ──
+  async function voidSale(saleId: string) {
+    if (!storeId || !userId) return
+    setStornoId(saleId)
+
+    // Get sale details
+    const { data: sale } = await supabase
+      .from('sales')
+      .select('*, sale_items(product_id, product_name, qty, unit_price, line_total)')
+      .eq('id', saleId)
+      .single()
+
+    if (!sale) { setStornoId(null); return }
+
+    // Restore stock
+    for (const item of (sale.sale_items || [])) {
+      await supabase
+        .from('products')
+        .update({ stock: item.qty }) // trigger will handle
+        .eq('id', item.product_id)
+      // Manually restore stock (since delete trigger handles it)
+    }
+
+    // Delete sale items (trigger restores stock)
+    await supabase.from('sale_items').delete().eq('sale_id', saleId)
+
+    // Delete the sale
+    await supabase.from('sales').delete().eq('id', saleId)
+
+    // Notify owner
+    try {
+      const empName = storeEmployees.find(e => e.id === userId)?.full_name || 'Dipendente'
+      await supabase.from('notifications').insert({
+        store_id: storeId,
+        type: 'sale',
+        title: '⚠️ Vendita annullata',
+        message: `${empName} ha annullato una vendita di ${fmt(sale.total)} — Cliente: ${sale.customer_name || 'Anonimo'}`,
+        user_id: userId,
+      })
+    } catch {}
+
+    setStornoId(null)
+    setShowStornoConfirm(null)
+    loadData()
+  }
 
   const canCheckout = cart.length > 0 && (mode !== 'negozio' || customer.name.trim() !== '')
 
@@ -613,9 +662,39 @@ export default function POSContent() {
                     <div style={{ fontSize:12, color:'var(--text-secondary)', marginBottom:4 }}>
                       Cliente: {s.customer_name || 'Anonimo'} · {s.payment_method === 'cash' ? '💵 Contanti' : '💳 POS'}
                     </div>
-                    <div style={{ fontSize:11, color:'var(--text-tertiary)' }}>
+                    <div style={{ fontSize:11, color:'var(--text-tertiary)', marginBottom:6 }}>
                       {s.sale_items?.map(it => `${it.product_name} ×${it.qty}`).join(' · ')}
                     </div>
+                    {/* Storno button */}
+                    {showStornoConfirm === s.id ? (
+                      <div style={{ display:'flex', gap:6, alignItems:'center' }}>
+                        <span style={{ fontSize:12, color:'var(--danger)', fontWeight:600 }}>Confermi lo storno?</span>
+                        <button
+                          onClick={() => voidSale(s.id)}
+                          disabled={stornoId === s.id}
+                          className="btn btn-danger"
+                          style={{ padding:'4px 12px', fontSize:11 }}
+                        >
+                          {stornoId === s.id ? 'Annullamento...' : '✅ Sì, annulla'}
+                        </button>
+                        <button
+                          onClick={() => setShowStornoConfirm(null)}
+                          className="btn btn-secondary"
+                          style={{ padding:'4px 10px', fontSize:11 }}
+                        >No</button>
+                      </div>
+                    ) : (
+                      <button
+                        onClick={() => setShowStornoConfirm(s.id)}
+                        style={{
+                          background:'none', border:'1px solid var(--danger)',
+                          borderRadius:6, padding:'3px 10px', fontSize:11,
+                          color:'var(--danger)', cursor:'pointer', fontWeight:600,
+                        }}
+                      >
+                        ❌ Annulla vendita
+                      </button>
+                    )}
                   </div>
                 ))}
               </div>
