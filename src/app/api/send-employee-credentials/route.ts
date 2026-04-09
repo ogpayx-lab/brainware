@@ -61,9 +61,33 @@ export async function POST(req: NextRequest) {
   )
 
   if (inviteError) {
-    // Se l'utente esiste già, prova a recuperarlo
-    if (inviteError.message.includes('already been registered')) {
-      return NextResponse.json({ error: 'Email già registrata', already_exists: true }, { status: 409 })
+    // Se l'utente esiste già in auth, aggiungilo a questo store
+    if (inviteError.message.includes('already been registered') || inviteError.message.includes('already exists')) {
+      // Find existing user by email
+      const { data: listData } = await supabaseAdmin.auth.admin.listUsers()
+      const existingUser = listData?.users?.find(u => u.email === employeeEmail)
+
+      if (existingUser) {
+        // Upsert profile to this store
+        await supabaseAdmin.from('users').upsert({
+          id: existingUser.id,
+          full_name: employeeName,
+          role: role || 'employee',
+          store_id: storeId,
+          is_active: true,
+        })
+
+        // Send password reset so they can access
+        const supabaseClient = createClient(
+          process.env.NEXT_PUBLIC_SUPABASE_URL!,
+          process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+        )
+        await supabaseClient.auth.resetPasswordForEmail(employeeEmail, { redirectTo })
+
+        return NextResponse.json({ success: true, userId: existingUser.id, reactivated: true })
+      }
+
+      return NextResponse.json({ error: 'Email già registrata ma utente non trovato. Contatta il supporto.' }, { status: 409 })
     }
     return NextResponse.json({ error: inviteError.message }, { status: 500 })
   }
