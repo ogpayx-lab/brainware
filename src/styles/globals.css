@@ -622,3 +622,27 @@ tr:hover td { background: var(--bg-surface); }
   table { font-size: 11px; }
   .btn { display: none; }
 }
+
+/* ============================================================
+   POS Mobile Cart — Bottom Sheet Pattern
+   ============================================================ */
+
+/* Desktop: show side panel, hide mobile cart */
+@media (min-width: 769px) {
+  .pos-cart-desktop { display: flex !important; }
+  .pos-cart-mobile-bar { display: none !important; }
+  .pos-cart-mobile-sheet { display: none !important; }
+}
+
+/* Mobile: hide side panel, show mobile cart */
+@media (max-width: 768px) {
+  .pos-cart-desktop { display: none !important; }
+  .pos-cart-mobile-bar { display: flex !important; }
+  .pos-cart-mobile-sheet { display: flex !important; }
+}
+
+/* Slide-up animation for bottom sheet */
+@keyframes slideUp {
+  from { transform: translateY(100%); }
+  to   { transform: translateY(0); }
+}

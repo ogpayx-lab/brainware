@@ -59,6 +59,8 @@ export default function POSContent() {
   // Promo codes
   const [promoError, setPromoError] = useState('')
   const [verifyingPromo, setVerifyingPromo] = useState(false)
+  // Mobile cart
+  const [mobileCartOpen, setMobileCartOpen] = useState(false)
 
   useEffect(() => { loadData() }, [])
   useEffect(() => { setShippingCost(shipping.type==='delivery'?5:9.90) }, [shipping.type])
@@ -288,6 +290,163 @@ export default function POSContent() {
 
   const canCheckout = cart.length > 0 && (mode !== 'negozio' || customer.name.trim() !== '')
 
+  // ---- Shared render functions (used by both desktop panel and mobile bottom sheet) ----
+  function renderCartItems() {
+    return cart.map(item => (
+      <div key={item.product.id} style={{ display:'flex', alignItems:'center', gap:8, padding:'8px 0', borderBottom:'1px solid var(--border-subtle)' }}>
+        <div style={{ flex:1 }}>
+          <div style={{ fontSize:13, fontWeight:600 }}>{item.product.name}</div>
+          <div style={{ fontSize:12, color:'var(--text-secondary)' }}>{fmt(item.product.price)} × {item.qty}</div>
+        </div>
+        <div style={{ display:'flex', alignItems:'center', gap:6 }}>
+          <button onClick={() => updateQty(item.product.id,-1)} className="btn btn-secondary" style={{ width:26,height:26,padding:0 }}>−</button>
+          <span style={{ fontWeight:700, minWidth:20, textAlign:'center' }}>{item.qty}</span>
+          <button onClick={() => updateQty(item.product.id,1)} className="btn btn-secondary" style={{ width:26,height:26,padding:0 }}>+</button>
+        </div>
+        <span style={{ fontWeight:700, fontSize:13, minWidth:52, textAlign:'right' }}>{fmt(item.line_total)}</span>
+      </div>
+    ))
+  }
+
+  function renderCartExtras() {
+    return (
+      <>
+        {/* Sconto */}
+        {mode!=='trasferimento' && (
+          <div style={{ marginTop:12, padding:12, background:'var(--bg-surface)', borderRadius:10 }}>
+            <div style={{ fontSize:12, fontWeight:600, marginBottom:8 }}>🏷️ Sconto & Promo</div>
+            <div style={{ display:'flex', gap:6, marginBottom:8 }}>
+              {(['pct','fixed','promo'] as const).map(t => (
+                <button key={t} onClick={() => setDiscount(d=>({...d,type:t,applied:false,promoDiscount:0}))} style={{ flex:1, padding:'5px', borderRadius:6, fontSize:11, border:`1px solid ${discount.type===t?'var(--brand-primary)':'var(--border-default)'}`, background:discount.type===t?'var(--brand-primary-light)':'transparent', color:discount.type===t?'var(--brand-primary)':'var(--text-secondary)', cursor:'pointer' }}>
+                  {t==='pct'?'% %':t==='fixed'?'€ Fisso':'🎟 Promo'}
+                </button>
+              ))}
+            </div>
+            {discount.type!=='promo' ? (
+              <div style={{ display:'flex', gap:8 }}>
+                <input className="input" type="number" min="0" placeholder={discount.type==='pct'?'Es: 10 (%)':'Es: 5.00 (€)'} value={discount.value} onChange={e => setDiscount(d=>({...d,value:e.target.value,applied:false}))} style={{ flex:1, height:34, fontSize:13 }} />
+                <button onClick={() => setDiscount(d=>({...d,applied:!!d.value}))} className={`btn ${discount.applied?'btn-danger':'btn-secondary'}`} style={{ padding:'0 12px', fontSize:12 }}>{discount.applied?'Rimuovi':'Applica'}</button>
+              </div>
+            ) : (
+              <div style={{ display:'flex', gap:8 }}>
+                <input className="input" placeholder="Codice promo..." value={discount.promoCode} onChange={e => setDiscount(d=>({...d,promoCode:e.target.value}))} style={{ flex:1, height:34, fontSize:13 }} />
+                <button className="btn btn-secondary" style={{ padding:'0 12px', fontSize:12 }} onClick={verifyPromo} disabled={verifyingPromo}>
+                  {verifyingPromo ? '...' : 'Verifica'}
+                </button>
+              </div>
+            )}
+            {promoError && <div style={{ fontSize:12, color:'var(--danger)', marginTop:4 }}>⚠️ {promoError}</div>}
+            {discount.applied && discAmt > 0 && (
+              <div style={{ fontSize:12, color:'var(--success)', marginTop:4, fontWeight:600 }}>
+                ✅ Sconto applicato: -{fmt(discAmt)}
+              </div>
+            )}
+          </div>
+        )}
+        {/* Dati cliente */}
+        {mode==='negozio' && (
+          <div style={{ marginTop:12 }}>
+            <div style={{ fontSize:12, fontWeight:600, marginBottom:8 }}>👤 Dati Cliente <span style={{ color:'var(--danger)' }}>*</span></div>
+            <div style={{ display:'flex', flexDirection:'column', gap:6 }}>
+              <input className="input" placeholder="Nome cliente *" value={customer.name} onChange={e => { setCustomer(c=>({...c,name:e.target.value})); setCustomerError('') }} style={{ height:34, fontSize:13, borderColor: customerError ? 'var(--danger)' : undefined }} />
+              {customerError && <div style={{ fontSize:12, color:'var(--danger)' }}>⚠️ {customerError}</div>}
+              <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:6 }}>
+                <select className="input" value={customer.nationality} onChange={e => setCustomer(c=>({...c,nationality:e.target.value}))} style={{ height:34, fontSize:12 }}>
+                  {['Italia','Germania','Francia','UK','USA','Spagna','Altra'].map(n => <option key={n}>{n}</option>)}
+                </select>
+                <select className="input" value={customer.channel} onChange={e => setCustomer(c=>({...c,channel:e.target.value}))} style={{ height:34, fontSize:12 }}>
+                  {['Walk-in','Social','Google','Referral','Altro'].map(c => <option key={c}>{c}</option>)}
+                </select>
+              </div>
+              <input className="input" type="email" placeholder="Email (opzionale)" value={customer.email} onChange={e => setCustomer(c=>({...c,email:e.target.value}))} style={{ height:34, fontSize:13 }} />
+            </div>
+          </div>
+        )}
+        {mode==='online' && (
+          <div style={{ marginTop:12 }}>
+            <div style={{ background:'var(--bg-surface)', borderRadius:10, padding:12, marginBottom:12 }}>
+              <div style={{ fontSize:12, fontWeight:700, marginBottom:10 }}>📦 Step Preparazione</div>
+              {['Controlla disponibilità','Prepara e imballa','Stampa etichetta','Affida al corriere','Inserisci tracking'].map((step, i) => (
+                <div key={i} onClick={() => setDeliverySteps(s => { const n=[...s]; n[i]=!n[i]; return n })} style={{ display:'flex', alignItems:'center', gap:10, padding:'7px 0', borderBottom:i<4?'1px solid var(--border-subtle)':'none', cursor:'pointer' }}>
+                  <div style={{ width:20, height:20, borderRadius:5, border:`2px solid ${deliverySteps[i]?'var(--success)':'var(--border-default)'}`, background:deliverySteps[i]?'var(--success)':'transparent', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
+                    {deliverySteps[i] && <span style={{ color:'white', fontSize:12 }}>✓</span>}
+                  </div>
+                  <span style={{ fontSize:12, color:deliverySteps[i]?'var(--text-tertiary)':'var(--text-primary)', textDecoration:deliverySteps[i]?'line-through':'none' }}>{step}</span>
+                </div>
+              ))}
+            </div>
+            <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:6, marginBottom:6 }}>
+              <button className={`toggle-option ${shipping.type==='delivery'?'active':''}`} onClick={() => setShipping(s=>({...s,type:'delivery'}))}>🛵 Delivery +5€</button>
+              <button className={`toggle-option ${shipping.type==='long_distance'?'active':''}`} onClick={() => setShipping(s=>({...s,type:'long_distance'}))}>🚚 Long +9.90€</button>
+            </div>
+            {[{label:'Nome destinatario *',key:'name',ph:'Mario Rossi'},{label:'Indirizzo',key:'address',ph:'Via Roma 42'},{label:'Città',key:'city',ph:'Milano'},{label:'CAP',key:'cap',ph:'20100'},{label:'Telefono',key:'phone',ph:'+39 333...'},{label:'Corriere',key:'courier',ph:'GLS'},{label:'Tracking',key:'tracking',ph:'#TXN...'}].map(f => (
+              <input key={f.key} className="input" placeholder={f.label} value={(shipping as any)[f.key]} onChange={e => setShipping(s=>({...s,[f.key]:e.target.value}))} style={{ height:34, fontSize:12, marginBottom:6 }} />
+            ))}
+          </div>
+        )}
+        {mode==='trasferimento' && (
+          <div style={{ marginTop:12 }}>
+            <div style={{ fontSize:12, fontWeight:600, marginBottom:8 }}>📍 Destinazione</div>
+            <select className="input" value={destStore} onChange={e => setDestStore(e.target.value)} style={{ marginBottom:6 }}>
+              <option value="">Seleziona negozio...</option>
+              {stores.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+            </select>
+            <input className="input" placeholder="Motivo trasferimento" value={transferReason} onChange={e => setTransferReason(e.target.value)} style={{ height:34, fontSize:12 }} />
+          </div>
+        )}
+      </>
+    )
+  }
+
+  function renderCartFooter() {
+    return (
+      <div style={{ padding:'var(--space-md) var(--space-lg)', borderTop:'1px solid var(--border-subtle)', background:'var(--bg-surface)' }}>
+        {mode!=='trasferimento' ? (
+          <>
+            <div style={{ display:'flex', justifyContent:'space-between', marginBottom:4 }}>
+              <span style={{ fontSize:13, color:'var(--text-secondary)' }}>Subtotale</span><span style={{ fontSize:13 }}>{fmt(subtotal)}</span>
+            </div>
+            {discount.applied && discAmt > 0 && (
+              <div style={{ display:'flex', justifyContent:'space-between', marginBottom:4 }}>
+                <span style={{ fontSize:13, color:'var(--text-secondary)' }}>Sconto</span>
+                <span style={{ fontSize:13, color:'var(--danger)' }}>-{fmt(discAmt)}</span>
+              </div>
+            )}
+            {mode==='online' && (
+              <div style={{ display:'flex', justifyContent:'space-between', marginBottom:4 }}>
+                <span style={{ fontSize:13, color:'var(--text-secondary)' }}>Spedizione</span><span style={{ fontSize:13 }}>+{fmt(shippingCost)}</span>
+              </div>
+            )}
+            <div style={{ display:'flex', justifyContent:'space-between', marginBottom:14 }}>
+              <span style={{ fontWeight:700, fontSize:16 }}>Totale</span>
+              <span style={{ fontFamily:'var(--font-heading)', fontWeight:700, fontSize:22 }}>{fmt(finalTotal)}</span>
+            </div>
+            {!canCheckout && <div style={{ fontSize:12, color:'var(--danger)', marginBottom:8, textAlign:'center' }}>⚠️ Inserisci il nome del cliente per procedere</div>}
+            {mode==='negozio' ? (
+              <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:8 }}>
+                <button className="btn btn-primary btn-lg" onClick={() => { setMobileCartOpen(false); if(validateCustomer()) setShowCash(true) }} disabled={saving} style={{ background:'var(--success)' }}>💵 CONTANTI</button>
+                <button className="btn btn-primary btn-lg" onClick={() => { setMobileCartOpen(false); if(validateCustomer()) setShowPOS(true) }} disabled={saving} style={{ background:'var(--accent-blue)' }}>💳 POS</button>
+              </div>
+            ) : (
+              <button className="btn btn-primary btn-full btn-lg" disabled={saving||!shipping.name} onClick={() => completeSale('other')} style={{ opacity: deliverySteps.every(Boolean) ? 1 : 0.7 }}>
+                {saving ? 'Conferma...' : deliverySteps.every(Boolean) ? '✅ CONFERMA ORDINE' : `🚧 ${5-deliverySteps.filter(Boolean).length} step mancanti`}
+              </button>
+            )}
+          </>
+        ) : (
+          <>
+            <div style={{ display:'flex', justifyContent:'space-between', marginBottom:14 }}>
+              <span style={{ fontSize:13, color:'var(--text-secondary)' }}>Articoli</span><span style={{ fontWeight:700 }}>{cart.reduce((s,i)=>s+i.qty,0)}</span>
+            </div>
+            <button className="btn btn-primary btn-full btn-lg" disabled={saving||!destStore} onClick={() => completeSale('other')}>
+              {saving?'Conferma...':'📦 CONFERMA TRASFERIMENTO'}
+            </button>
+          </>
+        )}
+      </div>
+    )
+  }
+
   return (
     <div style={{ minHeight:'100vh', background:'var(--bg-surface)', display:'flex', flexDirection:'column', paddingBottom:60 }}>
       {/* QR Scanner Modal */}
@@ -437,8 +596,8 @@ export default function POSContent() {
       )}
 
       <div style={{ display:'flex', flex:1, overflow:'hidden' }}>
-        {/* Left: Catalog */}
-        <div style={{ flex:1, overflowY:'auto', padding:'var(--space-lg)' }}>
+        {/* Left: Catalog – always full width on mobile */}
+        <div style={{ flex:1, overflowY:'auto', padding:'var(--space-lg)', paddingBottom: cart.length > 0 ? 80 : 'var(--space-lg)' }}>
           <div style={{ display:'flex', gap:8, marginBottom:'var(--space-md)' }}>
             <div style={{ flex:1, position:'relative' }}>
               <input className="input" placeholder="Cerca prodotto..." value={search} onChange={e => setSearch(e.target.value)} style={{ paddingLeft:36 }} />
@@ -487,170 +646,83 @@ export default function POSContent() {
           </div>
         </div>
 
-        {/* Right: Cart */}
+        {/* ═══════════════ DESKTOP CART (side panel) ═══════════════ */}
         {cart.length > 0 && (
-          <div style={{ width:360, borderLeft:'1px solid var(--border-subtle)', background:'var(--bg-primary)', display:'flex', flexDirection:'column', overflowY:'auto' }}>
+          <div className="pos-cart-desktop" style={{ width:360, borderLeft:'1px solid var(--border-subtle)', background:'var(--bg-primary)', display:'flex', flexDirection:'column', overflowY:'auto' }}>
             <div style={{ padding:'12px var(--space-lg) 8px', display:'flex', justifyContent:'space-between', alignItems:'center' }}>
               <h4>{mode==='trasferimento'?'Prodotti':'Carrello'} ({cart.reduce((s,i)=>s+i.qty,0)})</h4>
               <button onClick={() => setCart([])} style={{ background:'none', border:'none', color:'var(--danger)', fontSize:12, cursor:'pointer' }}>Svuota</button>
             </div>
 
             <div style={{ flex:1, overflowY:'auto', padding:'0 var(--space-lg)' }}>
-              {cart.map(item => (
-                <div key={item.product.id} style={{ display:'flex', alignItems:'center', gap:8, padding:'8px 0', borderBottom:'1px solid var(--border-subtle)' }}>
-                  <div style={{ flex:1 }}>
-                    <div style={{ fontSize:13, fontWeight:600 }}>{item.product.name}</div>
-                    <div style={{ fontSize:12, color:'var(--text-secondary)' }}>{fmt(item.product.price)} × {item.qty}</div>
-                  </div>
-                  <div style={{ display:'flex', alignItems:'center', gap:6 }}>
-                    <button onClick={() => updateQty(item.product.id,-1)} className="btn btn-secondary" style={{ width:26,height:26,padding:0 }}>−</button>
-                    <span style={{ fontWeight:700, minWidth:20, textAlign:'center' }}>{item.qty}</span>
-                    <button onClick={() => updateQty(item.product.id,1)} className="btn btn-secondary" style={{ width:26,height:26,padding:0 }}>+</button>
-                  </div>
-                  <span style={{ fontWeight:700, fontSize:13, minWidth:52, textAlign:'right' }}>{fmt(item.line_total)}</span>
-                </div>
-              ))}
-
-              {/* Sconto */}
-              {mode!=='trasferimento' && (
-                <div style={{ marginTop:12, padding:12, background:'var(--bg-surface)', borderRadius:10 }}>
-                  <div style={{ fontSize:12, fontWeight:600, marginBottom:8 }}>🏷️ Sconto & Promo</div>
-                  <div style={{ display:'flex', gap:6, marginBottom:8 }}>
-                    {(['pct','fixed','promo'] as const).map(t => (
-                      <button key={t} onClick={() => setDiscount(d=>({...d,type:t,applied:false,promoDiscount:0}))} style={{ flex:1, padding:'5px', borderRadius:6, fontSize:11, border:`1px solid ${discount.type===t?'var(--brand-primary)':'var(--border-default)'}`, background:discount.type===t?'var(--brand-primary-light)':'transparent', color:discount.type===t?'var(--brand-primary)':'var(--text-secondary)', cursor:'pointer' }}>
-                        {t==='pct'?'% %':t==='fixed'?'€ Fisso':'🎟 Promo'}
-                      </button>
-                    ))}
-                  </div>
-                  {discount.type!=='promo' ? (
-                    <div style={{ display:'flex', gap:8 }}>
-                      <input className="input" type="number" min="0" placeholder={discount.type==='pct'?'Es: 10 (%)':'Es: 5.00 (€)'} value={discount.value} onChange={e => setDiscount(d=>({...d,value:e.target.value,applied:false}))} style={{ flex:1, height:34, fontSize:13 }} />
-                      <button onClick={() => setDiscount(d=>({...d,applied:!!d.value}))} className={`btn ${discount.applied?'btn-danger':'btn-secondary'}`} style={{ padding:'0 12px', fontSize:12 }}>{discount.applied?'Rimuovi':'Applica'}</button>
-                    </div>
-                  ) : (
-                    <div style={{ display:'flex', gap:8 }}>
-                      <input className="input" placeholder="Codice promo..." value={discount.promoCode} onChange={e => setDiscount(d=>({...d,promoCode:e.target.value}))} style={{ flex:1, height:34, fontSize:13 }} />
-                      <button className="btn btn-secondary" style={{ padding:'0 12px', fontSize:12 }} onClick={verifyPromo} disabled={verifyingPromo}>
-                        {verifyingPromo ? '...' : 'Verifica'}
-                      </button>
-                    </div>
-                  )}
-                  {promoError && <div style={{ fontSize:12, color:'var(--danger)', marginTop:4 }}>⚠️ {promoError}</div>}
-                  {discount.applied && discAmt > 0 && (
-                    <div style={{ fontSize:12, color:'var(--success)', marginTop:4, fontWeight:600 }}>
-                      ✅ Sconto applicato: -{fmt(discAmt)}
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {/* Dati cliente */}
-              {mode==='negozio' && (
-                <div style={{ marginTop:12 }}>
-                  <div style={{ fontSize:12, fontWeight:600, marginBottom:8 }}>👤 Dati Cliente <span style={{ color:'var(--danger)' }}>*</span></div>
-                  <div style={{ display:'flex', flexDirection:'column', gap:6 }}>
-                    <input
-                      className="input"
-                      placeholder="Nome cliente *"
-                      value={customer.name}
-                      onChange={e => { setCustomer(c=>({...c,name:e.target.value})); setCustomerError('') }}
-                      style={{ height:34, fontSize:13, borderColor: customerError ? 'var(--danger)' : undefined }}
-                    />
-                    {customerError && <div style={{ fontSize:12, color:'var(--danger)' }}>⚠️ {customerError}</div>}
-                    <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:6 }}>
-                      <select className="input" value={customer.nationality} onChange={e => setCustomer(c=>({...c,nationality:e.target.value}))} style={{ height:34, fontSize:12 }}>
-                        {['Italia','Germania','Francia','UK','USA','Spagna','Altra'].map(n => <option key={n}>{n}</option>)}
-                      </select>
-                      <select className="input" value={customer.channel} onChange={e => setCustomer(c=>({...c,channel:e.target.value}))} style={{ height:34, fontSize:12 }}>
-                        {['Walk-in','Social','Google','Referral','Altro'].map(c => <option key={c}>{c}</option>)}
-                      </select>
-                    </div>
-                    <input className="input" type="email" placeholder="Email (opzionale)" value={customer.email} onChange={e => setCustomer(c=>({...c,email:e.target.value}))} style={{ height:34, fontSize:13 }} />
-                  </div>
-                </div>
-              )}
-              {mode==='online' && (
-                <div style={{ marginTop:12 }}>
-                  <div style={{ background:'var(--bg-surface)', borderRadius:10, padding:12, marginBottom:12 }}>
-                    <div style={{ fontSize:12, fontWeight:700, marginBottom:10 }}>📦 Step Preparazione</div>
-                    {['Controlla disponibilità','Prepara e imballa','Stampa etichetta','Affida al corriere','Inserisci tracking'].map((step, i) => (
-                      <div key={i} onClick={() => setDeliverySteps(s => { const n=[...s]; n[i]=!n[i]; return n })} style={{ display:'flex', alignItems:'center', gap:10, padding:'7px 0', borderBottom:i<4?'1px solid var(--border-subtle)':'none', cursor:'pointer' }}>
-                        <div style={{ width:20, height:20, borderRadius:5, border:`2px solid ${deliverySteps[i]?'var(--success)':'var(--border-default)'}`, background:deliverySteps[i]?'var(--success)':'transparent', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
-                          {deliverySteps[i] && <span style={{ color:'white', fontSize:12 }}>✓</span>}
-                        </div>
-                        <span style={{ fontSize:12, color:deliverySteps[i]?'var(--text-tertiary)':'var(--text-primary)', textDecoration:deliverySteps[i]?'line-through':'none' }}>{step}</span>
-                      </div>
-                    ))}
-                  </div>
-                  <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:6, marginBottom:6 }}>
-                    <button className={`toggle-option ${shipping.type==='delivery'?'active':''}`} onClick={() => setShipping(s=>({...s,type:'delivery'}))}>🛵 Delivery +5€</button>
-                    <button className={`toggle-option ${shipping.type==='long_distance'?'active':''}`} onClick={() => setShipping(s=>({...s,type:'long_distance'}))}>🚚 Long +9.90€</button>
-                  </div>
-                  {[{label:'Nome destinatario *',key:'name',ph:'Mario Rossi'},{label:'Indirizzo',key:'address',ph:'Via Roma 42'},{label:'Città',key:'city',ph:'Milano'},{label:'CAP',key:'cap',ph:'20100'},{label:'Telefono',key:'phone',ph:'+39 333...'},{label:'Corriere',key:'courier',ph:'GLS'},{label:'Tracking',key:'tracking',ph:'#TXN...'}].map(f => (
-                    <input key={f.key} className="input" placeholder={f.label} value={(shipping as any)[f.key]} onChange={e => setShipping(s=>({...s,[f.key]:e.target.value}))} style={{ height:34, fontSize:12, marginBottom:6 }} />
-                  ))}
-                </div>
-              )}
-              {mode==='trasferimento' && (
-                <div style={{ marginTop:12 }}>
-                  <div style={{ fontSize:12, fontWeight:600, marginBottom:8 }}>📍 Destinazione</div>
-                  <select className="input" value={destStore} onChange={e => setDestStore(e.target.value)} style={{ marginBottom:6 }}>
-                    <option value="">Seleziona negozio...</option>
-                    {stores.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
-                  </select>
-                  <input className="input" placeholder="Motivo trasferimento" value={transferReason} onChange={e => setTransferReason(e.target.value)} style={{ height:34, fontSize:12 }} />
-                </div>
-              )}
+              {renderCartItems()}
+              {renderCartExtras()}
             </div>
 
-            {/* Totale + bottoni */}
-            <div style={{ padding:'var(--space-md) var(--space-lg)', borderTop:'1px solid var(--border-subtle)', background:'var(--bg-surface)' }}>
-              {mode!=='trasferimento' ? (
-                <>
-                  <div style={{ display:'flex', justifyContent:'space-between', marginBottom:4 }}>
-                    <span style={{ fontSize:13, color:'var(--text-secondary)' }}>Subtotale</span><span style={{ fontSize:13 }}>{fmt(subtotal)}</span>
-                  </div>
-                  {discount.applied && discAmt > 0 && (
-                    <div style={{ display:'flex', justifyContent:'space-between', marginBottom:4 }}>
-                      <span style={{ fontSize:13, color:'var(--text-secondary)' }}>Sconto</span>
-                      <span style={{ fontSize:13, color:'var(--danger)' }}>-{fmt(discAmt)}</span>
-                    </div>
-                  )}
-                  {mode==='online' && (
-                    <div style={{ display:'flex', justifyContent:'space-between', marginBottom:4 }}>
-                      <span style={{ fontSize:13, color:'var(--text-secondary)' }}>Spedizione</span><span style={{ fontSize:13 }}>+{fmt(shippingCost)}</span>
-                    </div>
-                  )}
-                  <div style={{ display:'flex', justifyContent:'space-between', marginBottom:14 }}>
-                    <span style={{ fontWeight:700, fontSize:16 }}>Totale</span>
-                    <span style={{ fontFamily:'var(--font-heading)', fontWeight:700, fontSize:22 }}>{fmt(finalTotal)}</span>
-                  </div>
-                  {!canCheckout && <div style={{ fontSize:12, color:'var(--danger)', marginBottom:8, textAlign:'center' }}>⚠️ Inserisci il nome del cliente per procedere</div>}
-                  {mode==='negozio' ? (
-                    <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:8 }}>
-                      <button className="btn btn-primary btn-lg" onClick={() => { if(validateCustomer()) setShowCash(true) }} disabled={saving} style={{ background:'var(--success)' }}>💵 CONTANTI</button>
-                      <button className="btn btn-primary btn-lg" onClick={() => { if(validateCustomer()) setShowPOS(true) }} disabled={saving} style={{ background:'var(--accent-blue)' }}>💳 POS</button>
-                    </div>
-                  ) : (
-                    <button className="btn btn-primary btn-full btn-lg" disabled={saving||!shipping.name} onClick={() => completeSale('other')} style={{ opacity: deliverySteps.every(Boolean) ? 1 : 0.7 }}>
-                      {saving ? 'Conferma...' : deliverySteps.every(Boolean) ? '✅ CONFERMA ORDINE' : `🚧 ${5-deliverySteps.filter(Boolean).length} step mancanti`}
-                    </button>
-                  )}
-                </>
-              ) : (
-                <>
-                  <div style={{ display:'flex', justifyContent:'space-between', marginBottom:14 }}>
-                    <span style={{ fontSize:13, color:'var(--text-secondary)' }}>Articoli</span><span style={{ fontWeight:700 }}>{cart.reduce((s,i)=>s+i.qty,0)}</span>
-                  </div>
-                  <button className="btn btn-primary btn-full btn-lg" disabled={saving||!destStore} onClick={() => completeSale('other')}>
-                    {saving?'Conferma...':'📦 CONFERMA TRASFERIMENTO'}
-                  </button>
-                </>
-              )}
-            </div>
+            {renderCartFooter()}
           </div>
         )}
       </div>
+
+      {/* ═══════════════ MOBILE CART (bottom sheet) ═══════════════ */}
+      {cart.length > 0 && (
+        <>
+          {/* Collapsed bar — always visible when cart has items */}
+          {!mobileCartOpen && (
+            <div
+              className="pos-cart-mobile-bar"
+              onClick={() => setMobileCartOpen(true)}
+              style={{
+                position:'fixed', bottom:56, left:0, right:0, zIndex:90,
+                background:'var(--brand-primary)', color:'white',
+                padding:'10px 20px', display:'none', /* hidden on desktop, shown via CSS */
+                alignItems:'center', justifyContent:'space-between',
+                cursor:'pointer', boxShadow:'0 -4px 20px rgba(0,0,0,0.15)',
+              }}
+            >
+              <div style={{ display:'flex', alignItems:'center', gap:10 }}>
+                <span style={{ background:'rgba(255,255,255,0.2)', borderRadius:20, padding:'2px 10px', fontSize:13, fontWeight:700 }}>
+                  {cart.reduce((s,i)=>s+i.qty,0)}
+                </span>
+                <span style={{ fontSize:14, fontWeight:600 }}>Vedi carrello</span>
+              </div>
+              <span style={{ fontSize:18, fontWeight:700, fontFamily:'var(--font-heading)' }}>{fmt(finalTotal)}</span>
+            </div>
+          )}
+
+          {/* Expanded sheet */}
+          {mobileCartOpen && (
+            <div className="pos-cart-mobile-sheet" style={{ position:'fixed', inset:0, zIndex:200, display:'none' /* shown via CSS */ }}>
+              <div onClick={() => setMobileCartOpen(false)} style={{ position:'absolute', inset:0, background:'rgba(0,0,0,0.4)' }} />
+              <div style={{
+                position:'absolute', bottom:0, left:0, right:0,
+                background:'var(--bg-primary)',
+                borderRadius:'20px 20px 0 0',
+                maxHeight:'85vh', display:'flex', flexDirection:'column',
+                boxShadow:'0 -8px 30px rgba(0,0,0,0.2)',
+                animation:'slideUp 0.25s ease',
+              }}>
+                {/* Handle */}
+                <div onClick={() => setMobileCartOpen(false)} style={{ display:'flex', justifyContent:'center', padding:'10px 0 6px', cursor:'pointer' }}>
+                  <div style={{ width:40, height:4, borderRadius:4, background:'var(--border-strong)' }} />
+                </div>
+                <div style={{ padding:'0 var(--space-lg) 8px', display:'flex', justifyContent:'space-between', alignItems:'center' }}>
+                  <h4>{mode==='trasferimento'?'Prodotti':'Carrello'} ({cart.reduce((s,i)=>s+i.qty,0)})</h4>
+                  <div style={{ display:'flex', gap:12 }}>
+                    <button onClick={() => setCart([])} style={{ background:'none', border:'none', color:'var(--danger)', fontSize:12, cursor:'pointer' }}>Svuota</button>
+                    <button onClick={() => setMobileCartOpen(false)} style={{ background:'none', border:'none', color:'var(--text-secondary)', fontSize:20, cursor:'pointer', lineHeight:1 }}>✕</button>
+                  </div>
+                </div>
+                <div style={{ flex:1, overflowY:'auto', padding:'0 var(--space-lg)', WebkitOverflowScrolling:'touch' }}>
+                  {renderCartItems()}
+                  {renderCartExtras()}
+                </div>
+                {renderCartFooter()}
+              </div>
+            </div>
+          )}
+        </>
+      )}
 
       <BottomNav />
     </div>
