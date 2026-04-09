@@ -11,31 +11,35 @@ export default function ShiftOpenPage() {
   const supabase = createClient()
   const today = new Date()
 
-  const [period, setPeriod] = useState<ShiftPeriod>('morning')
-  const [fce, setFce] = useState('')
-  const [loading, setLoading] = useState(false)
+  const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [storeName, setStoreName] = useState('BrainWare')
+  const [storeName, setStoreName] = useState('Store')
   const [storeId, setStoreId] = useState<string | null>(null)
-  const [userId, setUserId] = useState<string | null>(null)
-  const [userName, setUserName] = useState('')
-  const [pageLoading, setPageLoading] = useState(true)
+  const [authUserId, setAuthUserId] = useState<string | null>(null)
 
-  // Existing store session
-  const [existingShift, setExistingShift] = useState<any>(null)
-  const [checkedInUsers, setCheckedInUsers] = useState<{id:string;user_id:string;full_name:string;checked_in_at:string}[]>([])
-
-  // Check-in PIN modal
-  const [showPinModal, setShowPinModal] = useState(false)
+  // Employees
+  const [employees, setEmployees] = useState<any[]>([])
+  const [selectedEmp, setSelectedEmp] = useState<any>(null)
   const [pin, setPin] = useState('')
   const [pinError, setPinError] = useState('')
+  const [checkingIn, setCheckingIn] = useState(false)
+
+  // Existing shift
+  const [existingShift, setExistingShift] = useState<any>(null)
+  const [checkedInUsers, setCheckedInUsers] = useState<any[]>([])
+
+  // Open session form (only when no session exists)
+  const [showOpenForm, setShowOpenForm] = useState(false)
+  const [period, setPeriod] = useState<ShiftPeriod>('morning')
+  const [fce, setFce] = useState('')
+  const [opening, setOpening] = useState(false)
 
   useEffect(() => { loadData() }, [])
 
   async function loadData() {
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) { router.push('/login'); return }
-    setUserId(user.id)
+    setAuthUserId(user.id)
 
     const { data: profile } = await supabase
       .from('users')
@@ -44,7 +48,6 @@ export default function ShiftOpenPage() {
       .single()
 
     if (!profile?.store_id) {
-      // Try to recover from auth metadata
       const meta = user.user_metadata
       if (meta?.store_id) {
         await supabase.from('users').upsert({
@@ -59,57 +62,67 @@ export default function ShiftOpenPage() {
 
     const sid = profile?.store_id || user.user_metadata?.store_id
     setStoreId(sid)
-    setUserName(profile?.full_name || '')
-    if (profile?.stores) setStoreName((profile.stores as any).name ?? 'BrainWare')
+    if (profile?.stores) setStoreName((profile.stores as any).name ?? 'Store')
 
-    // Check if there's already an open session for this store today
-    if (sid) {
-      const todayStart = new Date()
-      todayStart.setHours(0, 0, 0, 0)
+    if (!sid) { setLoading(false); return }
 
-      const { data: openShift } = await supabase
-        .from('shifts')
-        .select('*')
-        .eq('store_id', sid)
-        .eq('status', 'open')
-        .gte('opened_at', todayStart.toISOString())
-        .order('opened_at', { ascending: false })
-        .limit(1)
-        .single()
+    // Load employees of this store
+    const { data: emps } = await supabase
+      .from('users')
+      .select('id, full_name, pin, is_active')
+      .eq('store_id', sid)
+      .eq('is_active', true)
+      .neq('role', 'owner')
+      .order('full_name')
+    setEmployees(emps ?? [])
 
-      if (openShift) {
-        setExistingShift(openShift)
+    // Check for open shift today
+    const todayStart = new Date()
+    todayStart.setHours(0, 0, 0, 0)
 
-        // Load who is checked in
-        const { data: checkins } = await supabase
-          .from('shift_checkins')
-          .select('id, user_id, checked_in_at, users(full_name)')
-          .eq('shift_id', openShift.id)
-          .is('checked_out_at', null)
+    const { data: openShift } = await supabase
+      .from('shifts')
+      .select('*')
+      .eq('store_id', sid)
+      .eq('status', 'open')
+      .gte('opened_at', todayStart.toISOString())
+      .order('opened_at', { ascending: false })
+      .limit(1)
+      .single()
 
-        const mapped = (checkins || []).map((c: any) => ({
-          id: c.id,
-          user_id: c.user_id,
-          full_name: c.users?.full_name || 'Dipendente',
-          checked_in_at: c.checked_in_at,
-        }))
-        setCheckedInUsers(mapped)
+    if (openShift) {
+      setExistingShift(openShift)
 
-        // If current user is already checked in, go to dashboard
-        if (mapped.some(c => c.user_id === user.id)) {
-          router.push('/employee/dashboard')
-          return
-        }
-      }
+      const { data: checkins } = await supabase
+        .from('shift_checkins')
+        .select('id, user_id, checked_in_at, users(full_name)')
+        .eq('shift_id', openShift.id)
+        .is('checked_out_at', null)
+
+      setCheckedInUsers((checkins || []).map((c: any) => ({
+        id: c.id,
+        user_id: c.user_id,
+        full_name: c.users?.full_name || 'Dipendente',
+        checked_in_at: c.checked_in_at,
+      })))
     }
 
-    setPageLoading(false)
+    // Check if active employee is set in localStorage
+    const activeEmpId = localStorage.getItem('activeEmployeeId')
+    if (activeEmpId && openShift) {
+      // Already checked in, go to dashboard
+      const isStillCheckedIn = (checkins: any) => true // they selected themselves
+      router.push('/employee/dashboard')
+      return
+    }
+
+    setLoading(false)
   }
 
-  // ── Open new store session ──
+  // ── Open new session ──
   async function handleOpenSession() {
-    if (!storeId || !userId) return
-    setLoading(true)
+    if (!storeId || !authUserId || !selectedEmp) return
+    setOpening(true)
     setError(null)
 
     const fceValue = parseFloat(fce) || 0
@@ -118,7 +131,7 @@ export default function ShiftOpenPage() {
       .from('shifts')
       .insert({
         store_id: storeId,
-        user_id: userId,
+        user_id: authUserId, // store account opens the shift
         period,
         fce: fceValue,
         status: 'open',
@@ -127,291 +140,282 @@ export default function ShiftOpenPage() {
       .single()
 
     if (shiftError || !shift) {
-      setError('Errore nell\'apertura della sessione. Riprova.')
-      setLoading(false)
+      setError('Errore nell\'apertura della sessione.')
+      setOpening(false)
       return
     }
 
-    // Auto check-in the opener
+    // Check-in the selected employee
     await supabase.from('shift_checkins').insert({
       shift_id: shift.id,
-      user_id: userId,
+      user_id: selectedEmp.id,
       store_id: storeId,
     })
+
+    // Save active employee to localStorage
+    localStorage.setItem('activeEmployeeId', selectedEmp.id)
+    localStorage.setItem('activeEmployeeName', selectedEmp.full_name)
 
     router.push('/employee/dashboard')
   }
 
   // ── Check-in to existing session ──
   async function handleCheckin() {
-    if (!existingShift || !userId || !storeId) return
-    setLoading(true)
+    if (!existingShift || !selectedEmp || !storeId) return
+    setCheckingIn(true)
     setPinError('')
 
     // Verify PIN
-    const { data: userProfile } = await supabase
-      .from('users')
-      .select('pin')
-      .eq('id', userId)
-      .single()
-
-    if (userProfile?.pin && userProfile.pin !== pin) {
+    if (selectedEmp.pin && selectedEmp.pin !== pin) {
       setPinError('PIN non corretto')
-      setLoading(false)
+      setCheckingIn(false)
       return
     }
 
     // Insert check-in
     const { error: checkinError } = await supabase.from('shift_checkins').insert({
       shift_id: existingShift.id,
-      user_id: userId,
+      user_id: selectedEmp.id,
       store_id: storeId,
     })
 
     if (checkinError) {
-      setPinError('Errore nel check-in: ' + checkinError.message)
-      setLoading(false)
+      setPinError('Errore: ' + checkinError.message)
+      setCheckingIn(false)
       return
     }
+
+    // Save active employee to localStorage
+    localStorage.setItem('activeEmployeeId', selectedEmp.id)
+    localStorage.setItem('activeEmployeeName', selectedEmp.full_name)
 
     router.push('/employee/dashboard')
   }
 
-  if (pageLoading) {
-    return <div style={{ display:'flex', alignItems:'center', justifyContent:'center', height:'100vh' }}>Caricamento...</div>
+  if (loading) {
+    return <div style={{ display:'flex', alignItems:'center', justifyContent:'center', height:'100vh', fontSize:16 }}>Caricamento...</div>
   }
 
-  // ════════════════════════════════════
-  //  EXISTING SESSION → CHECK-IN SCREEN
-  // ════════════════════════════════════
-  if (existingShift) {
-    return (
-      <div style={{
-        minHeight: '100vh', background: 'var(--bg-surface)',
-        display: 'flex', alignItems: 'center', justifyContent: 'center',
-        padding: 'var(--space-lg)',
-      }}>
-        <div style={{ width: '100%', maxWidth: 480 }}>
-          <div style={{ marginBottom: 'var(--space-xl)' }}>
-            <div style={{ fontFamily: 'var(--font-heading)', fontSize: 28, fontWeight: 700, color: 'var(--brand-primary)' }}>
-              {storeName}
-            </div>
-          </div>
-
-          <div className="card" style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-lg)' }}>
-            {/* Active Session Banner */}
-            <div style={{
-              background: 'var(--brand-primary-light)', borderRadius: 12, padding: 16,
-              display: 'flex', alignItems: 'center', gap: 12,
-            }}>
-              <div style={{
-                width: 44, height: 44, borderRadius: 12, background: 'var(--brand-primary)',
-                display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20,
-              }}>🟢</div>
-              <div>
-                <div style={{ fontWeight: 700, fontSize: 16, color: 'var(--brand-primary-dark)' }}>
-                  Sessione attiva
-                </div>
-                <div style={{ fontSize: 13, color: 'var(--text-secondary)' }}>
-                  Aperta alle {new Date(existingShift.opened_at).toLocaleTimeString('it-IT', { hour:'2-digit', minute:'2-digit' })} — Turno {existingShift.period === 'morning' ? 'Mattina' : 'Sera'}
-                </div>
-              </div>
-            </div>
-
-            {/* Who's in the store */}
-            <div>
-              <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 10, color: 'var(--text-secondary)' }}>
-                👥 Chi è in negozio ({checkedInUsers.length})
-              </div>
-              {checkedInUsers.length > 0 ? (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                  {checkedInUsers.map(u => (
-                    <div key={u.id} style={{
-                      display: 'flex', alignItems: 'center', gap: 10, padding: '8px 12px',
-                      background: 'var(--bg-surface)', borderRadius: 8,
-                    }}>
-                      <div style={{
-                        width: 32, height: 32, borderRadius: 8, background: 'var(--brand-primary)',
-                        display: 'flex', alignItems: 'center', justifyContent: 'center',
-                        color: 'white', fontWeight: 700, fontSize: 13,
-                      }}>
-                        {u.full_name.charAt(0).toUpperCase()}
-                      </div>
-                      <div style={{ flex: 1 }}>
-                        <div style={{ fontSize: 14, fontWeight: 600 }}>{u.full_name}</div>
-                        <div style={{ fontSize: 11, color: 'var(--text-tertiary)' }}>
-                          Check-in: {new Date(u.checked_in_at).toLocaleTimeString('it-IT', { hour:'2-digit', minute:'2-digit' })}
-                        </div>
-                      </div>
-                      <span style={{ fontSize: 11, color: 'var(--success)', fontWeight: 600 }}>🟢 Presente</span>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <div style={{ fontSize: 13, color: 'var(--text-tertiary)', textAlign: 'center', padding: 12 }}>
-                  Nessuno al momento
-                </div>
-              )}
-            </div>
-
-            {/* Check-in form */}
-            <div style={{ borderTop: '1px solid var(--border-subtle)', paddingTop: 'var(--space-lg)' }}>
-              <h3 style={{ fontSize: 16, marginBottom: 4 }}>Ciao {userName.split(' ')[0]}! 👋</h3>
-              <p style={{ fontSize: 13, color: 'var(--text-secondary)', marginBottom: 16 }}>
-                Inserisci il tuo PIN per fare check-in nella sessione.
-              </p>
-
-              <div className="input-group" style={{ marginBottom: 12 }}>
-                <label className="input-label">Il tuo PIN</label>
-                <input
-                  className="input"
-                  type="password"
-                  inputMode="numeric"
-                  maxLength={4}
-                  placeholder="• • • •"
-                  value={pin}
-                  onChange={e => { setPin(e.target.value.replace(/\D/g,'')); setPinError('') }}
-                  style={{ textAlign: 'center', fontSize: 24, letterSpacing: 12, fontWeight: 700 }}
-                  autoFocus
-                />
-              </div>
-
-              {pinError && (
-                <div style={{
-                  background: 'var(--danger-light)', border: '1px solid var(--danger)',
-                  borderRadius: 8, padding: '8px 12px', fontSize: 12, color: 'var(--danger)', marginBottom: 12,
-                }}>
-                  ⚠️ {pinError}
-                </div>
-              )}
-
-              <button
-                onClick={handleCheckin}
-                disabled={loading || pin.length < 4}
-                className="btn btn-primary btn-full btn-lg"
-                style={{ marginBottom: 8 }}
-              >
-                {loading ? 'Check-in...' : '🟢 Check-in'}
-              </button>
-
-              <div style={{ textAlign: 'center' }}>
-                <button
-                  onClick={() => { supabase.auth.signOut(); router.push('/login') }}
-                  style={{ background: 'none', border: 'none', color: 'var(--text-tertiary)', fontSize: 13, cursor: 'pointer' }}
-                >
-                  ← Cambia account
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    )
-  }
-
-  // ════════════════════════════════════
-  //  NO SESSION → OPEN NEW SESSION
-  // ════════════════════════════════════
+  // ════════════════════════════════════════
+  //  "CHI SEI?" – Employee Selection Screen
+  // ════════════════════════════════════════
   return (
     <div style={{
       minHeight: '100vh', background: 'var(--bg-surface)',
       display: 'flex', alignItems: 'center', justifyContent: 'center',
       padding: 'var(--space-lg)',
     }}>
-      <div style={{ width: '100%', maxWidth: 480 }}>
-        <div style={{ marginBottom: 'var(--space-xl)' }}>
-          <div style={{ fontFamily: 'var(--font-heading)', fontSize: 28, fontWeight: 700, color: 'var(--brand-primary)' }}>
+      <div style={{ width: '100%', maxWidth: 440 }}>
+
+        {/* Store Name */}
+        <div style={{ textAlign:'center', marginBottom: 'var(--space-xl)' }}>
+          <div style={{
+            fontFamily: 'var(--font-heading)', fontSize: 28, fontWeight: 700,
+            color: 'var(--brand-primary)',
+          }}>
             {storeName}
+          </div>
+          <div style={{ fontSize: 13, color: 'var(--text-tertiary)', marginTop: 4 }}>
+            {formatDate(today.toISOString())}
           </div>
         </div>
 
-        <div className="card" style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-xl)' }}>
-          <div>
-            <h2>🟢 Apri Sessione Negozio</h2>
-            <p style={{ color: 'var(--text-secondary)', marginTop: 4, fontSize: 14 }}>
-              Nessuna sessione attiva. Apri la giornata!
+        {/* Active session banner */}
+        {existingShift && (
+          <div style={{
+            background: 'var(--brand-primary-light)', borderRadius: 12, padding: '12px 16px',
+            display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16,
+          }}>
+            <span style={{ fontSize: 20 }}>🟢</span>
+            <div>
+              <div style={{ fontWeight: 700, fontSize: 14, color: 'var(--brand-primary-dark)' }}>
+                Sessione attiva — {existingShift.period === 'morning' ? 'Mattina' : 'Sera'}
+              </div>
+              <div style={{ fontSize: 11, color: 'var(--text-secondary)' }}>
+                {checkedInUsers.length} dipendente{checkedInUsers.length !== 1 ? 'i' : ''} in turno
+              </div>
+            </div>
+          </div>
+        )}
+
+        <div className="card" style={{ padding: 0 }}>
+          {/* Header */}
+          <div style={{ padding: '20px 24px', borderBottom: '1px solid var(--border-subtle)' }}>
+            <h2 style={{ fontSize: 20, marginBottom: 4 }}>
+              {selectedEmp ? `Ciao ${selectedEmp.full_name.split(' ')[0]}! 👋` : 'Chi sei? 👋'}
+            </h2>
+            <p style={{ fontSize: 13, color: 'var(--text-secondary)' }}>
+              {selectedEmp ? 'Inserisci il tuo PIN per iniziare' : 'Seleziona il tuo nome per fare check-in'}
             </p>
           </div>
 
-          {/* Date & Time (read-only) */}
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--space-lg)' }}>
-            <div className="input-group">
-              <span className="input-label">Data</span>
+          {/* Employee List OR PIN input */}
+          {!selectedEmp ? (
+            <div style={{ padding: '12px 16px', display:'flex', flexDirection:'column', gap: 6, maxHeight: 400, overflowY: 'auto' }}>
+              {employees.length === 0 ? (
+                <div style={{ textAlign:'center', padding:'var(--space-xl)', color:'var(--text-tertiary)', fontSize:14 }}>
+                  Nessun referente configurato.<br/>L'owner deve aggiungere i dipendenti.
+                </div>
+              ) : employees.map(emp => {
+                const isCheckedIn = checkedInUsers.some(c => c.user_id === emp.id)
+                return (
+                  <button
+                    key={emp.id}
+                    onClick={() => { setSelectedEmp(emp); setPin(''); setPinError('') }}
+                    style={{
+                      display: 'flex', alignItems: 'center', gap: 12,
+                      padding: '12px 16px', borderRadius: 12, border: 'none',
+                      background: isCheckedIn ? 'var(--brand-primary-light)' : 'var(--bg-surface)',
+                      cursor: 'pointer', textAlign: 'left', width: '100%',
+                      transition: 'all 0.15s',
+                    }}
+                    onMouseEnter={e => (e.currentTarget.style.background = 'var(--brand-primary-light)')}
+                    onMouseLeave={e => (e.currentTarget.style.background = isCheckedIn ? 'var(--brand-primary-light)' : 'var(--bg-surface)')}
+                  >
+                    <div style={{
+                      width: 44, height: 44, borderRadius: 12,
+                      background: 'var(--brand-primary)',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      color: 'white', fontWeight: 700, fontSize: 16, flexShrink: 0,
+                    }}>
+                      {emp.full_name.split(' ').map((n:string) => n[0]).join('').slice(0,2)}
+                    </div>
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontWeight: 700, fontSize: 15 }}>{emp.full_name}</div>
+                      {isCheckedIn && (
+                        <div style={{ fontSize: 11, color: 'var(--success)', fontWeight: 600 }}>🟢 Già in turno</div>
+                      )}
+                    </div>
+                    <span style={{ fontSize: 20, color: 'var(--text-tertiary)' }}>→</span>
+                  </button>
+                )
+              })}
+            </div>
+          ) : (
+            <div style={{ padding: '20px 24px' }}>
+              {/* Selected employee */}
               <div style={{
-                height: 44, padding: '0 14px', display: 'flex', alignItems: 'center',
-                background: 'var(--bg-surface)', borderRadius: 'var(--radius-sm)',
-                border: '1.5px solid var(--border-default)', color: 'var(--text-primary)',
-                fontWeight: 600, fontSize: 14,
+                display: 'flex', alignItems: 'center', gap: 12, marginBottom: 20,
+                padding: '12px 16px', background: 'var(--brand-primary-light)', borderRadius: 12,
               }}>
-                {formatDate(today.toISOString())}
+                <div style={{
+                  width: 44, height: 44, borderRadius: 12, background: 'var(--brand-primary)',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  color: 'white', fontWeight: 700, fontSize: 16,
+                }}>
+                  {selectedEmp.full_name.split(' ').map((n:string) => n[0]).join('').slice(0,2)}
+                </div>
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontWeight: 700, fontSize: 15 }}>{selectedEmp.full_name}</div>
+                </div>
+                <button
+                  onClick={() => { setSelectedEmp(null); setPin(''); setPinError('') }}
+                  style={{ background:'none', border:'none', fontSize:13, color:'var(--brand-primary)', cursor:'pointer', fontWeight:600 }}
+                >
+                  ← Cambia
+                </button>
               </div>
-            </div>
 
-            <div className="input-group">
-              <span className="input-label">Check-in</span>
-              <div style={{
-                height: 44, padding: '0 14px', display: 'flex', alignItems: 'center',
-                background: 'var(--bg-surface)', borderRadius: 'var(--radius-sm)',
-                border: '1.5px solid var(--border-default)', color: 'var(--text-primary)',
-                fontWeight: 600, fontSize: 14,
-              }}>
-                {today.toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' })}
-              </div>
-            </div>
-          </div>
+              {/* PIN input */}
+              {selectedEmp.pin ? (
+                <>
+                  <div className="input-group" style={{ marginBottom: 12 }}>
+                    <label className="input-label">Il tuo PIN</label>
+                    <input
+                      className="input"
+                      type="password"
+                      inputMode="numeric"
+                      maxLength={4}
+                      placeholder="• • • •"
+                      value={pin}
+                      onChange={e => { setPin(e.target.value.replace(/\D/g,'')); setPinError('') }}
+                      style={{ textAlign: 'center', fontSize: 28, letterSpacing: 16, fontWeight: 700, height: 56 }}
+                      autoFocus
+                    />
+                  </div>
 
-          {/* Shift Period Toggle */}
-          <div className="input-group">
-            <span className="input-label">Turno</span>
-            <div className="toggle-group">
-              <button
-                type="button"
-                className={`toggle-option ${period === 'morning' ? 'active' : ''}`}
-                onClick={() => setPeriod('morning')}
-              >Mattina</button>
-              <button
-                type="button"
-                className={`toggle-option ${period === 'evening' ? 'active' : ''}`}
-                onClick={() => setPeriod('evening')}
-              >Sera</button>
-            </div>
-          </div>
+                  {pinError && (
+                    <div style={{
+                      background: 'var(--danger-light)', border: '1px solid var(--danger)',
+                      borderRadius: 8, padding: '8px 12px', fontSize: 12, color: 'var(--danger)', marginBottom: 12,
+                    }}>
+                      ⚠️ {pinError}
+                    </div>
+                  )}
+                </>
+              ) : (
+                <div style={{
+                  background:'#FFFBEB', border:'1px solid #FCD34D', borderRadius:8,
+                  padding:'10px 14px', fontSize:13, color:'#92400E', marginBottom:12,
+                }}>
+                  ⚠️ Nessun PIN impostato. Chiedi all'owner di configurarlo.
+                </div>
+              )}
 
-          {/* FCE */}
-          <div className="input-group">
-            <label className="input-label">Fondo Cassa Entrata (FCE)</label>
-            <div className="input-with-prefix">
-              <span className="input-prefix">€</span>
-              <input
-                className="input"
-                type="number"
-                min="0"
-                step="0.01"
-                placeholder="0.00"
-                value={fce}
-                onChange={e => setFce(e.target.value)}
-              />
-            </div>
-          </div>
+              {/* If no session exists, show "Open Session" form */}
+              {!existingShift ? (
+                <>
+                  <div style={{ borderTop: '1px solid var(--border-subtle)', paddingTop: 16, marginTop: 8 }}>
+                    <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 12, color: 'var(--text-secondary)' }}>
+                      📋 Apri la giornata
+                    </div>
 
-          {error && (
-            <div style={{
-              background: 'var(--danger-light)', border: '1px solid var(--danger)',
-              borderRadius: 'var(--radius-sm)', padding: '10px var(--space-md)',
-              fontSize: 13, color: 'var(--danger)',
-            }}>
-              {error}
+                    <div className="input-group" style={{ marginBottom: 12 }}>
+                      <span className="input-label">Turno</span>
+                      <div className="toggle-group">
+                        <button type="button" className={`toggle-option ${period === 'morning' ? 'active' : ''}`} onClick={() => setPeriod('morning')}>Mattina</button>
+                        <button type="button" className={`toggle-option ${period === 'evening' ? 'active' : ''}`} onClick={() => setPeriod('evening')}>Sera</button>
+                      </div>
+                    </div>
+
+                    <div className="input-group" style={{ marginBottom: 16 }}>
+                      <label className="input-label">Fondo Cassa (FCE)</label>
+                      <div className="input-with-prefix">
+                        <span className="input-prefix">€</span>
+                        <input className="input" type="number" min="0" step="0.01" placeholder="0.00" value={fce} onChange={e => setFce(e.target.value)} />
+                      </div>
+                    </div>
+                  </div>
+
+                  <button
+                    onClick={handleOpenSession}
+                    disabled={opening || (selectedEmp.pin && pin.length < 4)}
+                    className="btn btn-primary btn-full btn-lg"
+                  >
+                    {opening ? 'Apertura...' : '🟢 Apri Negozio'}
+                  </button>
+                </>
+              ) : (
+                <button
+                  onClick={handleCheckin}
+                  disabled={checkingIn || (selectedEmp.pin && pin.length < 4)}
+                  className="btn btn-primary btn-full btn-lg"
+                >
+                  {checkingIn ? 'Check-in...' : '🟢 Check-in'}
+                </button>
+              )}
             </div>
           )}
-
-          <button
-            onClick={handleOpenSession}
-            disabled={loading}
-            className="btn btn-primary btn-full btn-lg"
-          >
-            {loading ? 'Apertura in corso...' : '🟢 Apri Negozio'}
-          </button>
         </div>
+
+        {/* Who's in */}
+        {checkedInUsers.length > 0 && (
+          <div style={{ marginTop: 16, padding: '12px 16px', background: 'var(--bg-primary)', borderRadius: 12 }}>
+            <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-secondary)', marginBottom: 8 }}>
+              👥 In turno ({checkedInUsers.length})
+            </div>
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+              {checkedInUsers.map(u => (
+                <span key={u.id} style={{
+                  background: 'var(--brand-primary-light)', color: 'var(--brand-primary-dark)',
+                  padding: '4px 10px', borderRadius: 20, fontSize: 12, fontWeight: 600,
+                }}>
+                  🟢 {u.full_name}
+                </span>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
     </div>
   )

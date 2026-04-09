@@ -57,7 +57,10 @@ export default function EmployeeDashboard() {
 
     const { data: profile } = await supabase.from('users').select('full_name,store_id,stores(name)').eq('id', user.id).single()
     if (!profile) { router.push('/login'); return }
-    setName(profile.full_name)
+
+    // Use active employee name from localStorage (store account model)
+    const activeEmpName = typeof window !== 'undefined' ? localStorage.getItem('activeEmployeeName') : null
+    setName(activeEmpName || profile.full_name)
     setStoreName((profile.stores as any)?.name ?? '')
 
     if (profile.store_id) {
@@ -78,10 +81,11 @@ export default function EmployeeDashboard() {
       } catch {}
     }
 
+    // Find open shift for this store (not user-specific anymore)
     const { data: openShift } = await supabase
       .from('shifts')
       .select('*')
-      .eq('user_id', user.id)
+      .eq('store_id', profile.store_id)
       .eq('status', 'open')
       .order('created_at', { ascending: false })
       .limit(1)

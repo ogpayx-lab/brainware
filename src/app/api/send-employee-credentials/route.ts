@@ -65,7 +65,7 @@ export async function POST(req: NextRequest) {
     if (inviteError.message.includes('already been registered') || inviteError.message.includes('already exists')) {
       // Find existing user by email
       const { data: listData } = await supabaseAdmin.auth.admin.listUsers()
-      const existingUser = listData?.users?.find(u => u.email === employeeEmail)
+      const existingUser = (listData?.users as any[])?.find((u: any) => u.email === employeeEmail)
 
       if (existingUser) {
         // Upsert profile to this store

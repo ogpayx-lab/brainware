@@ -79,7 +79,7 @@ export default function POSContent() {
     const { data: profile } = await supabase.from('users').select('store_id,stores(organization_id)').eq('id', user.id).single()
     if (!profile?.store_id) { router.push('/login'); return }
     setStoreId(profile.store_id)
-    const { data: shift } = await supabase.from('shifts').select('id').eq('user_id', user.id).eq('status','open').order('created_at',{ascending:false}).limit(1).single()
+    const { data: shift } = await supabase.from('shifts').select('id').eq('store_id', profile.store_id).eq('status','open').order('created_at',{ascending:false}).limit(1).single()
     if (!shift) { router.push('/employee/shift/open'); return }
     setShiftId(shift.id)
     const { data: prods } = await supabase.from('products').select('*').eq('store_id', profile.store_id).eq('is_active', true).order('name')
@@ -98,7 +98,9 @@ export default function POSContent() {
       .eq('is_active', true)
       .order('full_name')
     setStoreEmployees(emps ?? [])
-    setReferente(user.id) // default: logged-in user
+    // Default referente: active employee from localStorage (store account model)
+    const activeEmpId = typeof window !== 'undefined' ? localStorage.getItem('activeEmployeeId') : null
+    setReferente(activeEmpId || user.id)
 
     // Load who is checked-in to this shift
     const { data: checkins } = await supabase
