@@ -61,6 +61,10 @@ export default function POSContent() {
   const [verifyingPromo, setVerifyingPromo] = useState(false)
   // Mobile cart
   const [mobileCartOpen, setMobileCartOpen] = useState(false)
+  // Referente vendita
+  const [storeEmployees, setStoreEmployees] = useState<{id:string;full_name:string}[]>([])
+  const [referente, setReferente] = useState<string>('')
+  const [checkedInIds, setCheckedInIds] = useState<Set<string>>(new Set())
 
   useEffect(() => { loadData() }, [])
   useEffect(() => { setShippingCost(shipping.type==='delivery'?5:9.90) }, [shipping.type])
@@ -82,6 +86,24 @@ export default function POSContent() {
       const { data: storeList } = await supabase.from('stores').select('id,name').eq('organization_id', orgId).neq('id', profile.store_id)
       setStores(storeList ?? [])
     }
+    // Load all employees of this store (for referente selector)
+    const { data: emps } = await supabase
+      .from('users')
+      .select('id, full_name')
+      .eq('store_id', profile.store_id)
+      .in('role', ['employee', 'manager'])
+      .eq('is_active', true)
+      .order('full_name')
+    setStoreEmployees(emps ?? [])
+    setReferente(user.id) // default: logged-in user
+
+    // Load who is checked-in to this shift
+    const { data: checkins } = await supabase
+      .from('shift_checkins')
+      .select('user_id')
+      .eq('shift_id', shift.id)
+      .is('checked_out_at', null)
+    setCheckedInIds(new Set((checkins || []).map((c: any) => c.user_id)))
     // Carica ultime vendite del turno
     const { data: salesData } = await supabase
       .from('sales')
@@ -222,8 +244,9 @@ export default function POSContent() {
     const channel = channelMap[rawChannel] || 'walk-in'
 
     const mvType = mode==='trasferimento' ? 'trasferimento' : 'sale'
+    const saleUserId = referente || userId
     const { data: sale, error: saleError } = await supabase.from('sales').insert({
-      shift_id:shiftId, store_id:storeId, user_id:userId,
+      shift_id:shiftId, store_id:storeId, user_id:saleUserId, created_by:saleUserId,
       movement_type:mvType, payment_method:method,
       subtotal, discount_amount:discAmt, discount_pct:discPct,
       total:mode==='online'?finalTotal:total,
@@ -311,6 +334,44 @@ export default function POSContent() {
   function renderCartExtras() {
     return (
       <>
+        {/* Referente vendita */}
+        {mode!=='trasferimento' && storeEmployees.length > 1 && (
+          <div style={{ marginTop:12, padding:12, background:'var(--bg-surface)', borderRadius:10 }}>
+            <div style={{ fontSize:12, fontWeight:600, marginBottom:8 }}>👤 Referente Vendita</div>
+            <select
+              className="input"
+              value={referente}
+              onChange={e => setReferente(e.target.value)}
+              style={{ height:36, fontSize:13, width:'100%' }}
+            >
+              {/* Checked-in employees first */}
+              {storeEmployees.filter(e => checkedInIds.has(e.id)).length > 0 && (
+                <optgroup label="🟢 In turno">
+                  {storeEmployees.filter(e => checkedInIds.has(e.id)).map(emp => (
+                    <option key={emp.id} value={emp.id}>
+                      {emp.full_name}{emp.id === userId ? ' (tu)' : ''}
+                    </option>
+                  ))}
+                </optgroup>
+              )}
+              {/* Others */}
+              {storeEmployees.filter(e => !checkedInIds.has(e.id)).length > 0 && (
+                <optgroup label="⚪ Non in turno">
+                  {storeEmployees.filter(e => !checkedInIds.has(e.id)).map(emp => (
+                    <option key={emp.id} value={emp.id}>
+                      {emp.full_name}{emp.id === userId ? ' (tu)' : ''}
+                    </option>
+                  ))}
+                </optgroup>
+              )}
+            </select>
+            {referente && referente !== userId && (
+              <div style={{ fontSize:11, color:'var(--warning)', marginTop:4, fontWeight:600 }}>
+                ⚠️ La vendita sarà attribuita a {storeEmployees.find(e => e.id === referente)?.full_name}
+              </div>
+            )}
+          </div>
+        )}
         {/* Sconto */}
         {mode!=='trasferimento' && (
           <div style={{ marginTop:12, padding:12, background:'var(--bg-surface)', borderRadius:10 }}>

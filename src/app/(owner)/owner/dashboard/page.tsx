@@ -52,7 +52,33 @@ export default function OwnerDashboard() {
       .eq('store_id', sid)
       .order('created_at', { ascending: false })
       .limit(20)
-    const newNotifs = notifs ?? []
+    let newNotifs = notifs ?? []
+
+    // Check for forgotten check-outs (>10 hours checked in)
+    const tenHoursAgo = new Date(Date.now() - 10 * 3600 * 1000).toISOString()
+    const { data: longCheckins } = await supabase
+      .from('shift_checkins')
+      .select('id, user_id, checked_in_at, users(full_name)')
+      .eq('store_id', sid)
+      .is('checked_out_at', null)
+      .lt('checked_in_at', tenHoursAgo)
+
+    if (longCheckins && longCheckins.length > 0) {
+      const checkoutAlerts = longCheckins.map((c: any) => {
+        const hours = Math.round((Date.now() - new Date(c.checked_in_at).getTime()) / 3600000)
+        return {
+          id: `checkout-alert-${c.id}`,
+          type: 'checkout_alert',
+          title: `⚠️ Check-out dimenticato`,
+          message: `${c.users?.full_name || 'Dipendente'} è in turno da ${hours}h senza check-out`,
+          read: false,
+          created_at: c.checked_in_at,
+          _isAlert: true,
+        }
+      })
+      newNotifs = [...checkoutAlerts, ...newNotifs]
+    }
+
     setNotifications(newNotifs)
 
     // Play sound if new unread notifications arrived

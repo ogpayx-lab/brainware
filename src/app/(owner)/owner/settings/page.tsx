@@ -47,6 +47,9 @@ export default function SettingsPage() {
   })
   const [empCfgId, setEmpCfgId] = useState<string | null>(null)
   const [expandedFeat, setExpandedFeat] = useState<string | null>(null)
+  // Employee PIN management
+  const [empList, setEmpList] = useState<{id:string;full_name:string;pin:string|null;is_active:boolean}[]>([])
+  const [pinSaving, setPinSaving] = useState<string | null>(null)
 
   const [activeTab, setActiveTab] = useState<'general' | 'employee' | 'shopify'>('general')
 
@@ -91,6 +94,15 @@ export default function SettingsPage() {
         setEmpCfg(prev => ({ ...prev, ...empFeat.config }))
       }
     }
+
+    // Load employees for PIN management
+    const { data: empsData } = await supabase
+      .from('users')
+      .select('id, full_name, pin, is_active')
+      .eq('store_id', profile.store_id)
+      .in('role', ['employee', 'manager'])
+      .order('full_name')
+    setEmpList(empsData ?? [])
 
     setLoading(false)
   }
@@ -417,6 +429,77 @@ export default function SettingsPage() {
 
           <div style={{ background: 'var(--bg-surface)', borderRadius: 12, padding: '14px 18px', fontSize: 13, color: 'var(--text-secondary)' }}>
             💡 Le funzioni disattivate non appariranno nella dashboard del dipendente. Clicca su ogni sezione per espandere le opzioni avanzate.
+          </div>
+
+          {/* PIN Management */}
+          <div className="card">
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+              <div>
+                <h3>🔑 PIN Dipendenti</h3>
+                <p style={{ color: 'var(--text-secondary)', fontSize: 13, marginTop: 2 }}>
+                  Assegna un PIN a 4 cifre per il check-in sul tablet condiviso
+                </p>
+              </div>
+            </div>
+
+            {empList.length === 0 ? (
+              <div style={{ textAlign: 'center', padding: 20, color: 'var(--text-tertiary)', fontSize: 14 }}>
+                Nessun dipendente trovato
+              </div>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                {empList.map(emp => (
+                  <div key={emp.id} style={{
+                    display: 'flex', alignItems: 'center', gap: 12, padding: '10px 14px',
+                    background: 'var(--bg-surface)', borderRadius: 10,
+                    border: '1px solid var(--border-subtle)',
+                    opacity: emp.is_active ? 1 : 0.5,
+                  }}>
+                    <div style={{
+                      width: 36, height: 36, borderRadius: 10,
+                      background: emp.pin ? 'var(--brand-primary)' : 'var(--border-default)',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      color: 'white', fontWeight: 700, fontSize: 14, flexShrink: 0,
+                    }}>
+                      {emp.full_name.charAt(0).toUpperCase()}
+                    </div>
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontWeight: 600, fontSize: 14 }}>{emp.full_name}</div>
+                      <div style={{ fontSize: 11, color: emp.pin ? 'var(--success)' : 'var(--text-tertiary)' }}>
+                        {emp.pin ? '✅ PIN impostato' : '⚪ Nessun PIN'}
+                      </div>
+                    </div>
+                    <input
+                      className="input"
+                      type="text"
+                      inputMode="numeric"
+                      maxLength={4}
+                      placeholder="PIN"
+                      value={emp.pin || ''}
+                      onChange={e => {
+                        const val = e.target.value.replace(/\D/g, '').slice(0, 4)
+                        setEmpList(prev => prev.map(em => em.id === emp.id ? { ...em, pin: val || null } : em))
+                      }}
+                      style={{ width: 70, textAlign: 'center', fontSize: 16, fontWeight: 700, letterSpacing: 4, padding: '6px 8px' }}
+                    />
+                    <button
+                      className="btn btn-secondary"
+                      disabled={pinSaving === emp.id}
+                      onClick={async () => {
+                        setPinSaving(emp.id)
+                        await supabase.from('users').update({ pin: emp.pin }).eq('id', emp.id)
+                        setPinSaving(null)
+                        setSaved('pin')
+                        setTimeout(() => setSaved(''), 2000)
+                      }}
+                      style={{ fontSize: 12, padding: '6px 12px', whiteSpace: 'nowrap' }}
+                    >
+                      {pinSaving === emp.id ? '...' : '💾'}
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         </div>
       )}
