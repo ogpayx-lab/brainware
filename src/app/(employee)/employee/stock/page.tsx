@@ -5,20 +5,20 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import { BottomNav } from '@/components/employee/BottomNav'
-import type { Product } from '@/types/database'
+import { categoryLabel } from '@/lib/utils'
+import type { Product, ProductCategory } from '@/types/database'
 
-interface StockItem {
-  product: Product
-  qty: number
-}
+const CATEGORIES: ProductCategory[] = ['flowers','hashish','oils','edibles','accessories','cosmetics','clothes','seeds','vape','food']
+
+type Step = 'select' | 'count' | 'review'
 
 export default function StockPage() {
   const router = useRouter()
   const supabase = createClient()
 
   const [products, setProducts] = useState<Product[]>([])
-  const [selected, setSelected] = useState<StockItem[]>([])
   const [search, setSearch] = useState('')
+  const [activeCat, setActiveCat] = useState<ProductCategory | 'all'>('all')
   const [shiftId, setShiftId] = useState<string | null>(null)
   const [storeId, setStoreId] = useState<string | null>(null)
   const [userId, setUserId] = useState<string | null>(null)
@@ -26,12 +26,17 @@ export default function StockPage() {
   const [done, setDone] = useState(false)
   const [loading, setLoading] = useState(true)
 
+  // Step flow
+  const [step, setStep] = useState<Step>('select')
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
+  const [countedQtys, setCountedQtys] = useState<Record<string, number>>({})
+
   // Pending transfers
   const [pendingRequests, setPendingRequests] = useState<any[]>([])
   const [activeRequest, setActiveRequest] = useState<any>(null)
   const [requestItems, setRequestItems] = useState<any[]>([])
-  const [countedQtys, setCountedQtys] = useState<Record<string, number>>({})
-  const [mode, setMode] = useState<'select' | 'transfer'>('select')
+  const [transferCountedQtys, setTransferCountedQtys] = useState<Record<string, number>>({})
+  const [transferStep, setTransferStep] = useState<'count' | 'review'>('count')
 
   useEffect(() => { loadData() }, [])
 
@@ -44,10 +49,6 @@ export default function StockPage() {
     if (!profile?.store_id) return
     setStoreId(profile.store_id)
 
-    // Get active employee from localStorage (shared tablet model)
-    const activeEmpStr = typeof window !== 'undefined' ? localStorage.getItem('brainware_active_employee') : null
-    const activeEmp = activeEmpStr ? JSON.parse(activeEmpStr) : null
-
     const { data: shift } = await supabase.from('shifts').select('id')
       .eq('store_id', profile.store_id).eq('status', 'open')
       .order('created_at', { ascending: false }).limit(1).single()
@@ -58,7 +59,6 @@ export default function StockPage() {
       .from('products').select('*').eq('store_id', profile.store_id).eq('is_active', true).order('name')
     setProducts(prods ?? [])
 
-    // Load pending transfer requests for this store
     const { data: pending } = await supabase
       .from('stock_requests')
       .select('*, stock_request_items(*)')
@@ -70,23 +70,38 @@ export default function StockPage() {
     setLoading(false)
   }
 
-  function toggleProduct(product: Product) {
-    setSelected(prev => {
-      const exists = prev.find(i => i.product.id === product.id)
-      if (exists) return prev.filter(i => i.product.id !== product.id)
-      return [...prev, { product, qty: 10 }]
+  // === PRODUCT SELECTION ===
+  function toggleProduct(id: string) {
+    setSelectedIds(prev => {
+      const next = new Set(prev)
+      next.has(id) ? next.delete(id) : next.add(id)
+      return next
     })
   }
 
-  function updateQty(productId: string, qty: number) {
-    setSelected(prev => prev.map(i =>
-      i.product.id === productId ? { ...i, qty: Math.max(1, qty) } : i
-    ))
+  function goToCount() {
+    if (selectedIds.size === 0) return
+    // Initialize all counts to 0
+    const initial: Record<string, number> = {}
+    selectedIds.forEach(id => { initial[id] = 0 })
+    setCountedQtys(initial)
+    setStep('count')
   }
 
-  // Submit manual stock reload (no transfer)
-  async function handleSubmit() {
-    if (!shiftId || !storeId || !userId || selected.length === 0) return
+  function goToReview() {
+    // Check all have values
+    const hasEmpty = Array.from(selectedIds).some(id => (countedQtys[id] ?? 0) <= 0)
+    if (hasEmpty) {
+      alert('⚠️ Inserisci una quantità per tutti i prodotti selezionati')
+      return
+    }
+    setStep('review')
+  }
+
+  async function submitManualCount() {
+    const confirmed = confirm('⚠️ Sei sicuro di aver contato bene?\n\nI dati verranno inviati all\'owner per approvazione.')
+    if (!confirmed) return
+    if (!shiftId || !storeId || !userId) return
     setSaving(true)
 
     const activeEmpStr = typeof window !== 'undefined' ? localStorage.getItem('brainware_active_employee') : null
@@ -103,63 +118,70 @@ export default function StockPage() {
 
     if (!req) { setSaving(false); return }
 
-    await supabase.from('stock_request_items').insert(
-      selected.map(i => ({
+    const items = Array.from(selectedIds).map(id => {
+      const product = products.find(p => p.id === id)!
+      return {
         stock_request_id: req.id,
-        product_id: i.product.id,
-        product_name: i.product.name,
-        stock_before: i.product.stock,
-        qty_requested: i.qty,
-      }))
-    )
+        product_id: id,
+        product_name: product.name,
+        stock_before: product.stock,
+        qty_requested: countedQtys[id] || 0,
+      }
+    })
+    await supabase.from('stock_request_items').insert(items)
 
-    // Notify owner
     await supabase.from('notifications').insert({
       store_id: storeId,
       type: 'stock_reload',
       title: '📦 Ricarica Stock inviata',
-      message: `${activeEmp?.name || 'Dipendente'} ha inserito ${selected.length} prodotti da ricaricare. In attesa di approvazione.`,
+      message: `${activeEmp?.name || 'Dipendente'} ha contato ${items.length} prodotti. In attesa di approvazione.`,
     })
 
     setDone(true)
     setSaving(false)
   }
 
-  // Open a pending transfer to count
+  // === TRANSFER COUNTING ===
   function openTransferCount(request: any) {
     setActiveRequest(request)
-    setRequestItems(request.stock_request_items || [])
+    const items = request.stock_request_items || []
+    setRequestItems(items)
     const initial: Record<string, number> = {}
-    for (const item of (request.stock_request_items || [])) {
-      initial[item.id] = item.qty_sent || 0 // default to sent qty
-    }
-    setCountedQtys(initial)
-    setMode('transfer')
+    items.forEach((item: any) => { initial[item.id] = 0 })
+    setTransferCountedQtys(initial)
+    setTransferStep('count')
   }
 
-  // Submit counted quantities for transfer
+  function goToTransferReview() {
+    const hasEmpty = requestItems.some((item: any) => (transferCountedQtys[item.id] ?? 0) <= 0)
+    if (hasEmpty) {
+      alert('⚠️ Inserisci una quantità per tutti i prodotti')
+      return
+    }
+    setTransferStep('review')
+  }
+
   async function submitTransferCount() {
+    const confirmed = confirm('⚠️ Sei sicuro di aver contato bene?\n\nIl conteggio verrà inviato all\'owner per la verifica.')
+    if (!confirmed) return
     if (!activeRequest) return
     setSaving(true)
 
     const activeEmpStr = typeof window !== 'undefined' ? localStorage.getItem('brainware_active_employee') : null
     const activeEmp = activeEmpStr ? JSON.parse(activeEmpStr) : null
 
-    // Update each item with counted qty
     for (const item of requestItems) {
-      const counted = countedQtys[item.id] ?? 0
+      const counted = transferCountedQtys[item.id] ?? 0
       await supabase.from('stock_request_items')
         .update({ qty_requested: counted })
         .eq('id', item.id)
     }
 
-    // Update request status to owner_review
     await supabase.from('stock_requests').update({
       status: 'owner_review',
       notes: `${activeEmp?.name || 'Dipendente'} ha contato la merce ricevuta`,
     }).eq('id', activeRequest.id)
 
-    // Notify owner
     await supabase.from('notifications').insert({
       store_id: storeId,
       type: 'stock_counted',
@@ -171,229 +193,361 @@ export default function StockPage() {
     setSaving(false)
   }
 
-  const filtered = products.filter(p =>
-    !search || p.name.toLowerCase().includes(search.toLowerCase())
-  )
+  // === FILTERS ===
+  const filtered = products.filter(p => {
+    const matchSearch = !search || p.name.toLowerCase().includes(search.toLowerCase())
+    const matchCat = activeCat === 'all' || p.category === activeCat
+    return matchSearch && matchCat
+  })
+
+  const selectedProducts = products.filter(p => selectedIds.has(p.id))
 
   if (loading) return <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100vh' }}>Caricamento...</div>
 
   if (done) return (
-    <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 'var(--space-lg)', padding: 'var(--space-lg)' }}>
+    <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 16, padding: 24 }}>
       <span style={{ fontSize: 64 }}>✅</span>
-      <h3>{mode === 'transfer' ? 'Conteggio inviato!' : 'Richiesta inviata!'}</h3>
-      <p style={{ color: 'var(--text-secondary)', textAlign: 'center' }}>
-        {mode === 'transfer'
-          ? 'Il conteggio è stato inviato all\'owner per la verifica. Lo stock verrà aggiornato dopo l\'approvazione.'
-          : 'La richiesta di ricarica è stata inviata all\'owner per l\'approvazione.'
-        }
+      <h3>Conteggio inviato!</h3>
+      <p style={{ color: 'var(--text-secondary)', textAlign: 'center', fontSize: 14 }}>
+        Il conteggio è stato inviato all'owner per la verifica. Lo stock verrà aggiornato dopo l'approvazione.
       </p>
       <Link href="/employee/dashboard" className="btn btn-primary">Torna alla Dashboard</Link>
     </div>
   )
 
   return (
-    <div className="page" style={{ paddingBottom: 80 }}>
-      <div style={{ background: 'var(--bg-primary)', borderBottom: '1px solid var(--border-subtle)', padding: 'var(--space-lg)', display: 'flex', alignItems: 'center', gap: 'var(--space-md)' }}>
-        <Link href="/employee/dashboard" style={{ textDecoration: 'none', color: 'var(--text-primary)', fontSize: 20 }}>←</Link>
+    <div style={{ minHeight: '100vh', background: 'var(--bg-surface)', display: 'flex', flexDirection: 'column', paddingBottom: 60 }}>
+      {/* Header */}
+      <div style={{ background: 'var(--bg-primary)', borderBottom: '1px solid var(--border-subtle)', padding: 'var(--space-md) var(--space-lg)', display: 'flex', alignItems: 'center', gap: 'var(--space-md)' }}>
+        <Link
+          href={step === 'count' ? '#' : step === 'review' ? '#' : '/employee/dashboard'}
+          onClick={e => {
+            if (step === 'review') { e.preventDefault(); setStep('count') }
+            else if (step === 'count') { e.preventDefault(); setStep('select') }
+            else if (activeRequest && transferStep === 'review') { e.preventDefault(); setTransferStep('count') }
+            else if (activeRequest) { e.preventDefault(); setActiveRequest(null) }
+          }}
+          style={{ textDecoration: 'none', color: 'var(--text-primary)', fontSize: 20 }}
+        >←</Link>
         <div style={{ flex: 1 }}>
-          <h3>Ricarica Stock</h3>
-          <div style={{ fontSize: 13, color: 'var(--text-tertiary)' }}>{new Date().toLocaleDateString('it-IT')}</div>
-        </div>
-      </div>
-
-      <div style={{ padding: 'var(--space-lg)', display: 'flex', flexDirection: 'column', gap: 'var(--space-lg)' }}>
-
-        {/* Pending transfers banner */}
-        {pendingRequests.length > 0 && mode === 'select' && (
-          <div>
-            <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-tertiary)', letterSpacing: '0.06em', textTransform: 'uppercase', marginBottom: 8 }}>
-              📦 Trasferimenti in arrivo
+          <h3 style={{ fontSize: 16 }}>📦 Ricarica Stock</h3>
+          {!activeRequest && (
+            <div style={{ fontSize: 12, color: 'var(--text-tertiary)' }}>
+              {step === 'select' ? 'Step 1: Seleziona prodotti' : step === 'count' ? 'Step 2: Inserisci quantità' : 'Step 3: Conferma'}
             </div>
-            {pendingRequests.map(req => (
-              <div key={req.id} style={{
-                background: '#FEF3C7', border: '1.5px solid #F59E0B', borderRadius: 12,
-                padding: 'var(--space-md)', marginBottom: 8,
-              }}>
-                <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 4 }}>
-                  📦 {(req.stock_request_items || []).length} prodotti in arrivo
-                </div>
-                <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginBottom: 8 }}>
-                  {req.notes || 'Trasferimento in attesa di conteggio'}
-                </div>
-                <div style={{ display: 'flex', gap: 8, marginBottom: 8, flexWrap: 'wrap' }}>
-                  {(req.stock_request_items || []).slice(0, 4).map((item: any) => (
-                    <span key={item.id} className="badge badge-gray" style={{ fontSize: 11 }}>
-                      {item.product_name} ×{item.qty_sent}
-                    </span>
-                  ))}
-                  {(req.stock_request_items || []).length > 4 && (
-                    <span style={{ fontSize: 11, color: 'var(--text-tertiary)' }}>+{(req.stock_request_items || []).length - 4} altri</span>
-                  )}
-                </div>
-                <button
-                  onClick={() => openTransferCount(req)}
-                  className="btn btn-primary btn-full"
-                  style={{ fontSize: 13 }}
-                >
-                  📋 Conta Merce Ricevuta
-                </button>
-              </div>
+          )}
+          {activeRequest && (
+            <div style={{ fontSize: 12, color: 'var(--text-tertiary)' }}>
+              {transferStep === 'count' ? 'Conta merce ricevuta' : 'Conferma conteggio'}
+            </div>
+          )}
+        </div>
+        {/* Step indicator */}
+        {!activeRequest && (
+          <div style={{ display: 'flex', gap: 4 }}>
+            {[1, 2, 3].map(n => (
+              <div key={n} style={{
+                width: 24, height: 24, borderRadius: '50%',
+                background: n <= (['select', 'count', 'review'].indexOf(step) + 1) ? 'var(--brand-primary)' : 'var(--border-default)',
+                color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                fontSize: 11, fontWeight: 700,
+              }}>{n}</div>
             ))}
           </div>
         )}
+      </div>
 
-        {/* Transfer counting mode */}
-        {mode === 'transfer' && activeRequest && (
-          <div>
-            <div style={{
-              background: 'var(--brand-primary-light)', border: '1.5px solid var(--brand-primary)',
-              borderRadius: 12, padding: 'var(--space-md)', marginBottom: 'var(--space-lg)',
-            }}>
-              <div style={{ fontWeight: 700, fontSize: 14 }}>📋 Conta la merce ricevuta</div>
-              <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginTop: 4 }}>
-                Verifica le quantità per ogni prodotto. Se la quantità non corrisponde, modifica il valore.
-              </div>
+      {/* ===== TRANSFER COUNTING MODE ===== */}
+      {activeRequest && transferStep === 'count' && (
+        <div style={{ padding: 'var(--space-lg)', flex: 1 }}>
+          <div style={{
+            background: '#FEF3C7', border: '1.5px solid #F59E0B', borderRadius: 12,
+            padding: 'var(--space-md)', marginBottom: 'var(--space-lg)',
+          }}>
+            <div style={{ fontWeight: 700, fontSize: 14 }}>📦 Conta la merce ricevuta</div>
+            <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginTop: 4 }}>
+              Inserisci la quantità effettiva ricevuta per ciascun prodotto
             </div>
+          </div>
 
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-sm)' }}>
-              {requestItems.map((item: any) => (
-                <div key={item.id} className="card card-sm" style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-md)' }}>
-                  <div style={{ flex: 1 }}>
-                    <div style={{ fontSize: 14, fontWeight: 600 }}>{item.product_name}</div>
-                    <div style={{ fontSize: 12, color: 'var(--text-tertiary)' }}>
-                      Inviati: <strong>{item.qty_sent}</strong> · Stock attuale: {item.stock_before}
-                    </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+            {requestItems.map((item: any) => (
+              <div key={item.id} className="card card-sm" style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 16px' }}>
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontSize: 14, fontWeight: 600 }}>{item.product_name}</div>
+                  <div style={{ fontSize: 12, color: 'var(--text-tertiary)' }}>
+                    Attesi: <strong>{item.qty_sent ?? '?'}</strong>
                   </div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-sm)' }}>
-                    <button
-                      onClick={() => setCountedQtys(prev => ({ ...prev, [item.id]: Math.max(0, (prev[item.id] || 0) - 1) }))}
-                      className="btn btn-secondary" style={{ width: 32, height: 32, padding: 0 }}>−</button>
-                    <input
-                      type="number"
-                      value={countedQtys[item.id] ?? 0}
-                      onChange={e => setCountedQtys(prev => ({ ...prev, [item.id]: parseInt(e.target.value) || 0 }))}
-                      style={{
-                        width: 60, textAlign: 'center', border: '1.5px solid var(--border-default)',
-                        borderRadius: 'var(--radius-sm)', padding: '4px', fontSize: 14, fontWeight: 700,
-                        color: (countedQtys[item.id] ?? 0) !== (item.qty_sent || 0) ? 'var(--danger)' : 'var(--brand-primary)',
-                      }}
-                    />
-                    <button
-                      onClick={() => setCountedQtys(prev => ({ ...prev, [item.id]: (prev[item.id] || 0) + 1 }))}
-                      className="btn btn-secondary" style={{ width: 32, height: 32, padding: 0 }}>+</button>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <button
+                    onClick={() => setTransferCountedQtys(prev => ({ ...prev, [item.id]: Math.max(0, (prev[item.id] || 0) - 1) }))}
+                    className="btn btn-secondary" style={{ width: 36, height: 36, padding: 0, fontSize: 16 }}>−</button>
+                  <input
+                    type="number" min="0"
+                    value={transferCountedQtys[item.id] ?? 0}
+                    onChange={e => setTransferCountedQtys(prev => ({ ...prev, [item.id]: parseInt(e.target.value) || 0 }))}
+                    style={{
+                      width: 64, textAlign: 'center', border: '2px solid var(--border-default)',
+                      borderRadius: 8, padding: '6px', fontSize: 18, fontWeight: 700,
+                    }}
+                  />
+                  <button
+                    onClick={() => setTransferCountedQtys(prev => ({ ...prev, [item.id]: (prev[item.id] || 0) + 1 }))}
+                    className="btn btn-secondary" style={{ width: 36, height: 36, padding: 0, fontSize: 16 }}>+</button>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          <div style={{ position: 'fixed', bottom: 60, left: 0, right: 0, padding: '12px var(--space-lg)', background: 'var(--bg-primary)', borderTop: '1px solid var(--border-subtle)', boxShadow: '0 -4px 20px rgba(0,0,0,0.1)', zIndex: 50 }}>
+            <button onClick={goToTransferReview} className="btn btn-primary btn-full btn-lg">
+              Avanti → Riepilogo
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* ===== TRANSFER REVIEW ===== */}
+      {activeRequest && transferStep === 'review' && (
+        <div style={{ padding: 'var(--space-lg)', flex: 1 }}>
+          <div style={{ background: 'var(--brand-primary-light)', border: '1.5px solid var(--brand-primary)', borderRadius: 12, padding: 'var(--space-md)', marginBottom: 'var(--space-lg)' }}>
+            <div style={{ fontWeight: 700, fontSize: 14 }}>📋 Riepilogo Conteggio</div>
+            <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginTop: 4 }}>Verifica i dati prima di inviare all'owner</div>
+          </div>
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 'var(--space-xl)' }}>
+            {requestItems.map((item: any) => {
+              const counted = transferCountedQtys[item.id] ?? 0
+              const expected = item.qty_sent ?? 0
+              const match = counted === expected
+              return (
+                <div key={item.id} style={{
+                  padding: '12px 16px', borderRadius: 10,
+                  background: match ? '#F0FDF4' : '#FEF2F2',
+                  border: `1.5px solid ${match ? '#22C55E' : '#EF4444'}`,
+                  display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                }}>
+                  <div>
+                    <div style={{ fontWeight: 600, fontSize: 14 }}>{item.product_name}</div>
+                    <div style={{ fontSize: 12, color: 'var(--text-secondary)' }}>Attesi: {expected}</div>
                   </div>
-                  {(countedQtys[item.id] ?? 0) !== (item.qty_sent || 0) && (
-                    <span className="badge badge-danger" style={{ fontSize: 10 }}>
-                      Δ {(countedQtys[item.id] ?? 0) - (item.qty_sent || 0)}
-                    </span>
-                  )}
+                  <div style={{ textAlign: 'right' }}>
+                    <div style={{ fontWeight: 700, fontSize: 20, color: match ? '#22C55E' : '#EF4444' }}>{counted}</div>
+                    {!match && <div style={{ fontSize: 11, color: '#EF4444', fontWeight: 600 }}>Δ {counted - expected}</div>}
+                    {match && <div style={{ fontSize: 11, color: '#22C55E' }}>✅ Corretto</div>}
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+
+          <div style={{ background: 'var(--bg-surface)', borderRadius: 10, padding: 14, marginBottom: 'var(--space-lg)' }}>
+            <div style={{ fontSize: 13, color: 'var(--text-secondary)', display: 'flex', justifyContent: 'space-between' }}>
+              <span>Prodotti contati</span><strong>{requestItems.length}</strong>
+            </div>
+            <div style={{ fontSize: 13, color: 'var(--text-secondary)', display: 'flex', justifyContent: 'space-between', marginTop: 6 }}>
+              <span>Totale pezzi</span><strong>{Object.values(transferCountedQtys).reduce((a, b) => a + b, 0)}</strong>
+            </div>
+            <div style={{ fontSize: 13, display: 'flex', justifyContent: 'space-between', marginTop: 6 }}>
+              <span>Discrepanze</span>
+              <strong style={{ color: requestItems.some((i: any) => (transferCountedQtys[i.id] ?? 0) !== (i.qty_sent ?? 0)) ? '#EF4444' : '#22C55E' }}>
+                {requestItems.filter((i: any) => (transferCountedQtys[i.id] ?? 0) !== (i.qty_sent ?? 0)).length}
+              </strong>
+            </div>
+          </div>
+
+          <div style={{ display: 'flex', gap: 8 }}>
+            <button onClick={() => setTransferStep('count')} className="btn btn-secondary" style={{ flex: 1 }}>← Modifica</button>
+            <button onClick={submitTransferCount} disabled={saving} className="btn btn-primary" style={{ flex: 2 }}>
+              {saving ? 'Invio...' : '✅ Conferma e Invia'}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* ===== STEP 1: SELECT PRODUCTS ===== */}
+      {!activeRequest && step === 'select' && (
+        <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
+          {/* Pending transfers banner */}
+          {pendingRequests.length > 0 && (
+            <div style={{ padding: 'var(--space-lg)', paddingBottom: 0 }}>
+              {pendingRequests.map(req => (
+                <div key={req.id} style={{
+                  background: '#FEF3C7', border: '1.5px solid #F59E0B', borderRadius: 12,
+                  padding: 'var(--space-md)', marginBottom: 8,
+                }}>
+                  <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 4 }}>
+                    📦 {(req.stock_request_items || []).length} prodotti in arrivo
+                  </div>
+                  <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginBottom: 8 }}>
+                    {req.notes || 'Trasferimento in attesa di conteggio'}
+                  </div>
+                  <div style={{ display: 'flex', gap: 6, marginBottom: 10, flexWrap: 'wrap' }}>
+                    {(req.stock_request_items || []).slice(0, 4).map((item: any) => (
+                      <span key={item.id} className="badge badge-gray" style={{ fontSize: 11 }}>
+                        {item.product_name} ×{item.qty_sent}
+                      </span>
+                    ))}
+                    {(req.stock_request_items || []).length > 4 && (
+                      <span style={{ fontSize: 11, color: 'var(--text-tertiary)' }}>+{(req.stock_request_items || []).length - 4} altri</span>
+                    )}
+                  </div>
+                  <button onClick={() => openTransferCount(req)} className="btn btn-primary btn-full" style={{ fontSize: 13 }}>
+                    📋 Inizia Conteggio Merce
+                  </button>
                 </div>
               ))}
             </div>
+          )}
 
-            <div style={{ display: 'flex', gap: 8, marginTop: 'var(--space-lg)' }}>
-              <button onClick={() => { setMode('select'); setActiveRequest(null) }} className="btn btn-secondary" style={{ flex: 1 }}>Annulla</button>
-              <button onClick={submitTransferCount} disabled={saving} className="btn btn-primary" style={{ flex: 2 }}>
-                {saving ? 'Invio...' : '✅ Invia Conteggio'}
-              </button>
+          {/* Search + Categories */}
+          <div style={{ padding: 'var(--space-lg)', paddingBottom: 0 }}>
+            <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-tertiary)', letterSpacing: '0.06em', textTransform: 'uppercase', marginBottom: 8 }}>
+              ➕ Ricarica Manuale — Seleziona prodotti ricevuti
+            </div>
+            <div style={{ position: 'relative', marginBottom: 'var(--space-md)' }}>
+              <input className="input" placeholder="Cerca prodotto..." value={search} onChange={e => setSearch(e.target.value)} style={{ paddingLeft: 36 }} />
+              <span style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', fontSize: 16 }}>🔍</span>
+            </div>
+            <div style={{ display: 'flex', gap: 6, overflowX: 'auto', marginBottom: 'var(--space-md)', paddingBottom: 4 }}>
+              {(['all', ...CATEGORIES] as (ProductCategory | 'all')[]).map(c => (
+                <button key={c} onClick={() => setActiveCat(c)} className={`badge ${activeCat === c ? 'badge-brand' : 'badge-gray'}`} style={{ cursor: 'pointer', border: 'none', padding: '6px 14px', whiteSpace: 'nowrap' }}>
+                  {c === 'all' ? 'Tutto' : categoryLabel[c]}
+                </button>
+              ))}
             </div>
           </div>
-        )}
 
-        {/* Manual reload mode */}
-        {mode === 'select' && (
-          <>
-            <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-tertiary)', letterSpacing: '0.06em', textTransform: 'uppercase', marginBottom: -8 }}>
-              ➕ Ricarica Manuale
-            </div>
-
-            <input
-              className="input"
-              placeholder="Cerca prodotto da ricaricare..."
-              value={search}
-              onChange={e => setSearch(e.target.value)}
-            />
-
-            {/* Selected items */}
-            {selected.length > 0 && (
-              <div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--space-md)' }}>
-                  <h4>Prodotti Selezionati</h4>
-                  <span className="badge badge-brand">({selected.length})</span>
-                </div>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-sm)' }}>
-                  {selected.map(item => (
-                    <div key={item.product.id} className="card card-sm" style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-md)' }}>
-                      <div style={{ flex: 1 }}>
-                        <div style={{ fontSize: 14, fontWeight: 600 }}>{item.product.name}</div>
-                        <div style={{ fontSize: 12, color: 'var(--text-tertiary)' }}>Stock attuale: {item.product.stock}</div>
-                      </div>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-sm)' }}>
-                        <button onClick={() => updateQty(item.product.id, item.qty - 10)} className="btn btn-secondary" style={{ width: 32, height: 32, padding: 0 }}>−</button>
-                        <input
-                          type="number"
-                          value={item.qty}
-                          onChange={e => updateQty(item.product.id, parseInt(e.target.value) || 1)}
-                          style={{ width: 60, textAlign: 'center', border: '1.5px solid var(--border-default)', borderRadius: 'var(--radius-sm)', padding: '4px', fontSize: 14, fontWeight: 700 }}
-                        />
-                        <button onClick={() => updateQty(item.product.id, item.qty + 10)} className="btn btn-secondary" style={{ width: 32, height: 32, padding: 0 }}>+</button>
-                      </div>
-                      <button onClick={() => toggleProduct(item.product)} style={{ color: 'var(--danger)', background: 'none', border: 'none', cursor: 'pointer', fontSize: 18 }}>✕</button>
+          {/* Product grid */}
+          <div style={{ flex: 1, overflowY: 'auto', padding: '0 var(--space-lg)', paddingBottom: selectedIds.size > 0 ? 80 : 'var(--space-lg)' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))', gap: 'var(--space-md)' }}>
+              {filtered.map(p => {
+                const isSelected = selectedIds.has(p.id)
+                return (
+                  <div key={p.id} onClick={() => toggleProduct(p.id)} className="card card-sm" style={{
+                    cursor: 'pointer', display: 'flex', flexDirection: 'column', gap: 6, position: 'relative',
+                    border: isSelected ? '2px solid var(--brand-primary)' : undefined,
+                    background: isSelected ? 'var(--brand-primary-light)' : undefined,
+                  }}>
+                    {isSelected && (
+                      <div style={{ position: 'absolute', top: 8, right: 8, width: 22, height: 22, borderRadius: '50%', background: 'var(--brand-primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', fontSize: 12, fontWeight: 700 }}>✓</div>
+                    )}
+                    <div style={{ fontWeight: 600, fontSize: 13 }}>{p.name}</div>
+                    <span className="badge badge-indigo" style={{ fontSize: 10 }}>
+                      {categoryLabel[p.category as ProductCategory] || p.category}
+                    </span>
+                    <div style={{ fontSize: 11, fontWeight: 600, color: p.stock <= p.stock_alert ? 'var(--danger)' : 'var(--success)' }}>
+                      Stock: {p.stock}
                     </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* Product list to select from */}
-            <div>
-              <h4 style={{ marginBottom: 'var(--space-md)' }}>Seleziona Prodotti</h4>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-sm)' }}>
-                {filtered.map(product => {
-                  const isSelected = selected.some(i => i.product.id === product.id)
-                  return (
-                    <div
-                      key={product.id}
-                      onClick={() => toggleProduct(product)}
-                      style={{
-                        display: 'flex', alignItems: 'center', gap: 'var(--space-md)',
-                        padding: 'var(--space-md) var(--space-lg)',
-                        background: isSelected ? 'var(--brand-primary-light)' : 'var(--bg-primary)',
-                        border: `1.5px solid ${isSelected ? 'var(--brand-primary)' : 'var(--border-default)'}`,
-                        borderRadius: 'var(--radius-md)', cursor: 'pointer',
-                      }}
-                    >
-                      <div style={{
-                        width: 20, height: 20, borderRadius: 4,
-                        border: `2px solid ${isSelected ? 'var(--brand-primary)' : 'var(--border-strong)'}`,
-                        background: isSelected ? 'var(--brand-primary)' : 'transparent',
-                        display: 'flex', alignItems: 'center', justifyContent: 'center',
-                        color: 'white', fontSize: 12, flexShrink: 0,
-                      }}>
-                        {isSelected && '✓'}
-                      </div>
-                      <div style={{ flex: 1 }}>
-                        <div style={{ fontSize: 14, fontWeight: 600 }}>{product.name}</div>
-                        <div style={{ fontSize: 12, color: 'var(--text-tertiary)' }}>Stock: {product.stock} · Alert: {product.stock_alert}</div>
-                      </div>
-                      {product.stock <= product.stock_alert && (
-                        <span className="badge badge-danger" style={{ fontSize: 11 }}>Basso</span>
-                      )}
-                    </div>
-                  )
-                })}
-              </div>
+                  </div>
+                )
+              })}
             </div>
+          </div>
 
-            {selected.length > 0 && (
-              <button onClick={handleSubmit} disabled={saving} className="btn btn-primary btn-full btn-lg">
-                {saving ? 'Invio...' : `Invia Richiesta (${selected.length} prodotti)`}
+          {/* Bottom bar */}
+          {selectedIds.size > 0 && (
+            <div style={{ position: 'fixed', bottom: 60, left: 0, right: 0, padding: '12px var(--space-lg)', background: 'var(--bg-primary)', borderTop: '1px solid var(--border-subtle)', boxShadow: '0 -4px 20px rgba(0,0,0,0.1)', zIndex: 50 }}>
+              <button onClick={goToCount} className="btn btn-primary btn-full btn-lg">
+                Avanti → Inserisci Quantità ({selectedIds.size} prodotti)
               </button>
-            )}
-          </>
-        )}
+            </div>
+          )}
+        </div>
+      )}
 
-      </div>
+      {/* ===== STEP 2: COUNT QUANTITIES ===== */}
+      {!activeRequest && step === 'count' && (
+        <div style={{ padding: 'var(--space-lg)', flex: 1 }}>
+          <div style={{ background: 'var(--brand-primary-light)', border: '1.5px solid var(--brand-primary)', borderRadius: 12, padding: 'var(--space-md)', marginBottom: 'var(--space-lg)' }}>
+            <div style={{ fontWeight: 700, fontSize: 14 }}>📝 Inserisci le quantità ricevute</div>
+            <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginTop: 4 }}>Conta con attenzione la merce ricevuta per ogni prodotto</div>
+          </div>
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 80 }}>
+            {selectedProducts.map(p => (
+              <div key={p.id} className="card card-sm" style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 16px' }}>
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontSize: 14, fontWeight: 600 }}>{p.name}</div>
+                  <div style={{ fontSize: 12, color: 'var(--text-tertiary)' }}>Stock attuale: {p.stock}</div>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <button
+                    onClick={() => setCountedQtys(prev => ({ ...prev, [p.id]: Math.max(0, (prev[p.id] || 0) - 1) }))}
+                    className="btn btn-secondary" style={{ width: 36, height: 36, padding: 0, fontSize: 16 }}>−</button>
+                  <input
+                    type="number" min="0"
+                    value={countedQtys[p.id] ?? 0}
+                    onChange={e => setCountedQtys(prev => ({ ...prev, [p.id]: parseInt(e.target.value) || 0 }))}
+                    style={{
+                      width: 64, textAlign: 'center', border: '2px solid var(--border-default)',
+                      borderRadius: 8, padding: '6px', fontSize: 18, fontWeight: 700,
+                    }}
+                  />
+                  <button
+                    onClick={() => setCountedQtys(prev => ({ ...prev, [p.id]: (prev[p.id] || 0) + 1 }))}
+                    className="btn btn-secondary" style={{ width: 36, height: 36, padding: 0, fontSize: 16 }}>+</button>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          <div style={{ position: 'fixed', bottom: 60, left: 0, right: 0, padding: '12px var(--space-lg)', background: 'var(--bg-primary)', borderTop: '1px solid var(--border-subtle)', boxShadow: '0 -4px 20px rgba(0,0,0,0.1)', zIndex: 50 }}>
+            <button onClick={goToReview} className="btn btn-primary btn-full btn-lg">
+              Avanti → Riepilogo
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* ===== STEP 3: REVIEW & CONFIRM ===== */}
+      {!activeRequest && step === 'review' && (
+        <div style={{ padding: 'var(--space-lg)', flex: 1 }}>
+          <div style={{ background: 'var(--brand-primary-light)', border: '1.5px solid var(--brand-primary)', borderRadius: 12, padding: 'var(--space-md)', marginBottom: 'var(--space-lg)' }}>
+            <div style={{ fontWeight: 700, fontSize: 14 }}>📋 Riepilogo prima dell'invio</div>
+            <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginTop: 4 }}>Controlla che tutto sia corretto</div>
+          </div>
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 'var(--space-xl)' }}>
+            {selectedProducts.map(p => (
+              <div key={p.id} style={{
+                padding: '12px 16px', borderRadius: 10,
+                background: '#F0FDF4', border: '1.5px solid #22C55E',
+                display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+              }}>
+                <div>
+                  <div style={{ fontWeight: 600, fontSize: 14 }}>{p.name}</div>
+                  <div style={{ fontSize: 12, color: 'var(--text-secondary)' }}>Stock attuale: {p.stock}</div>
+                </div>
+                <div style={{ textAlign: 'right' }}>
+                  <div style={{ fontWeight: 700, fontSize: 20, color: '#22C55E' }}>+{countedQtys[p.id] || 0}</div>
+                  <div style={{ fontSize: 11, color: 'var(--text-secondary)' }}>→ {p.stock + (countedQtys[p.id] || 0)}</div>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* Summary */}
+          <div style={{ background: 'var(--bg-surface)', borderRadius: 10, padding: 14, marginBottom: 'var(--space-lg)' }}>
+            <div style={{ fontSize: 13, color: 'var(--text-secondary)', display: 'flex', justifyContent: 'space-between' }}>
+              <span>Prodotti</span><strong>{selectedProducts.length}</strong>
+            </div>
+            <div style={{ fontSize: 13, color: 'var(--text-secondary)', display: 'flex', justifyContent: 'space-between', marginTop: 6 }}>
+              <span>Totale pezzi da aggiungere</span>
+              <strong style={{ color: '#22C55E' }}>+{Object.values(countedQtys).reduce((a, b) => a + b, 0)}</strong>
+            </div>
+          </div>
+
+          <div style={{ display: 'flex', gap: 8 }}>
+            <button onClick={() => setStep('count')} className="btn btn-secondary" style={{ flex: 1 }}>← Modifica</button>
+            <button onClick={submitManualCount} disabled={saving} className="btn btn-primary" style={{ flex: 2 }}>
+              {saving ? 'Invio...' : '✅ Conferma e Invia'}
+            </button>
+          </div>
+        </div>
+      )}
+
       <BottomNav />
     </div>
   )
