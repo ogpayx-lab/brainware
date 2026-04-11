@@ -86,7 +86,7 @@ export function OwnerSidebar() {
             <span className="sidebar-label" style={{ fontFamily: 'var(--font-heading)', fontWeight: 700, fontSize: 15, color: 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{brand.name}</span>
           </div>
         </div>
-        <nav style={{ flex: 1, paddingTop: 8, overflowY: 'auto', WebkitOverflowScrolling: 'touch' }}>
+        <nav>
           {NAV_MAIN.map(item => <NavItem key={item.href} {...item} />)}
           <div className="sidebar-section-label">MAGAZZINO</div>
           {NAV_MAGAZZINO.map(item => <NavItem key={item.href} {...item} />)}

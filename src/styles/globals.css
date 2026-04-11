@@ -442,7 +442,7 @@ tr:hover td { background: var(--bg-surface); }
    ============================================================ */
 .owner-sidebar {
   width: 220px;
-  min-height: 100vh;
+  height: 100vh;
   background: var(--bg-primary);
   border-right: 1px solid var(--border-subtle);
   display: flex;
@@ -452,6 +452,29 @@ tr:hover td { background: var(--bg-surface); }
   top: 0;
   z-index: 100;
   transition: transform 0.25s ease;
+  overflow: hidden;
+}
+
+.owner-sidebar nav {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  -webkit-overflow-scrolling: touch;
+  padding-top: 8px;
+  padding-bottom: 8px;
+  scrollbar-width: thin;
+  scrollbar-color: var(--border-default) transparent;
+}
+
+.owner-sidebar nav::-webkit-scrollbar {
+  width: 4px;
+}
+.owner-sidebar nav::-webkit-scrollbar-track {
+  background: transparent;
+}
+.owner-sidebar nav::-webkit-scrollbar-thumb {
+  background: var(--border-default);
+  border-radius: 4px;
 }
 
 .sidebar-section-label {
@@ -527,7 +550,7 @@ tr:hover td { background: var(--bg-surface); }
   }
 }
 
-/* Tablet: 769-1024px — narrower sidebar, icon-only option */
+/* Tablet: 769-1024px — narrower sidebar */
 @media (min-width: 769px) and (max-width: 1024px) {
   .owner-sidebar {
     width: 180px;
