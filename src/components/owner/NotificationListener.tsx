@@ -40,9 +40,9 @@ export function OwnerNotificationListener() {
 
   function handleClick() {
     if (!toast) return
-    const route = TYPE_ROUTES[toast.type] || '/owner/notifications'
-    setToast(null)
+    const route = TYPE_ROUTES[toast.type] || '/owner/warehouse/stock-movements'
     router.push(route)
+    setTimeout(() => setToast(null), 300)
   }
 
   async function checkNotifications() {

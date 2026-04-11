@@ -10,12 +10,23 @@ export default function StockApprovalsPage() {
   const supabase = createClient()
   const [requests, setRequests] = useState<any[]>([])
   const [history, setHistory] = useState<any[]>([])
+  const [restockRequests, setRestockRequests] = useState<any[]>([])
+  const [pendingTransfers, setPendingTransfers] = useState<any[]>([])
+  const [transferLog, setTransferLog] = useState<any[]>([])
   const [stores, setStores] = useState<any[]>([])
+  const [warehouses, setWarehouses] = useState<any[]>([])
   const [selectedStore, setSelectedStore] = useState('all')
   const [loading, setLoading] = useState(true)
   const [expandedId, setExpandedId] = useState<string | null>(null)
   const [editQtys, setEditQtys] = useState<Record<string, number>>({})
   const [processing, setProcessing] = useState(false)
+
+  // Restock fulfillment modal
+  const [fulfilling, setFulfilling] = useState<any>(null)
+  const [fulfillSource, setFulfillSource] = useState('')
+  const [fulfillSourceStock, setFulfillSourceStock] = useState<any[]>([])
+  const [fulfillItems, setFulfillItems] = useState<{ product_name: string; qty: string; available: number }[]>([])
+  const [fulfillSaving, setFulfillSaving] = useState(false)
 
   useEffect(() => { loadData() }, [selectedStore])
 
@@ -28,6 +39,10 @@ export default function StockApprovalsPage() {
 
     const { data: storesData } = await supabase.from('stores').select('id,name').eq('organization_id', oid)
     setStores(storesData ?? [])
+
+    const { data: whsData } = await supabase.from('warehouses').select('id,name,type').eq('organization_id', oid).eq('is_active', true)
+    setWarehouses(whsData ?? [])
+
     const storeIds = selectedStore === 'all' ? (storesData ?? []).map(s => s.id) : [selectedStore]
 
     // Pending reviews
@@ -39,7 +54,26 @@ export default function StockApprovalsPage() {
       .order('created_at', { ascending: false })
     setRequests(pending ?? [])
 
-    // History (approved/rejected)
+    // Restock requests (from employee notifications)
+    const { data: restocks } = await supabase
+      .from('notifications')
+      .select('*')
+      .in('store_id', storeIds)
+      .eq('type', 'restock_request')
+      .eq('read', false)
+      .order('created_at', { ascending: false })
+    setRestockRequests(restocks ?? [])
+
+    // Pending transfers (sent, waiting employee count)
+    const { data: pendingT } = await supabase
+      .from('stock_requests')
+      .select('*, stock_request_items(*), users(full_name), stores(name)')
+      .in('store_id', storeIds)
+      .eq('status', 'pending')
+      .order('created_at', { ascending: false })
+    setPendingTransfers(pendingT ?? [])
+
+    // History
     const { data: hist } = await supabase
       .from('stock_requests')
       .select('*, stock_request_items(*), users(full_name), stores(name)')
@@ -48,6 +82,15 @@ export default function StockApprovalsPage() {
       .order('approved_at', { ascending: false })
       .limit(30)
     setHistory(hist ?? [])
+
+    // Warehouse transfer movements log
+    const { data: movs } = await supabase
+      .from('warehouse_movements')
+      .select('*')
+      .in('movement_type', ['transfer_out', 'transfer_in'])
+      .order('created_at', { ascending: false })
+      .limit(50)
+    setTransferLog(movs ?? [])
 
     setLoading(false)
   }
@@ -66,7 +109,6 @@ export default function StockApprovalsPage() {
     setProcessing(true)
     const { data: { user } } = await supabase.auth.getUser()
 
-    // Set qty_delivered for each item (triggers stock update via DB trigger)
     for (const item of (req.stock_request_items || [])) {
       const approvedQty = editQtys[item.id] ?? item.qty_requested ?? 0
       await supabase.from('stock_request_items').update({
@@ -74,14 +116,12 @@ export default function StockApprovalsPage() {
       }).eq('id', item.id)
     }
 
-    // Update request status
     await supabase.from('stock_requests').update({
       status: 'approved',
       approved_by: user?.id,
       approved_at: new Date().toISOString(),
     }).eq('id', req.id)
 
-    // Notify store
     await supabase.from('notifications').insert({
       store_id: req.store_id,
       type: 'stock_approved',
@@ -117,10 +157,189 @@ export default function StockApprovalsPage() {
     loadData()
   }
 
+  // === RESTOCK FULFILLMENT ===
+  async function openFulfillment(notif: any) {
+    setFulfilling(notif)
+    setFulfillSource('')
+    setFulfillSourceStock([])
+    // Parse product names from the notification message
+    const msgProducts = parseProductsFromMessage(notif.message)
+    setFulfillItems(msgProducts.map(name => ({ product_name: name, qty: '', available: 0 })))
+  }
+
+  function parseProductsFromMessage(message: string): string[] {
+    // Format: "Dipendente richiede ricarica per X prodotti: Nome1 (stock: 0), Nome2 (stock: 5)"
+    const match = message.match(/prodotti:\s*(.+)$/i)
+    if (!match) return []
+    return match[1].split(',').map(s => {
+      const nameMatch = s.trim().match(/^(.+?)\s*\(stock:/)
+      return nameMatch ? nameMatch[1].trim() : s.trim()
+    }).filter(Boolean)
+  }
+
+  async function loadFulfillSourceStock(whId: string) {
+    setFulfillSource(whId)
+    const { data } = await supabase.from('warehouse_stock').select('*').eq('warehouse_id', whId).order('product_name')
+    setFulfillSourceStock(data ?? [])
+    // Auto-match product names
+    setFulfillItems(prev => prev.map(item => {
+      const match = (data ?? []).find(s => s.product_name.toLowerCase() === item.product_name.toLowerCase())
+      return { ...item, available: match?.qty ?? 0 }
+    }))
+  }
+
+  async function submitFulfillment() {
+    if (!fulfilling || !fulfillSource) return
+    const validItems = fulfillItems.filter(i => parseInt(i.qty) > 0)
+    if (validItems.length === 0) { alert('Inserisci almeno una quantità'); return }
+    setFulfillSaving(true)
+
+    const destStoreId = fulfilling.store_id
+    const destStore = stores.find(s => s.id === destStoreId)
+    const sourceWh = warehouses.find(w => w.id === fulfillSource)
+
+    for (const item of validItems) {
+      const qty = parseInt(item.qty) || 0
+      if (qty <= 0) continue
+
+      // Deduct from warehouse
+      const sourceItem = fulfillSourceStock.find(s => s.product_name.toLowerCase() === item.product_name.toLowerCase())
+      if (sourceItem) {
+        await supabase.from('warehouse_stock').update({
+          qty: Math.max(0, sourceItem.qty - qty),
+          updated_at: new Date().toISOString(),
+        }).eq('id', sourceItem.id)
+
+        // Log warehouse movement
+        await supabase.from('warehouse_movements').insert({
+          warehouse_id: fulfillSource,
+          stock_item_id: sourceItem.id,
+          product_name: item.product_name,
+          movement_type: 'transfer_out',
+          qty,
+          cost_per_unit: sourceItem.cost_per_unit || 0,
+          total_cost: qty * (sourceItem.cost_per_unit || 0),
+          reference_type: 'transfer',
+          destination_name: destStore?.name || 'Store',
+          notes: `Ricarica da richiesta dipendente`,
+        })
+      }
+    }
+
+    // Create stock_request in pending status (employee must count)
+    const { data: sr } = await supabase.from('stock_requests').insert({
+      store_id: destStoreId,
+      status: 'pending',
+      notes: `Ricarica da magazzino ${sourceWh?.name || ''} — richiesta dipendente`,
+    }).select('id').single()
+
+    if (sr) {
+      for (const item of validItems) {
+        const qty = parseInt(item.qty) || 0
+        if (qty <= 0) continue
+        await supabase.from('stock_request_items').insert({
+          request_id: sr.id,
+          product_name: item.product_name,
+          qty_requested: 0,
+          qty_sent: qty,
+        })
+      }
+    }
+
+    // Mark notification as read
+    await supabase.from('notifications').update({ read: true }).eq('id', fulfilling.id)
+
+    // Notify store
+    await supabase.from('notifications').insert({
+      store_id: destStoreId,
+      type: 'stock_transfer',
+      title: '📦 Merce in arrivo',
+      message: `Spediti ${validItems.length} prodotti da ${sourceWh?.name || 'magazzino'}. Conta la merce ricevuta in "Ricarica Stock".`,
+    })
+
+    setFulfillSaving(false)
+    setFulfilling(null)
+    loadData()
+  }
+
+  async function dismissRestock(id: string) {
+    await supabase.from('notifications').update({ read: true }).eq('id', id)
+    setRestockRequests(prev => prev.filter(r => r.id !== id))
+  }
+
   if (loading) return <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '60vh' }}>Caricamento...</div>
 
   return (
     <div>
+      {/* Fulfillment Modal */}
+      {fulfilling && (
+        <div className="modal-overlay">
+          <div className="modal" style={{ maxWidth: 600 }}>
+            <h3 style={{ marginBottom: 4 }}>📦 Gestisci Ricarica</h3>
+            <p style={{ color: 'var(--text-secondary)', fontSize: 13, marginBottom: 'var(--space-lg)' }}>
+              {fulfilling.message}
+            </p>
+
+            {/* Source warehouse */}
+            <div className="input-group" style={{ marginBottom: 'var(--space-lg)' }}>
+              <label className="input-label">Da quale magazzino spedire? *</label>
+              <select className="input" value={fulfillSource} onChange={e => loadFulfillSourceStock(e.target.value)}>
+                <option value="">Seleziona magazzino...</option>
+                {warehouses.map(w => (
+                  <option key={w.id} value={w.id}>{w.type === 'central' ? '🏭 ' : '📦 '}{w.name}</option>
+                ))}
+              </select>
+            </div>
+
+            {/* Items with quantities */}
+            {fulfillSource && (
+              <>
+                <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-tertiary)', letterSpacing: '0.06em', textTransform: 'uppercase', marginBottom: 8 }}>
+                  Prodotti richiesti — inserisci quantità
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 'var(--space-lg)' }}>
+                  {fulfillItems.map((item, idx) => (
+                    <div key={idx} style={{
+                      display: 'flex', alignItems: 'center', gap: 10,
+                      padding: '10px 14px', background: 'var(--bg-surface)', borderRadius: 10,
+                      border: '1px solid var(--border-default)',
+                    }}>
+                      <div style={{ flex: 1 }}>
+                        <div style={{ fontWeight: 600, fontSize: 14 }}>{item.product_name}</div>
+                        <div style={{ fontSize: 11, color: item.available > 0 ? 'var(--success)' : 'var(--danger)' }}>
+                          Disponibile: {item.available}
+                        </div>
+                      </div>
+                      <input
+                        type="number" min="0" max={item.available}
+                        placeholder="Qty"
+                        value={item.qty}
+                        onChange={e => setFulfillItems(prev => prev.map((p, i) => i === idx ? { ...p, qty: e.target.value } : p))}
+                        style={{
+                          width: 80, textAlign: 'center', border: '1.5px solid var(--border-default)',
+                          borderRadius: 8, padding: '8px', fontSize: 14, fontWeight: 700,
+                        }}
+                      />
+                    </div>
+                  ))}
+                </div>
+              </>
+            )}
+
+            <div style={{ display: 'flex', gap: 8 }}>
+              <button className="btn btn-secondary" style={{ flex: 1 }} onClick={() => setFulfilling(null)}>Annulla</button>
+              <button
+                className="btn btn-primary" style={{ flex: 2 }}
+                disabled={fulfillSaving || !fulfillSource || fulfillItems.every(i => !parseInt(i.qty))}
+                onClick={submitFulfillment}
+              >
+                {fulfillSaving ? 'Spedizione...' : `📦 Spedisci a ${stores.find(s => s.id === fulfilling.store_id)?.name || 'store'}`}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 'var(--space-xl)' }}>
         <div>
           <h2>📦 Movimenti Stock</h2>
@@ -137,7 +356,11 @@ export default function StockApprovalsPage() {
       </div>
 
       {/* KPIs */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 'var(--space-md)', marginBottom: 'var(--space-xl)' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 'var(--space-md)', marginBottom: 'var(--space-xl)' }}>
+        <div className="kpi-card" style={{ border: restockRequests.length > 0 ? '1.5px solid var(--brand-primary)' : undefined }}>
+          <div className="kpi-label">🔔 Richieste Ricarica</div>
+          <div className="kpi-value" style={{ color: restockRequests.length > 0 ? 'var(--brand-primary)' : undefined }}>{restockRequests.length}</div>
+        </div>
         <div className="kpi-card" style={{ border: requests.length > 0 ? '1.5px solid var(--warning)' : undefined }}>
           <div className="kpi-label">⏳ Da approvare</div>
           <div className="kpi-value" style={{ color: requests.length > 0 ? 'var(--warning)' : undefined }}>{requests.length}</div>
@@ -152,7 +375,47 @@ export default function StockApprovalsPage() {
         </div>
       </div>
 
-      {/* Pending approvals */}
+      {/* ========== RESTOCK REQUESTS FROM EMPLOYEES ========== */}
+      {restockRequests.length > 0 && (
+        <div style={{ marginBottom: 'var(--space-2xl)' }}>
+          <h4 style={{ marginBottom: 'var(--space-md)' }}>🔔 Richieste Ricarica Dipendenti</h4>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-md)' }}>
+            {restockRequests.map(notif => {
+              const store = stores.find(s => s.id === notif.store_id)
+              return (
+                <div key={notif.id} className="card" style={{
+                  padding: '16px 20px',
+                  border: '1.5px solid var(--brand-primary)',
+                  background: 'var(--brand-primary-light)',
+                }}>
+                  <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12 }}>
+                    <span style={{ fontSize: 24 }}>🔔</span>
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontWeight: 700, fontSize: 14 }}>{notif.title}</div>
+                      <div style={{ fontSize: 13, color: 'var(--text-secondary)', marginTop: 4, lineHeight: 1.5 }}>
+                        {notif.message}
+                      </div>
+                      <div style={{ fontSize: 11, color: 'var(--text-tertiary)', marginTop: 6 }}>
+                        {store?.name} · {new Date(notif.created_at).toLocaleString('it-IT')}
+                      </div>
+                    </div>
+                  </div>
+                  <div style={{ display: 'flex', gap: 8, marginTop: 14 }}>
+                    <button onClick={() => dismissRestock(notif.id)} className="btn btn-secondary" style={{ flex: 1, fontSize: 12 }}>
+                      ✕ Ignora
+                    </button>
+                    <button onClick={() => openFulfillment(notif)} className="btn btn-primary" style={{ flex: 2, fontSize: 12 }}>
+                      📦 Gestisci Ricarica
+                    </button>
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* ========== PENDING TRANSFER APPROVALS ========== */}
       {requests.length > 0 && (
         <div style={{ marginBottom: 'var(--space-2xl)' }}>
           <h4 style={{ marginBottom: 'var(--space-md)' }}>⏳ In attesa di approvazione</h4>
@@ -168,7 +431,6 @@ export default function StockApprovalsPage() {
                   padding: 0, overflow: 'hidden',
                   border: hasMismatch ? '1.5px solid var(--danger)' : hasTransfer ? '1.5px solid var(--warning)' : undefined,
                 }}>
-                  {/* Header */}
                   <div
                     onClick={() => expandRequest(req)}
                     style={{ padding: '14px 18px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 12 }}
@@ -187,7 +449,6 @@ export default function StockApprovalsPage() {
                     <span style={{ fontSize: 14, color: 'var(--text-tertiary)' }}>{isExpanded ? '▲' : '▼'}</span>
                   </div>
 
-                  {/* Expanded detail */}
                   {isExpanded && (
                     <div style={{ borderTop: '1px solid var(--border-subtle)' }}>
                       <div className="table-wrapper" style={{ margin: 0 }}>
@@ -246,17 +507,54 @@ export default function StockApprovalsPage() {
         </div>
       )}
 
-      {requests.length === 0 && (
+      {requests.length === 0 && restockRequests.length === 0 && pendingTransfers.length === 0 && (
         <div className="card" style={{ textAlign: 'center', padding: 'var(--space-2xl)', color: 'var(--text-tertiary)', marginBottom: 'var(--space-xl)' }}>
           <div style={{ fontSize: 40, marginBottom: 8 }}>✅</div>
-          <div>Nessuna richiesta in attesa di approvazione</div>
+          <div>Nessuna richiesta in attesa</div>
+        </div>
+      )}
+
+      {/* Pending Transfers (shipped, waiting for employee count) */}
+      {pendingTransfers.length > 0 && (
+        <div style={{ marginBottom: 'var(--space-2xl)' }}>
+          <h4 style={{ marginBottom: 'var(--space-md)' }}>🚚 Merce Spedita (in attesa conteggio)</h4>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-sm)' }}>
+            {pendingTransfers.map(pt => {
+              const items = pt.stock_request_items || []
+              return (
+                <div key={pt.id} className="card" style={{ padding: '14px 18px', border: '1px solid var(--warning)', background: '#FFFBEB' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                    <span style={{ fontSize: 20 }}>🚚</span>
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontWeight: 700, fontSize: 14 }}>
+                        {(pt.stores as any)?.name} — {items.length} prodotti
+                      </div>
+                      <div style={{ fontSize: 12, color: 'var(--text-secondary)' }}>
+                        {pt.notes || 'Trasferimento'} · {new Date(pt.created_at).toLocaleString('it-IT')}
+                      </div>
+                      <div style={{ fontSize: 11, color: 'var(--warning)', fontWeight: 600, marginTop: 4 }}>
+                        ⏳ Il dipendente deve ancora contare la merce
+                      </div>
+                    </div>
+                    <div style={{ textAlign: 'right' }}>
+                      {items.map((i: any) => (
+                        <div key={i.id} style={{ fontSize: 11, color: 'var(--text-secondary)' }}>
+                          {i.product_name}: <strong>{i.qty_sent ?? '?'}</strong>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              )
+            })}
+          </div>
         </div>
       )}
 
       {/* History */}
       {history.length > 0 && (
-        <div>
-          <h4 style={{ marginBottom: 'var(--space-md)' }}>📋 Storico</h4>
+        <div style={{ marginBottom: 'var(--space-2xl)' }}>
+          <h4 style={{ marginBottom: 'var(--space-md)' }}>📋 Storico Approvazioni</h4>
           <div className="table-wrapper">
             <table>
               <thead>
@@ -276,6 +574,38 @@ export default function StockApprovalsPage() {
                         {h.status === 'approved' ? '✅ Approvata' : '❌ Rifiutata'}
                       </span>
                     </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {/* Transfer movements log */}
+      {transferLog.length > 0 && (
+        <div>
+          <h4 style={{ marginBottom: 'var(--space-md)' }}>🔄 Log Trasferimenti</h4>
+          <div className="table-wrapper">
+            <table>
+              <thead>
+                <tr><th>Data</th><th>Prodotto</th><th>Tipo</th><th>Qty</th><th>Destinazione</th><th>Note</th></tr>
+              </thead>
+              <tbody>
+                {transferLog.map(m => (
+                  <tr key={m.id}>
+                    <td style={{ fontSize: 12, color: 'var(--text-secondary)' }}>{new Date(m.created_at).toLocaleString('it-IT')}</td>
+                    <td style={{ fontWeight: 600 }}>{m.product_name}</td>
+                    <td>
+                      <span style={{ fontWeight: 600, fontSize: 12, color: m.movement_type === 'transfer_in' ? 'var(--success)' : 'var(--warning)' }}>
+                        {m.movement_type === 'transfer_out' ? '📤 Uscita' : '📥 Entrata'}
+                      </span>
+                    </td>
+                    <td style={{ fontWeight: 700, color: m.movement_type === 'transfer_in' ? 'var(--success)' : 'var(--danger)' }}>
+                      {m.movement_type === 'transfer_in' ? '+' : '-'}{m.qty}
+                    </td>
+                    <td style={{ fontSize: 12, color: 'var(--text-secondary)' }}>{m.destination_name || '—'}</td>
+                    <td style={{ fontSize: 12, color: 'var(--text-tertiary)' }}>{m.notes || '—'}</td>
                   </tr>
                 ))}
               </tbody>
