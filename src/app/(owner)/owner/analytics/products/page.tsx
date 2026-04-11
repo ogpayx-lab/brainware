@@ -79,7 +79,11 @@ export default function ProductsAnalyticsPage() {
     const avgDiscount = totalTxn > 0 ? (sales ?? []).reduce((s, x) => s + (x.discount_amount || 0), 0) / totalTxn : 0
     const uniqueSaleIds = new Set((saleItems ?? []).map((i: any) => i.sale_id))
     const qtyPerTxn = uniqueSaleIds.size > 0 ? totalQty / uniqueSaleIds.size : 0
-    const activeProducts = (products ?? []).filter(p => p.is_active).length
+    // Deduplicate by name when "all" stores — same product in multiple stores shouldn't be counted twice
+    const activeProds = (products ?? []).filter(p => p.is_active)
+    const activeProducts = selectedStore === 'all'
+      ? new Set(activeProds.map(p => p.name.toLowerCase())).size
+      : activeProds.length
 
     // Top products
     const prodMap: Record<string, { qty: number; revenue: number }> = {}

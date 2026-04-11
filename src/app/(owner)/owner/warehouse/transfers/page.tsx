@@ -75,6 +75,16 @@ export default function WarehouseTransfersPage() {
   async function submitTransfer() {
     const validItems = items.filter(i => i.stock_item_id && parseInt(i.qty) > 0)
     if (!sourceId || !destId || validItems.length === 0) return
+
+    // Validate qty doesn't exceed available
+    for (const item of validItems) {
+      const qty = parseInt(item.qty)
+      if (qty > item.available) {
+        alert(`Quantità per "${item.product_name}" (${qty}) supera la disponibilità (${item.available})`)
+        return
+      }
+    }
+
     setSaving(true)
 
     const destName = transferType === 'wh_to_store'
@@ -86,33 +96,26 @@ export default function WarehouseTransfersPage() {
       ? stores.find(s => s.id === sourceId)?.name
       : warehouses.find(w => w.id === sourceId)?.name
 
+    const isStoreDestination = transferType === 'wh_to_store' || transferType === 'store_to_store'
+
     for (const item of validItems) {
       const qty = parseInt(item.qty)
 
       if (transferType === 'wh_to_store') {
-        // Decrease warehouse stock
         const src = sourceStock.find(s => s.id === item.stock_item_id)
         if (src) {
           await supabase.from('warehouse_stock').update({ qty: Math.max(0, src.qty - qty) }).eq('id', src.id)
         }
-        // Increase store product stock (find by name match)
-        const { data: storeProduct } = await supabase.from('products').select('id, stock').eq('store_id', destId).ilike('name', item.product_name).single()
-        if (storeProduct) {
-          await supabase.from('products').update({ stock: storeProduct.stock + qty }).eq('id', storeProduct.id)
-        }
-        // Log movement OUT
         await supabase.from('warehouse_movements').insert({
           warehouse_id: sourceId, stock_item_id: item.stock_item_id, product_name: item.product_name,
           movement_type: 'transfer_out', qty, destination_type: 'store', destination_id: destId,
-          destination_name: destName, reference_type: 'store_restock', notes: `Trasferimento a ${destName}`,
+          destination_name: destName, reference_type: 'store_restock', notes: `Trasferimento a ${destName} (in attesa conteggio)`,
         })
       } else if (transferType === 'wh_to_wh') {
-        // Decrease source warehouse
         const src = sourceStock.find(s => s.id === item.stock_item_id)
         if (src) {
           await supabase.from('warehouse_stock').update({ qty: Math.max(0, src.qty - qty) }).eq('id', src.id)
         }
-        // Increase or create dest warehouse stock
         const { data: destItem } = await supabase.from('warehouse_stock').select('id, qty').eq('warehouse_id', destId).ilike('product_name', item.product_name).single()
         if (destItem) {
           await supabase.from('warehouse_stock').update({ qty: destItem.qty + qty }).eq('id', destItem.id)
@@ -123,7 +126,6 @@ export default function WarehouseTransfersPage() {
             sell_price: src?.sell_price || 0, stock_alert: src?.stock_alert || 5,
           })
         }
-        // Log movements
         await supabase.from('warehouse_movements').insert({
           warehouse_id: sourceId, stock_item_id: item.stock_item_id, product_name: item.product_name,
           movement_type: 'transfer_out', qty, destination_type: 'warehouse', destination_id: destId,
@@ -135,16 +137,41 @@ export default function WarehouseTransfersPage() {
           destination_name: sourceName, reference_type: 'warehouse_transfer',
         })
       } else if (transferType === 'store_to_store') {
-        // Decrease source store
         const src = sourceStock.find(s => s.id === item.stock_item_id)
         if (src) {
           await supabase.from('products').update({ stock: Math.max(0, (src.stock || src.qty) - qty) }).eq('id', src.id)
         }
-        // Increase dest store
-        const { data: destProduct } = await supabase.from('products').select('id, stock').eq('store_id', destId).ilike('name', item.product_name).single()
-        if (destProduct) {
-          await supabase.from('products').update({ stock: destProduct.stock + qty }).eq('id', destProduct.id)
+      }
+    }
+
+    if (isStoreDestination) {
+      const { data: { user } } = await supabase.auth.getUser()
+      const { data: openShift } = await supabase.from('shifts').select('id').eq('store_id', destId).eq('status', 'open').limit(1).single()
+
+      const { data: req } = await supabase.from('stock_requests').insert({
+        shift_id: openShift?.id || null,
+        store_id: destId,
+        user_id: user?.id,
+        status: 'pending',
+        notes: `Trasferimento da ${sourceName} — in attesa di conteggio`,
+      }).select('id').single()
+
+      if (req) {
+        for (const item of validItems) {
+          const qty = parseInt(item.qty)
+          const { data: prod } = await supabase.from('products').select('id, stock').eq('store_id', destId).ilike('name', item.product_name).single()
+          if (prod) {
+            await supabase.from('stock_request_items').insert({
+              stock_request_id: req.id, product_id: prod.id, product_name: item.product_name,
+              stock_before: prod.stock, qty_requested: 0, qty_sent: qty,
+            })
+          }
         }
+        await supabase.from('notifications').insert({
+          store_id: destId, type: 'stock_transfer',
+          title: '📦 Trasferimento in arrivo',
+          message: `${validItems.length} prodotti da ${sourceName}. Conta la merce in "Ricarica Stock".`,
+        })
       }
     }
 
