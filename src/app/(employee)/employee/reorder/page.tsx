@@ -55,13 +55,35 @@ export default function RichiediRicaricaPage() {
     if (!storeId || selectedIds.size === 0) return
     setSaving(true)
     const selectedProducts = products.filter(p => selectedIds.has(p.id))
-    const productList = selectedProducts.map(p => `${p.name} (stock: ${p.stock})`).join(', ')
 
+    // Create a stock_request for the restock
+    const { data: sr } = await supabase.from('stock_requests').insert({
+      store_id: storeId,
+      status: 'restock_requested',
+      notes: `${empName} richiede ricarica per ${selectedProducts.length} prodotti`,
+    }).select('id').single()
+
+    if (sr) {
+      // Save each product as an item
+      await supabase.from('stock_request_items').insert(
+        selectedProducts.map(p => ({
+          stock_request_id: sr.id,
+          product_id: p.id,
+          product_name: p.name,
+          stock_before: p.stock,
+          qty_requested: 0,
+          qty_sent: 0,
+        }))
+      )
+    }
+
+    const productList = selectedProducts.map(p => `${p.name} (stock: ${p.stock})`).join(', ')
     await supabase.from('notifications').insert({
       store_id: storeId,
       type: 'restock_request',
       title: '🔔 Richiesta Ricarica',
       message: `${empName} richiede ricarica per ${selectedIds.size} prodotti: ${productList}`,
+      metadata: sr ? JSON.stringify({ stock_request_id: sr.id }) : null,
     })
 
     setSaving(false)

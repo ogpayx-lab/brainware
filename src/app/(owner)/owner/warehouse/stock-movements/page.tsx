@@ -176,13 +176,52 @@ export default function StockApprovalsPage() {
     setFulfilling(notif)
     setFulfillSource('')
     setFulfillSourceStock([])
-    // Parse product names from the notification message
-    const msgProducts = parseProductsFromMessage(notif.message)
-    setFulfillItems(msgProducts.map(name => ({ product_name: name, qty: '', available: 0 })))
+
+    // Try to load items from linked stock_request
+    let items: { product_name: string; qty: string; available: number }[] = []
+
+    // Check for metadata with stock_request_id
+    let srId: string | null = null
+    try {
+      const meta = typeof notif.metadata === 'string' ? JSON.parse(notif.metadata) : notif.metadata
+      srId = meta?.stock_request_id || null
+    } catch {}
+
+    if (srId) {
+      const { data: srItems } = await supabase
+        .from('stock_request_items')
+        .select('product_name, product_id')
+        .eq('stock_request_id', srId)
+      items = (srItems ?? []).map(i => ({ product_name: i.product_name, qty: '', available: 0 }))
+    }
+
+    // Fallback: find restock_requested stock_request for this store
+    if (items.length === 0) {
+      const { data: srs } = await supabase
+        .from('stock_requests')
+        .select('id, stock_request_items(product_name, product_id)')
+        .eq('store_id', notif.store_id)
+        .eq('status', 'restock_requested')
+        .order('created_at', { ascending: false })
+        .limit(1)
+      if (srs && srs[0]) {
+        srId = srs[0].id
+        items = ((srs[0] as any).stock_request_items ?? []).map((i: any) => ({ product_name: i.product_name, qty: '', available: 0 }))
+      }
+    }
+
+    // Last resort: parse from message
+    if (items.length === 0) {
+      const msgProducts = parseProductsFromMessage(notif.message)
+      items = msgProducts.map(name => ({ product_name: name, qty: '', available: 0 }))
+    }
+
+    // Store request ID for later use
+    setFulfilling({ ...notif, _stock_request_id: srId })
+    setFulfillItems(items)
   }
 
   function parseProductsFromMessage(message: string): string[] {
-    // Format: "Dipendente richiede ricarica per X prodotti: Nome1 (stock: 0), Nome2 (stock: 5)"
     const match = message.match(/prodotti:\s*(.+)$/i)
     if (!match) return []
     return match[1].split(',').map(s => {
@@ -266,6 +305,14 @@ export default function StockApprovalsPage() {
 
     // Mark notification as read
     await supabase.from('notifications').update({ read: true }).eq('id', fulfilling.id)
+
+    // Mark original restock request as handled
+    if (fulfilling._stock_request_id) {
+      await supabase.from('stock_requests').update({
+        status: 'approved',
+        notes: `Gestita — trasferimento da ${sourceWh?.name || 'magazzino'}`,
+      }).eq('id', fulfilling._stock_request_id)
+    }
 
     // Notify store
     await supabase.from('notifications').insert({
