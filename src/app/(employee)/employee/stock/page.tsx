@@ -192,17 +192,26 @@ export default function StockPage() {
       // ✅ AUTO-APPROVE: update stock directly
       for (const item of requestItems) {
         const counted = transferCountedQtys[item.id] ?? 0
-        // Set qty_delivered (triggers DB trigger to update product stock)
+        // Set qty_delivered
         await supabase.from('stock_request_items')
           .update({ qty_delivered: counted })
           .eq('id', item.id)
 
-        // Also update product stock directly as backup
-        const product = products.find(p => p.name.toLowerCase() === item.product_name?.toLowerCase())
-        if (product) {
-          await supabase.from('products').update({
-            stock: product.stock + counted,
-          }).eq('id', product.id)
+        // Update product stock — use product_id if available, else match by name
+        if (item.product_id) {
+          const product = products.find(p => p.id === item.product_id)
+          if (product) {
+            await supabase.from('products').update({
+              stock: product.stock + counted,
+            }).eq('id', product.id)
+          }
+        } else {
+          const product = products.find(p => p.name.toLowerCase() === item.product_name?.toLowerCase())
+          if (product) {
+            await supabase.from('products').update({
+              stock: product.stock + counted,
+            }).eq('id', product.id)
+          }
         }
       }
 

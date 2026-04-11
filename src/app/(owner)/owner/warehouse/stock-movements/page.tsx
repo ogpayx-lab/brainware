@@ -251,9 +251,13 @@ export default function StockApprovalsPage() {
       for (const item of validItems) {
         const qty = parseInt(item.qty) || 0
         if (qty <= 0) continue
+        // Find the product_id in the destination store
+        const { data: prod } = await supabase.from('products').select('id, stock').eq('store_id', destStoreId).ilike('name', item.product_name).single()
         await supabase.from('stock_request_items').insert({
-          request_id: sr.id,
+          stock_request_id: sr.id,
+          product_id: prod?.id || null,
           product_name: item.product_name,
+          stock_before: prod?.stock ?? 0,
           qty_requested: 0,
           qty_sent: qty,
         })
