@@ -145,7 +145,13 @@ export default function WarehouseCentralPage() {
   async function renameWarehouse() {
     if (!warehouse || !renameTo.trim()) return
     setSaving(true)
-    await supabase.from('warehouses').update({ name: renameTo.trim() }).eq('id', warehouse.id)
+    const { error } = await supabase.from('warehouses').update({ name: renameTo.trim() }).eq('id', warehouse.id)
+    if (error) {
+      console.error('Rename warehouse error:', error)
+      alert(`Errore rinomina: ${error.message}`)
+      setSaving(false)
+      return
+    }
     setSaving(false)
     setShowRename(false)
     loadData()

@@ -55,7 +55,13 @@ export default function WarehouseSecondaryPage() {
   async function createWarehouse() {
     if (!orgId || !whForm.name) return
     setSaving(true)
-    await supabase.from('warehouses').insert({ organization_id: orgId, name: whForm.name, type: 'secondary', city: whForm.city || null, address: whForm.address || null, notes: whForm.notes || null })
+    const { error } = await supabase.from('warehouses').insert({ organization_id: orgId, name: whForm.name, type: 'secondary', city: whForm.city || null, address: whForm.address || null, notes: whForm.notes || null })
+    if (error) {
+      console.error('Create warehouse error:', error)
+      alert(`Errore creazione magazzino: ${error.message}`)
+      setSaving(false)
+      return
+    }
     setShowCreate(false)
     setWhForm({ name: '', city: '', address: '', notes: '' })
     setSaving(false)

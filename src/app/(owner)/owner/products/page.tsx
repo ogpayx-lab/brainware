@@ -69,7 +69,7 @@ export default function ProductsPage() {
 
     // Load warehouses
     if (oid) {
-      const { data: whs } = await supabase.from('warehouses').select('id,name,type').eq('organization_id', oid)
+      const { data: whs } = await supabase.from('warehouses').select('id,name,type').eq('organization_id', oid).eq('is_active', true)
       setWarehouses(whs ?? [])
     }
 
