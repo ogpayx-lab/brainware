@@ -54,13 +54,14 @@ export default function StockApprovalsPage() {
       .order('created_at', { ascending: false })
     setRequests(pending ?? [])
 
-    // Restock requests (from employee notifications)
+    // Restock requests (from employee notifications — show last 7 days, not yet handled)
+    const weekAgo = new Date(Date.now() - 7 * 86400000).toISOString()
     const { data: restocks } = await supabase
       .from('notifications')
       .select('*')
       .in('store_id', storeIds)
       .eq('type', 'restock_request')
-      .eq('read', false)
+      .gte('created_at', weekAgo)
       .order('created_at', { ascending: false })
     setRestockRequests(restocks ?? [])
 
