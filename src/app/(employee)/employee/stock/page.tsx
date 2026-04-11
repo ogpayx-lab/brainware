@@ -138,6 +138,7 @@ export default function StockPage() {
       message: `${activeEmp?.name || 'Dipendente'} ha contato ${items.length} prodotti. In attesa di approvazione.`,
     })
 
+    setDoneMessage('Richiesta inviata all\'owner per approvazione.')
     setDone(true)
     setSaving(false)
   }
