@@ -19,7 +19,7 @@ const OTHER_ACTIONS = [
   { href:'/employee/maintenance',      icon:'🔧', label:'Manutenzione',       color:'#6B7280', desc:'Checklist giornaliera' },
   { href:'/employee/photos',           icon:'📷', label:'Foto Registro',      color:'#06B6D4', desc:'Carica foto registro' },
   { href:'/employee/transfers',        icon:'🔄', label:'Trasferimenti',      color:'#8B5CF6', desc:'Sposta tra store' },
-  { href:'/employee/stock?request=1',  icon:'🔔', label:'Richiedi Ricarica',  color:'#EC4899', desc:'Ordine al magazzino' },
+  { href:'/employee/reorder',             icon:'🔔', label:'Richiedi Ricarica',  color:'#EC4899', desc:'Segnala prodotti mancanti' },
   { href:'/employee/calendar',         icon:'📅', label:'Giorni Liberi',      color:'#14B8A6', desc:'Richiedi permessi' },
   { href:'/employee/vending',          icon:'🏧', label:'Vending Machine',    color:'#0EA5E9', desc:'Ricarica macchine H24' },
   { href:'/employee/ai',              icon:'🤖', label:'Assistente AI',       color:'#6366F1', desc:'Aiuto e procedure' },
