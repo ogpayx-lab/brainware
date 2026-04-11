@@ -3,7 +3,11 @@ import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
+import { categoryLabel } from '@/lib/utils'
+import type { ProductCategory } from '@/types/database'
 import { BottomNav } from '@/components/employee/BottomNav'
+
+const CATEGORIES: ProductCategory[] = ['flowers','hashish','oils','edibles','accessories','cosmetics','clothes','seeds','vape','food']
 
 export default function RichiediRicaricaPage() {
   const router = useRouter()
@@ -13,6 +17,7 @@ export default function RichiediRicaricaPage() {
   const [storeId, setStoreId] = useState<string | null>(null)
   const [empName, setEmpName] = useState('')
   const [search, setSearch] = useState('')
+  const [activeCat, setActiveCat] = useState<ProductCategory | 'all'>('all')
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [done, setDone] = useState(false)
@@ -26,7 +31,6 @@ export default function RichiediRicaricaPage() {
     if (!profile?.store_id) { router.push('/login'); return }
     setStoreId(profile.store_id)
 
-    // Get active employee from localStorage (shared tablet model)
     const activeEmpStr = typeof window !== 'undefined' ? localStorage.getItem('brainware_active_employee') : null
     const activeEmp = activeEmpStr ? JSON.parse(activeEmpStr) : null
     setEmpName(activeEmp?.name || 'Dipendente')
@@ -34,13 +38,8 @@ export default function RichiediRicaricaPage() {
     const { data: prods } = await supabase
       .from('products').select('*')
       .eq('store_id', profile.store_id).eq('is_active', true)
-      .order('stock', { ascending: true })
+      .order('name')
     setProducts(prods ?? [])
-
-    // Pre-select low stock items
-    const lowStock = (prods ?? []).filter(p => p.stock <= p.stock_alert)
-    setSelectedIds(new Set(lowStock.map(p => p.id)))
-
     setLoading(false)
   }
 
@@ -55,11 +54,9 @@ export default function RichiediRicaricaPage() {
   async function sendRequest() {
     if (!storeId || selectedIds.size === 0) return
     setSaving(true)
-
     const selectedProducts = products.filter(p => selectedIds.has(p.id))
     const productList = selectedProducts.map(p => `${p.name} (stock: ${p.stock})`).join(', ')
 
-    // Send notification to owner
     await supabase.from('notifications').insert({
       store_id: storeId,
       type: 'restock_request',
@@ -71,11 +68,12 @@ export default function RichiediRicaricaPage() {
     setDone(true)
   }
 
-  const filtered = products.filter(p =>
-    !search || p.name.toLowerCase().includes(search.toLowerCase())
-  )
-  const lowStock = filtered.filter(p => p.stock <= p.stock_alert)
-  const okStock = filtered.filter(p => p.stock > p.stock_alert)
+  // Same filtering logic as POS
+  const filtered = products.filter(p => {
+    const matchSearch = !search || p.name.toLowerCase().includes(search.toLowerCase())
+    const matchCat = activeCat === 'all' || p.category === activeCat
+    return matchSearch && matchCat
+  })
 
   if (loading) return <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100vh' }}>Caricamento...</div>
 
@@ -91,109 +89,119 @@ export default function RichiediRicaricaPage() {
   )
 
   return (
-    <div className="page" style={{ paddingBottom: 80 }}>
-      <div style={{ background: 'var(--bg-primary)', borderBottom: '1px solid var(--border-subtle)', padding: 'var(--space-lg)', display: 'flex', alignItems: 'center', gap: 'var(--space-md)' }}>
+    <div style={{ minHeight: '100vh', background: 'var(--bg-surface)', display: 'flex', flexDirection: 'column', paddingBottom: 60 }}>
+      {/* Header */}
+      <div style={{ background: 'var(--bg-primary)', borderBottom: '1px solid var(--border-subtle)', padding: 'var(--space-md) var(--space-lg)', display: 'flex', alignItems: 'center', gap: 'var(--space-md)' }}>
         <Link href="/employee/dashboard" style={{ textDecoration: 'none', color: 'var(--text-primary)', fontSize: 20 }}>←</Link>
         <div style={{ flex: 1 }}>
-          <h3>Richiedi Ricarica</h3>
-          <div style={{ fontSize: 13, color: 'var(--text-tertiary)' }}>Seleziona i prodotti che servono</div>
+          <h3 style={{ fontSize: 16 }}>🔔 Richiedi Ricarica</h3>
         </div>
         {selectedIds.size > 0 && (
-          <span className="badge badge-brand">{selectedIds.size}</span>
+          <span style={{
+            background: 'var(--danger)', color: 'white', borderRadius: 20,
+            padding: '4px 12px', fontSize: 13, fontWeight: 700,
+          }}>
+            {selectedIds.size} selezionati
+          </span>
         )}
       </div>
 
-      <div style={{ padding: 'var(--space-lg)', display: 'flex', flexDirection: 'column', gap: 'var(--space-lg)' }}>
+      {/* Search + Categories — same as POS */}
+      <div style={{ padding: 'var(--space-lg)', paddingBottom: 0 }}>
+        <div style={{ position: 'relative', marginBottom: 'var(--space-md)' }}>
+          <input
+            className="input"
+            placeholder="Cerca prodotto..."
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            style={{ paddingLeft: 36 }}
+          />
+          <span style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', fontSize: 16 }}>🔍</span>
+        </div>
 
-        <input
-          className="input"
-          placeholder="Cerca prodotto..."
-          value={search}
-          onChange={e => setSearch(e.target.value)}
-        />
+        <div style={{ display: 'flex', gap: 6, overflowX: 'auto', marginBottom: 'var(--space-lg)', paddingBottom: 4 }}>
+          {(['all', ...CATEGORIES] as (ProductCategory | 'all')[]).map(c => (
+            <button
+              key={c}
+              onClick={() => setActiveCat(c)}
+              className={`badge ${activeCat === c ? 'badge-brand' : 'badge-gray'}`}
+              style={{ cursor: 'pointer', border: 'none', padding: '6px 14px', whiteSpace: 'nowrap' }}
+            >
+              {c === 'all' ? 'Tutto' : categoryLabel[c]}
+            </button>
+          ))}
+        </div>
+      </div>
 
-        {/* Low stock section */}
-        {lowStock.length > 0 && (
-          <div>
-            <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--danger)', letterSpacing: '0.06em', textTransform: 'uppercase', marginBottom: 8 }}>
-              ⚠️ Stock basso ({lowStock.length})
-            </div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-              {lowStock.map(p => {
-                const isSelected = selectedIds.has(p.id)
-                return (
-                  <div key={p.id} onClick={() => toggle(p.id)} style={{
-                    display: 'flex', alignItems: 'center', gap: 12,
-                    padding: '12px 14px', borderRadius: 10, cursor: 'pointer',
-                    background: isSelected ? 'rgba(239,68,68,0.08)' : 'var(--bg-primary)',
-                    border: `1.5px solid ${isSelected ? 'var(--danger)' : 'var(--border-default)'}`,
-                  }}>
-                    <div style={{
-                      width: 22, height: 22, borderRadius: 6, flexShrink: 0,
-                      border: `2px solid ${isSelected ? 'var(--danger)' : 'var(--border-strong)'}`,
-                      background: isSelected ? 'var(--danger)' : 'transparent',
-                      display: 'flex', alignItems: 'center', justifyContent: 'center',
-                      color: 'white', fontSize: 12,
-                    }}>
-                      {isSelected && '✓'}
-                    </div>
-                    <div style={{ flex: 1 }}>
-                      <div style={{ fontWeight: 600, fontSize: 14 }}>{p.name}</div>
-                      <div style={{ fontSize: 12, color: 'var(--text-tertiary)' }}>
-                        Stock: <strong style={{ color: p.stock <= 5 ? 'var(--danger)' : 'var(--warning)' }}>{p.stock}</strong> / soglia: {p.stock_alert}
-                      </div>
-                    </div>
-                    <span className="badge badge-danger" style={{ fontSize: 10 }}>Basso</span>
-                  </div>
-                )
-              })}
-            </div>
+      {/* Product Grid — same as POS */}
+      <div style={{ flex: 1, overflowY: 'auto', padding: '0 var(--space-lg)', paddingBottom: selectedIds.size > 0 ? 80 : 'var(--space-lg)' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))', gap: 'var(--space-md)' }}>
+          {filtered.map(p => {
+            const isSelected = selectedIds.has(p.id)
+            const isLow = p.stock <= p.stock_alert
+            return (
+              <div
+                key={p.id}
+                onClick={() => toggle(p.id)}
+                className="card card-sm"
+                style={{
+                  cursor: 'pointer', display: 'flex', flexDirection: 'column', gap: 8,
+                  border: isSelected ? '2px solid var(--brand-primary)' : undefined,
+                  background: isSelected ? 'var(--brand-primary-light)' : undefined,
+                  position: 'relative',
+                }}
+              >
+                {/* Selection indicator */}
+                {isSelected && (
+                  <div style={{
+                    position: 'absolute', top: 8, right: 8, width: 22, height: 22,
+                    borderRadius: '50%', background: 'var(--brand-primary)',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    color: 'white', fontSize: 12, fontWeight: 700,
+                  }}>✓</div>
+                )}
+                <div>
+                  <div style={{ fontWeight: 600, fontSize: 13 }}>{p.name}</div>
+                  <span className="badge badge-indigo" style={{ fontSize: 10, marginTop: 4 }}>
+                    {categoryLabel[p.category as ProductCategory] || p.category}
+                  </span>
+                </div>
+                <div style={{
+                  fontSize: 11, fontWeight: 600,
+                  color: p.stock === 0 ? 'var(--danger)' : isLow ? 'var(--warning)' : 'var(--success)',
+                }}>
+                  Stock: {p.stock}
+                  {isLow && p.stock > 0 && ' ⚠️'}
+                  {p.stock === 0 && ' 🚫'}
+                </div>
+              </div>
+            )
+          })}
+        </div>
+
+        {filtered.length === 0 && (
+          <div style={{ textAlign: 'center', padding: 'var(--space-2xl)', color: 'var(--text-tertiary)' }}>
+            Nessun prodotto trovato
           </div>
         )}
+      </div>
 
-        {/* OK stock section */}
-        {okStock.length > 0 && (
-          <div>
-            <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-tertiary)', letterSpacing: '0.06em', textTransform: 'uppercase', marginBottom: 8 }}>
-              Altri prodotti ({okStock.length})
-            </div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-              {okStock.map(p => {
-                const isSelected = selectedIds.has(p.id)
-                return (
-                  <div key={p.id} onClick={() => toggle(p.id)} style={{
-                    display: 'flex', alignItems: 'center', gap: 12,
-                    padding: '12px 14px', borderRadius: 10, cursor: 'pointer',
-                    background: isSelected ? 'var(--brand-primary-light)' : 'var(--bg-primary)',
-                    border: `1.5px solid ${isSelected ? 'var(--brand-primary)' : 'var(--border-default)'}`,
-                    opacity: 0.8,
-                  }}>
-                    <div style={{
-                      width: 22, height: 22, borderRadius: 6, flexShrink: 0,
-                      border: `2px solid ${isSelected ? 'var(--brand-primary)' : 'var(--border-strong)'}`,
-                      background: isSelected ? 'var(--brand-primary)' : 'transparent',
-                      display: 'flex', alignItems: 'center', justifyContent: 'center',
-                      color: 'white', fontSize: 12,
-                    }}>
-                      {isSelected && '✓'}
-                    </div>
-                    <div style={{ flex: 1 }}>
-                      <div style={{ fontWeight: 600, fontSize: 14 }}>{p.name}</div>
-                      <div style={{ fontSize: 12, color: 'var(--text-tertiary)' }}>Stock: {p.stock}</div>
-                    </div>
-                  </div>
-                )
-              })}
-            </div>
-          </div>
-        )}
-
-        {selectedIds.size > 0 && (
+      {/* Floating bottom bar when items selected */}
+      {selectedIds.size > 0 && (
+        <div style={{
+          position: 'fixed', bottom: 60, left: 0, right: 0,
+          padding: '12px var(--space-lg)',
+          background: 'var(--bg-primary)',
+          borderTop: '1px solid var(--border-subtle)',
+          boxShadow: '0 -4px 20px rgba(0,0,0,0.1)',
+          zIndex: 50,
+        }}>
           <button onClick={sendRequest} disabled={saving} className="btn btn-primary btn-full btn-lg">
             {saving ? 'Invio...' : `🔔 Invia Richiesta (${selectedIds.size} prodotti)`}
           </button>
-        )}
-      </div>
+        </div>
+      )}
+
       <BottomNav />
     </div>
   )
