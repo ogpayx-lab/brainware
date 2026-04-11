@@ -20,7 +20,6 @@ const NAV_MAGAZZINO = [
 ]
 const NAV_GESTIONE = [
   { href: '/owner/multistore',        icon: '🏪', label: 'Multistore' },
-  { href: '/owner/notifications',     icon: '🔔', label: 'Notifiche' },
   { href: '/owner/tasks',             icon: '📋', label: 'Task' },
   { href: '/owner/promo',             icon: '🎟️', label: 'Codici Promo' },
   { href: '/owner/employees',         icon: '👤', label: 'Dipendenti' },
@@ -39,28 +38,62 @@ export function OwnerSidebar() {
   const supabase = createClient()
   const [brand, setBrand] = useState({ name: 'BrainWare', letter: 'B', color: '#22C55E' })
   const [open, setOpen] = useState(false)
+  const [unreadCount, setUnreadCount] = useState(0)
 
   useEffect(() => {
-    supabase.auth.getUser().then(({ data: { user } }) => {
-      if (!user) return
-      supabase.from('users').select('store_id').eq('id', user.id).single().then(({ data: p }) => {
-        if (!p?.store_id) return
-        supabase.from('brand_config').select('brand_name,logo_letter,primary_color').eq('store_id', p.store_id).single()
-          .then(({ data: b }) => { if (b) setBrand({ name: b.brand_name, letter: b.logo_letter, color: b.primary_color }) })
-      })
-    })
+    loadBrand()
+    loadUnread()
+    const interval = setInterval(loadUnread, 15000)
+    return () => clearInterval(interval)
   }, [])
+
+  async function loadBrand() {
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return
+    const { data: p } = await supabase.from('users').select('store_id').eq('id', user.id).single()
+    if (!p?.store_id) return
+    const { data: b } = await supabase.from('brand_config').select('brand_name,logo_letter,primary_color').eq('store_id', p.store_id).single()
+    if (b) setBrand({ name: b.brand_name, letter: b.logo_letter, color: b.primary_color })
+  }
+
+  async function loadUnread() {
+    try {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) return
+      const { data: profile } = await supabase.from('users').select('store_id, stores(organization_id)').eq('id', user.id).single()
+      if (!profile?.store_id) return
+      const oid = (profile.stores as any)?.organization_id
+      if (!oid) return
+      const { data: stores } = await supabase.from('stores').select('id').eq('organization_id', oid)
+      const storeIds = (stores ?? []).map(s => s.id)
+      if (storeIds.length === 0) return
+      const { count } = await supabase
+        .from('notifications')
+        .select('id', { count: 'exact', head: true })
+        .in('store_id', storeIds)
+        .eq('read', false)
+      setUnreadCount(count ?? 0)
+    } catch {}
+  }
 
   // Close on route change (mobile)
   useEffect(() => { setOpen(false) }, [pathname])
 
-  const NavItem = ({ href, icon, label }: { href: string; icon: string; label: string }) => {
+  const NavItem = ({ href, icon, label, badge }: { href: string; icon: string; label: string; badge?: number }) => {
     const active = pathname === href || pathname.startsWith(href + '/')
     return (
       <Link href={href} style={{ textDecoration: 'none' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '9px 16px', borderRadius: 8, margin: '1px 8px', fontSize: 13, fontWeight: active ? 600 : 400, color: active ? brand.color : 'var(--text-secondary)', background: active ? brand.color + '18' : 'transparent', cursor: 'pointer', transition: 'all 0.15s', whiteSpace: 'nowrap' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '9px 16px', borderRadius: 8, margin: '1px 8px', fontSize: 13, fontWeight: active ? 600 : 400, color: active ? brand.color : 'var(--text-secondary)', background: active ? brand.color + '18' : 'transparent', cursor: 'pointer', transition: 'all 0.15s', whiteSpace: 'nowrap', position: 'relative' }}>
           <span style={{ fontSize: 15, width: 20, textAlign: 'center', flexShrink: 0 }}>{icon}</span>
           <span className="sidebar-label">{label}</span>
+          {badge != null && badge > 0 && (
+            <span style={{
+              background: '#EF4444', color: 'white', borderRadius: 10,
+              padding: '1px 6px', fontSize: 10, fontWeight: 700,
+              marginLeft: 'auto', minWidth: 18, textAlign: 'center',
+              lineHeight: '16px',
+            }}>{badge > 99 ? '99+' : badge}</span>
+          )}
         </div>
       </Link>
     )
@@ -75,6 +108,13 @@ export function OwnerSidebar() {
         aria-label="Menu"
       >
         <span style={{ fontSize: 22 }}>{open ? '✕' : '☰'}</span>
+        {unreadCount > 0 && (
+          <span style={{
+            position: 'absolute', top: 6, right: 6,
+            width: 8, height: 8, borderRadius: '50%',
+            background: '#EF4444',
+          }} />
+        )}
       </button>
 
       {/* Backdrop on mobile */}
@@ -88,6 +128,9 @@ export function OwnerSidebar() {
           </div>
         </div>
         <nav>
+          {/* Notifications first — always on top */}
+          <NavItem href="/owner/notifications" icon="🔔" label="Notifiche" badge={unreadCount} />
+          <div style={{ height: 1, background: 'var(--border-subtle)', margin: '4px 16px' }} />
           {NAV_MAIN.map(item => <NavItem key={item.href} {...item} />)}
           <div className="sidebar-section-label">MAGAZZINO</div>
           {NAV_MAGAZZINO.map(item => <NavItem key={item.href} {...item} />)}

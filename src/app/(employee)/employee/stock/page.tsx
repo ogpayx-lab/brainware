@@ -24,6 +24,7 @@ export default function StockPage() {
   const [userId, setUserId] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
   const [done, setDone] = useState(false)
+  const [doneMessage, setDoneMessage] = useState('')
   const [loading, setLoading] = useState(true)
 
   // Step flow
@@ -162,14 +163,16 @@ export default function StockPage() {
   }
 
   async function submitTransferCount() {
-    const confirmed = confirm('⚠️ Sei sicuro di aver contato bene?\n\nIl conteggio verrà inviato all\'owner per la verifica.')
+    const confirmed = confirm('⚠️ Sei sicuro di aver contato bene?\n\nSe il conteggio corrisponde, lo stock verrà aggiornato automaticamente.')
     if (!confirmed) return
     if (!activeRequest) return
     setSaving(true)
 
     const activeEmpStr = typeof window !== 'undefined' ? localStorage.getItem('brainware_active_employee') : null
     const activeEmp = activeEmpStr ? JSON.parse(activeEmpStr) : null
+    const empName = activeEmp?.name || 'Dipendente'
 
+    // Update each item with counted qty
     for (const item of requestItems) {
       const counted = transferCountedQtys[item.id] ?? 0
       await supabase.from('stock_request_items')
@@ -177,17 +180,66 @@ export default function StockPage() {
         .eq('id', item.id)
     }
 
-    await supabase.from('stock_requests').update({
-      status: 'owner_review',
-      notes: `${activeEmp?.name || 'Dipendente'} ha contato la merce ricevuta`,
-    }).eq('id', activeRequest.id)
-
-    await supabase.from('notifications').insert({
-      store_id: storeId,
-      type: 'stock_counted',
-      title: '✅ Merce contata',
-      message: `${activeEmp?.name || 'Dipendente'} ha contato ${requestItems.length} prodotti dal trasferimento. Verifica e approva.`,
+    // Check if ALL items match
+    const allMatch = requestItems.every((item: any) => {
+      const counted = transferCountedQtys[item.id] ?? 0
+      const sent = item.qty_sent ?? 0
+      return counted === sent
     })
+
+    if (allMatch) {
+      // ✅ AUTO-APPROVE: update stock directly
+      for (const item of requestItems) {
+        const counted = transferCountedQtys[item.id] ?? 0
+        // Set qty_delivered (triggers DB trigger to update product stock)
+        await supabase.from('stock_request_items')
+          .update({ qty_delivered: counted })
+          .eq('id', item.id)
+
+        // Also update product stock directly as backup
+        const product = products.find(p => p.name.toLowerCase() === item.product_name?.toLowerCase())
+        if (product) {
+          await supabase.from('products').update({
+            stock: product.stock + counted,
+          }).eq('id', product.id)
+        }
+      }
+
+      await supabase.from('stock_requests').update({
+        status: 'approved',
+        approved_at: new Date().toISOString(),
+        notes: `✅ Auto-approvato — conteggio ${empName} corrisponde`,
+      }).eq('id', activeRequest.id)
+
+      // Notify owner of successful match
+      await supabase.from('notifications').insert({
+        store_id: storeId,
+        type: 'stock_approved',
+        title: '✅ Ricarica completata',
+        message: `${empName} ha contato ${requestItems.length} prodotti. Quantità corrispondenti — stock aggiornato automaticamente.`,
+      })
+
+      setDoneMessage('✅ Conteggio corretto! Lo stock è stato aggiornato automaticamente.')
+    } else {
+      // ❌ MISMATCH: send to owner for review
+      const mismatches = requestItems
+        .filter((item: any) => (transferCountedQtys[item.id] ?? 0) !== (item.qty_sent ?? 0))
+        .map((item: any) => `${item.product_name}: inviati ${item.qty_sent}, contati ${transferCountedQtys[item.id] ?? 0}`)
+
+      await supabase.from('stock_requests').update({
+        status: 'owner_review',
+        notes: `⚠️ Discrepanza — ${empName} ha contato quantità diverse`,
+      }).eq('id', activeRequest.id)
+
+      await supabase.from('notifications').insert({
+        store_id: storeId,
+        type: 'stock_counted',
+        title: '⚠️ Discrepanza conteggio',
+        message: `${empName} ha contato quantità diverse: ${mismatches.join(', ')}. Verifica e approva manualmente.`,
+      })
+
+      setDoneMessage('⚠️ Conteggio inviato all\'owner — alcune quantità non corrispondono.')
+    }
 
     setDone(true)
     setSaving(false)
@@ -206,10 +258,10 @@ export default function StockPage() {
 
   if (done) return (
     <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 16, padding: 24 }}>
-      <span style={{ fontSize: 64 }}>✅</span>
-      <h3>Conteggio inviato!</h3>
-      <p style={{ color: 'var(--text-secondary)', textAlign: 'center', fontSize: 14 }}>
-        Il conteggio è stato inviato all'owner per la verifica. Lo stock verrà aggiornato dopo l'approvazione.
+      <span style={{ fontSize: 64 }}>{doneMessage.includes('⚠️') ? '⚠️' : '✅'}</span>
+      <h3 style={{ textAlign: 'center' }}>{doneMessage.includes('⚠️') ? 'Conteggio inviato' : 'Stock aggiornato!'}</h3>
+      <p style={{ color: 'var(--text-secondary)', textAlign: 'center', fontSize: 14, maxWidth: 320 }}>
+        {doneMessage || 'Operazione completata.'}
       </p>
       <Link href="/employee/dashboard" className="btn btn-primary">Torna alla Dashboard</Link>
     </div>
