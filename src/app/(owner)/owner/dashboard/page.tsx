@@ -8,7 +8,7 @@ import { playCashSound, playNotificationSound } from '@/lib/useNotificationSound
 
 const TYPE_ICON: Record<string, string> = {
   day_off_request: '📅', sale: '💰', task_completed: '✅', low_stock: '⚠️',
-  shift_open: '🟢', shift_close: '🔴', maintenance: '🔧', default: '🔔',
+  shift_open: '🟢', shift_close: '🔴', maintenance: '🔧', checkout_alert: '⚠️', default: '🔔',
 }
 
 export default function OwnerDashboard() {
@@ -34,6 +34,12 @@ export default function OwnerDashboard() {
   const prevNotifCount = useRef<number | null>(null)
   const prevSalesCount = useRef<number | null>(null)
 
+  // Live check-ins & force checkout
+  const [liveCheckins, setLiveCheckins] = useState<any[]>([])
+  const [forceCheckoutId, setForceCheckoutId] = useState<string | null>(null)
+  const [forceCheckoutTime, setForceCheckoutTime] = useState('')
+  const [forcingCheckout, setForcingCheckout] = useState(false)
+
   // Live clock
   const [now, setNow] = useState(new Date())
   useEffect(() => { const t = setInterval(() => setNow(new Date()), 1000); return () => clearInterval(t) }, [])
@@ -54,29 +60,35 @@ export default function OwnerDashboard() {
       .limit(20)
     let newNotifs = notifs ?? []
 
-    // Check for forgotten check-outs (>10 hours checked in)
-    const tenHoursAgo = new Date(Date.now() - 10 * 3600 * 1000).toISOString()
-    const { data: longCheckins } = await supabase
+    // Load ALL open check-ins (live — no time threshold)
+    const { data: openCheckins } = await supabase
       .from('shift_checkins')
       .select('id, user_id, checked_in_at, users(full_name)')
       .eq('store_id', sid)
       .is('checked_out_at', null)
-      .lt('checked_in_at', tenHoursAgo)
 
-    if (longCheckins && longCheckins.length > 0) {
-      const checkoutAlerts = longCheckins.map((c: any) => {
-        const hours = Math.round((Date.now() - new Date(c.checked_in_at).getTime()) / 3600000)
-        return {
-          id: `checkout-alert-${c.id}`,
-          type: 'checkout_alert',
-          title: `⚠️ Check-out dimenticato`,
-          message: `${c.users?.full_name || 'Dipendente'} è in turno da ${hours}h senza check-out`,
-          read: false,
-          created_at: c.checked_in_at,
-          _isAlert: true,
-        }
-      })
-      newNotifs = [...checkoutAlerts, ...newNotifs]
+    setLiveCheckins(openCheckins ?? [])
+
+    // Inject forgotten checkout alerts for very long check-ins (>10h)
+    if (openCheckins && openCheckins.length > 0) {
+      const tenHoursAgo = Date.now() - 10 * 3600 * 1000
+      const longCheckins = openCheckins.filter((c: any) => new Date(c.checked_in_at).getTime() < tenHoursAgo)
+      if (longCheckins.length > 0) {
+        const checkoutAlerts = longCheckins.map((c: any) => {
+          const hours = Math.round((Date.now() - new Date(c.checked_in_at).getTime()) / 3600000)
+          return {
+            id: `checkout-alert-${c.id}`,
+            type: 'checkout_alert',
+            title: `⚠️ Check-out dimenticato`,
+            message: `${c.users?.full_name || 'Dipendente'} è in turno da ${hours}h senza check-out`,
+            read: false,
+            created_at: c.checked_in_at,
+            _isAlert: true,
+            _checkinId: c.id,
+          }
+        })
+        newNotifs = [...checkoutAlerts, ...newNotifs]
+      }
     }
 
     setNotifications(newNotifs)
@@ -277,6 +289,94 @@ export default function OwnerDashboard() {
           </div>
         </div>
       </div>
+
+      {/* ═══════════════ DIPENDENTI IN TURNO (LIVE) ═══════════════ */}
+      {liveCheckins.length > 0 && (
+        <div className="card" style={{ marginBottom:'var(--space-lg)', padding:0, overflow:'hidden' }}>
+          <div style={{ padding:'14px 18px', borderBottom:'1px solid var(--border-subtle)', display:'flex', alignItems:'center', gap:10 }}>
+            <span style={{ fontSize:18 }}>👥</span>
+            <h4 style={{ margin:0 }}>Dipendenti in Turno</h4>
+            <span className="badge badge-success" style={{ fontSize:11 }}>🟢 {liveCheckins.length} Live</span>
+          </div>
+          <div style={{ padding:'0 18px 14px' }}>
+            {liveCheckins.map((c: any) => {
+              const mins = Math.round((Date.now() - new Date(c.checked_in_at).getTime()) / 60000)
+              const h = Math.floor(mins / 60)
+              const m = mins % 60
+              const isLong = mins > 600 // >10h
+              return (
+                <div key={c.id} style={{
+                  display:'flex', alignItems:'center', gap:12, padding:'10px 0',
+                  borderBottom:'1px solid var(--border-subtle)',
+                }}>
+                  <div style={{
+                    width:36, height:36, borderRadius:10,
+                    background: isLong ? 'var(--danger)' : 'var(--brand-primary)',
+                    display:'flex', alignItems:'center', justifyContent:'center',
+                    color:'white', fontWeight:700, fontSize:14, flexShrink:0,
+                  }}>
+                    {(c.users?.full_name || '?').charAt(0).toUpperCase()}
+                  </div>
+                  <div style={{ flex:1 }}>
+                    <div style={{ fontWeight:700, fontSize:14 }}>{c.users?.full_name || 'Dipendente'}</div>
+                    <div style={{ fontSize:11, color: isLong ? 'var(--danger)' : 'var(--text-secondary)' }}>
+                      Check-in: {new Date(c.checked_in_at).toLocaleTimeString('it-IT', { hour:'2-digit', minute:'2-digit' })} · 
+                      {isLong ? ` ⚠️ ${h}h ${m}m` : ` ${h}h ${m}m`}
+                    </div>
+                  </div>
+
+                  {/* Force checkout */}
+                  {forceCheckoutId === c.id ? (
+                    <div style={{ display:'flex', alignItems:'center', gap:6 }}>
+                      <input
+                        type="datetime-local"
+                        className="input"
+                        value={forceCheckoutTime}
+                        onChange={e => setForceCheckoutTime(e.target.value)}
+                        style={{ fontSize:12, padding:'4px 8px', width:180 }}
+                      />
+                      <button
+                        className="btn btn-primary"
+                        disabled={forcingCheckout || !forceCheckoutTime}
+                        onClick={async () => {
+                          setForcingCheckout(true)
+                          const checkoutAt = new Date(forceCheckoutTime).toISOString()
+                          await supabase.from('shift_checkins').update({ checked_out_at: checkoutAt }).eq('id', c.id)
+                          setForceCheckoutId(null)
+                          setForceCheckoutTime('')
+                          setForcingCheckout(false)
+                          loadData()
+                        }}
+                        style={{ padding:'4px 10px', fontSize:11 }}
+                      >
+                        {forcingCheckout ? '...' : '✅'}
+                      </button>
+                      <button
+                        className="btn btn-secondary"
+                        onClick={() => { setForceCheckoutId(null); setForceCheckoutTime('') }}
+                        style={{ padding:'4px 8px', fontSize:11 }}
+                      >✕</button>
+                    </div>
+                  ) : (
+                    <button
+                      className="btn btn-secondary"
+                      onClick={() => {
+                        setForceCheckoutId(c.id)
+                        // Default to now
+                        const n = new Date()
+                        setForceCheckoutTime(n.toISOString().slice(0, 16))
+                      }}
+                      style={{ padding:'5px 12px', fontSize:11, whiteSpace:'nowrap' }}
+                    >
+                      🚪 Forza Check-out
+                    </button>
+                  )}
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      )}
 
       {/* ═══════════════ CENTRO NOTIFICHE ═══════════════ */}
       <div className="card" style={{ marginBottom:'var(--space-xl)', padding:0, overflow:'hidden' }}>

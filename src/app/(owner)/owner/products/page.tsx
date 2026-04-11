@@ -10,7 +10,7 @@ import * as XLSX from 'xlsx'
 const CATEGORIES: ProductCategory[] = ['flowers', 'hashish', 'oils', 'edibles', 'accessories', 'cosmetics', 'clothes', 'seeds', 'vape', 'food']
 const EMPTY_FORM = {
   name: '', category: 'flowers' as ProductCategory,
-  price: '', cost: '', unit: 'g', barcode: '', stock_alert: '5',
+  price: '', cost: '', unit: 'g', barcode: '', stock_alert: '5', target_store: '',
 }
 
 export default function ProductsPage() {
@@ -24,10 +24,11 @@ export default function ProductsPage() {
   const [orgStores, setOrgStores] = useState<any[]>([])
   const [showForm, setShowForm] = useState(false)
   const [showImport, setShowImport] = useState(false)
-  const [showDistribute, setShowDistribute] = useState(false)
-  const [distributeTargets, setDistributeTargets] = useState<string[]>([])
-  const [distributing, setDistributing] = useState(false)
-  const [distributeResult, setDistributeResult] = useState<{ ok: number; skip: number; stores: number } | null>(null)
+  const [showCopyTo, setShowCopyTo] = useState(false)
+  const [copyTargets, setCopyTargets] = useState<{ type: 'store' | 'warehouse'; id: string }[]>([])
+  const [copying, setCopying] = useState(false)
+  const [copyResult, setCopyResult] = useState<{ ok: number; skip: number; dests: number } | null>(null)
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
   const [editId, setEditId] = useState<string | null>(null)
   const [form, setForm] = useState(EMPTY_FORM)
   const [search, setSearch] = useState('')
@@ -40,37 +41,62 @@ export default function ProductsPage() {
   const [importDone, setImportDone] = useState<{ ok: number; skip: number } | null>(null)
   const [stats, setStats] = useState({ active: 0, lowStock: 0, inactive: 0 })
 
+  // All stores (including own) for store selector
+  const [allStores, setAllStores] = useState<any[]>([])
+  const [viewStore, setViewStore] = useState<string>('') // filter by store
+  const [warehouses, setWarehouses] = useState<any[]>([])
+
   useEffect(() => { loadData() }, [])
 
   async function loadData() {
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) { router.push('/login'); return }
-    const { data: profile } = await supabase.from('users').select('store_id, role, stores(organization_id)').eq('id', user.id).single()
+    const { data: profile } = await supabase.from('users').select('store_id, role, stores(organization_id, name)').eq('id', user.id).single()
     if (profile?.role !== 'owner') { router.push('/login'); return }
     setStoreId(profile.store_id)
     const oid = (profile.stores as any)?.organization_id
     setOrgId(oid)
+
+    let storesList: any[] = [{ id: profile.store_id, name: (profile.stores as any)?.name || 'Store Principale' }]
     if (oid) {
-      const { data: storeList } = await supabase.from('stores').select('id,name').eq('organization_id', oid).eq('is_active', true).neq('id', profile.store_id)
-      setOrgStores(storeList ?? [])
+      const { data: storeList } = await supabase.from('stores').select('id,name').eq('organization_id', oid).eq('is_active', true)
+      storesList = storeList ?? storesList
+      // Other stores for distribute (excluding own)
+      setOrgStores((storeList ?? []).filter(s => s.id !== profile.store_id))
     }
-    const { data: prods } = await supabase.from('products').select('*').eq('store_id', profile.store_id).order('name')
+    setAllStores(storesList)
+    if (!viewStore) setViewStore(profile.store_id)
+
+    // Load warehouses
+    if (oid) {
+      const { data: whs } = await supabase.from('warehouses').select('id,name,type').eq('organization_id', oid)
+      setWarehouses(whs ?? [])
+    }
+
+    // Load products for currently viewed store
+    const targetSid = viewStore || profile.store_id
+    const { data: prods } = await supabase.from('products').select('*').eq('store_id', targetSid).order('name')
     const p = prods ?? []
     setProducts(p)
     setStats({ active: p.filter(x => x.is_active).length, lowStock: p.filter(x => x.stock <= x.stock_alert && x.is_active).length, inactive: p.filter(x => !x.is_active).length })
     setLoading(false)
   }
 
-  function openAdd() { setForm(EMPTY_FORM); setEditId(null); setShowForm(true) }
+  function openAdd() {
+    setForm({ ...EMPTY_FORM, target_store: viewStore || storeId || '' })
+    setEditId(null); setShowForm(true)
+  }
   function openEdit(p: Product) {
-    setForm({ name: p.name, category: p.category, price: p.price.toString(), cost: p.cost?.toString() ?? '', unit: p.unit, barcode: p.barcode ?? '', stock_alert: p.stock_alert.toString() })
+    setForm({ name: p.name, category: p.category, price: p.price.toString(), cost: p.cost?.toString() ?? '', unit: p.unit, barcode: p.barcode ?? '', stock_alert: p.stock_alert.toString(), target_store: (p as any).store_id || viewStore || storeId || '' })
     setEditId(p.id); setShowForm(true)
   }
 
   async function handleSave() {
-    if (!storeId || !form.name || !form.price) return
+    if (!form.name || !form.price) return
+    const targetStore = form.target_store || viewStore || storeId
+    if (!targetStore) return
     setSaving(true)
-    const payload: any = { store_id: storeId, name: form.name, category: form.category, price: parseFloat(form.price), cost: form.cost ? parseFloat(form.cost) : null, unit: form.unit, barcode: form.barcode || null, stock_alert: parseInt(form.stock_alert) || 5 }
+    const payload: any = { store_id: targetStore, name: form.name, category: form.category, price: parseFloat(form.price), cost: form.cost ? parseFloat(form.cost) : null, unit: form.unit, barcode: form.barcode || null, stock_alert: parseInt(form.stock_alert) || 5 }
     let error: any = null
     if (editId) {
       const res = await supabase.from('products').update(payload).eq('id', editId)
@@ -188,41 +214,80 @@ export default function ProductsPage() {
     loadData()
   }
 
-  async function distributeToStores() {
-    if (!storeId || distributeTargets.length === 0) return
-    setDistributing(true)
-    const activeProducts = products.filter(p => p.is_active)
+  async function copyToDestinations() {
+    if (copyTargets.length === 0) return
+    setCopying(true)
+    const selectedProducts = selectedIds.size > 0
+      ? products.filter(p => selectedIds.has(p.id))
+      : products.filter(p => p.is_active)
     let totalOk = 0, totalSkip = 0
-    for (const targetStoreId of distributeTargets) {
-      const { data: existing } = await supabase.from('products').select('name').eq('store_id', targetStoreId)
-      const existingNames = new Set((existing ?? []).map((p: any) => p.name.toLowerCase()))
-      const newProducts = activeProducts.filter(p => !existingNames.has(p.name.toLowerCase()))
-      totalSkip += activeProducts.length - newProducts.length
-      if (newProducts.length > 0) {
-        const { error } = await supabase.from('products').insert(
-          newProducts.map(p => ({
-            store_id: targetStoreId,
-            name: p.name,
-            category: p.category,
-            price: p.price,
-            cost: p.cost,
-            unit: p.unit,
-            barcode: p.barcode,
-            stock: 0,
-            stock_alert: p.stock_alert,
-          }))
-        )
-        if (!error) totalOk += newProducts.length
+
+    for (const target of copyTargets) {
+      if (target.type === 'store') {
+        // Copy to store (products table)
+        const { data: existing } = await supabase.from('products').select('name').eq('store_id', target.id)
+        const existingNames = new Set((existing ?? []).map((p: any) => p.name.toLowerCase()))
+        const newProducts = selectedProducts.filter(p => !existingNames.has(p.name.toLowerCase()))
+        totalSkip += selectedProducts.length - newProducts.length
+        if (newProducts.length > 0) {
+          const { error } = await supabase.from('products').insert(
+            newProducts.map(p => ({
+              store_id: target.id,
+              name: p.name, category: p.category, price: p.price,
+              cost: p.cost, unit: p.unit, barcode: p.barcode,
+              stock: 0, stock_alert: p.stock_alert,
+            }))
+          )
+          if (!error) totalOk += newProducts.length
+        }
+      } else {
+        // Copy to warehouse (warehouse_stock table)
+        const { data: existing } = await supabase.from('warehouse_stock').select('product_name').eq('warehouse_id', target.id)
+        const existingNames = new Set((existing ?? []).map((p: any) => p.product_name.toLowerCase()))
+        const newProducts = selectedProducts.filter(p => !existingNames.has(p.name.toLowerCase()))
+        totalSkip += selectedProducts.length - newProducts.length
+        if (newProducts.length > 0) {
+          const { error } = await supabase.from('warehouse_stock').insert(
+            newProducts.map(p => ({
+              warehouse_id: target.id,
+              product_name: p.name,
+              category: p.category,
+              qty: 0,
+              cost_per_unit: p.cost || 0,
+              sell_price: p.price,
+              stock_alert: p.stock_alert,
+              unit: p.unit,
+            }))
+          )
+          if (!error) totalOk += newProducts.length
+        }
       }
     }
-    setDistributeResult({ ok: totalOk, skip: totalSkip, stores: distributeTargets.length })
-    setDistributing(false)
+    setCopyResult({ ok: totalOk, skip: totalSkip, dests: copyTargets.length })
+    setCopying(false)
   }
 
-  function toggleDistributeTarget(id: string) {
-    setDistributeTargets(prev =>
-      prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]
-    )
+  function toggleCopyTarget(type: 'store' | 'warehouse', id: string) {
+    setCopyTargets(prev => {
+      const exists = prev.some(t => t.type === type && t.id === id)
+      return exists ? prev.filter(t => !(t.type === type && t.id === id)) : [...prev, { type, id }]
+    })
+  }
+
+  function toggleSelectAll() {
+    if (selectedIds.size === filtered.length) {
+      setSelectedIds(new Set())
+    } else {
+      setSelectedIds(new Set(filtered.map(p => p.id)))
+    }
+  }
+
+  function toggleSelect(id: string) {
+    setSelectedIds(prev => {
+      const next = new Set(prev)
+      next.has(id) ? next.delete(id) : next.add(id)
+      return next
+    })
   }
 
   const filtered = products.filter(p => (filterCat === 'all' || p.category === filterCat) && (!search || p.name.toLowerCase().includes(search.toLowerCase()) || (p.barcode && p.barcode.includes(search))))
@@ -237,6 +302,15 @@ export default function ProductsPage() {
           <div className="modal" style={{ maxWidth: 520 }}>
             <h3 style={{ marginBottom: 'var(--space-xl)' }}>{editId ? 'Modifica Prodotto' : 'Nuovo Prodotto'}</h3>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-md)' }}>
+              {/* Store selector */}
+              {allStores.length > 1 && (
+                <div className="input-group">
+                  <label className="input-label">Store di destinazione *</label>
+                  <select className="input" value={form.target_store} onChange={e => setForm(f => ({ ...f, target_store: e.target.value }))}>
+                    {allStores.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+                  </select>
+                </div>
+              )}
               <div className="input-group"><label className="input-label">Nome *</label><input className="input" placeholder="Nome prodotto" value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} /></div>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--space-md)' }}>
                 <div className="input-group"><label className="input-label">Categoria *</label>
@@ -354,76 +428,137 @@ export default function ProductsPage() {
         <div className="kpi-card"><div className="kpi-label">Disattivati</div><div className="kpi-value">{stats.inactive}</div></div>
       </div>
 
-      {/* Distribute modal */}
-      {showDistribute && (
+      {/* Copy-to modal */}
+      {showCopyTo && (
         <div className="modal-overlay">
           <div className="modal" style={{ maxWidth: 520 }}>
-            <h3 style={{ marginBottom: 8 }}>📦 Distribuisci Catalogo a Store</h3>
+            <h3 style={{ marginBottom: 8 }}>📋 Copia Prodotti</h3>
             <p style={{ color: 'var(--text-secondary)', fontSize: 14, marginBottom: 'var(--space-lg)' }}>
-              Copia tutti i {products.filter(p => p.is_active).length} prodotti attivi del catalogo verso gli store selezionati. I prodotti verranno creati con stock = 0.
+              {selectedIds.size > 0
+                ? `Copia ${selectedIds.size} prodotti selezionati verso le destinazioni scelte.`
+                : `Copia tutti i ${products.filter(p => p.is_active).length} prodotti attivi.`
+              } I prodotti verranno creati con stock/qty = 0.
             </p>
 
-            {orgStores.length === 0 ? (
-              <div style={{ textAlign: 'center', padding: 'var(--space-xl)', color: 'var(--text-tertiary)' }}>
-                <div style={{ fontSize: 36, marginBottom: 8 }}>🏪</div>
-                <div style={{ fontSize: 14 }}>Nessun altro store trovato nella tua organizzazione</div>
-              </div>
-            ) : (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-sm)', marginBottom: 'var(--space-lg)' }}>
-                {orgStores.map(s => {
-                  const isSelected = distributeTargets.includes(s.id)
-                  return (
-                    <div key={s.id} onClick={() => toggleDistributeTarget(s.id)} style={{
-                      display: 'flex', alignItems: 'center', gap: 12, padding: '12px 14px',
-                      background: isSelected ? 'var(--brand-primary-light)' : 'var(--bg-surface)',
-                      border: `1.5px solid ${isSelected ? 'var(--brand-primary)' : 'var(--border-default)'}`,
-                      borderRadius: 10, cursor: 'pointer',
-                    }}>
-                      <div style={{ width: 22, height: 22, borderRadius: 6, border: `2px solid ${isSelected ? 'var(--brand-primary)' : 'var(--border-strong)'}`, background: isSelected ? 'var(--brand-primary)' : 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', fontSize: 12, flexShrink: 0 }}>
-                        {isSelected && '✓'}
-                      </div>
-                      <div style={{ flex: 1 }}>
+            {/* Store destinations */}
+            {allStores.filter(s => s.id !== viewStore).length > 0 && (
+              <>
+                <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-tertiary)', letterSpacing: '0.06em', textTransform: 'uppercase', marginBottom: 8 }}>🏪 Store</div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 16 }}>
+                  {allStores.filter(s => s.id !== viewStore).map(s => {
+                    const isSelected = copyTargets.some(t => t.type === 'store' && t.id === s.id)
+                    return (
+                      <div key={s.id} onClick={() => toggleCopyTarget('store', s.id)} style={{
+                        display: 'flex', alignItems: 'center', gap: 12, padding: '10px 14px',
+                        background: isSelected ? 'var(--brand-primary-light)' : 'var(--bg-surface)',
+                        border: `1.5px solid ${isSelected ? 'var(--brand-primary)' : 'var(--border-default)'}`,
+                        borderRadius: 10, cursor: 'pointer',
+                      }}>
+                        <div style={{ width: 20, height: 20, borderRadius: 6, border: `2px solid ${isSelected ? 'var(--brand-primary)' : 'var(--border-strong)'}`, background: isSelected ? 'var(--brand-primary)' : 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', fontSize: 11, flexShrink: 0 }}>
+                          {isSelected && '✓'}
+                        </div>
                         <div style={{ fontWeight: 600, fontSize: 14 }}>🏪 {s.name}</div>
                       </div>
-                    </div>
-                  )
-                })}
-                <button
-                  onClick={() => setDistributeTargets(distributeTargets.length === orgStores.length ? [] : orgStores.map(s => s.id))}
-                  style={{ background: 'none', border: 'none', color: 'var(--brand-primary)', fontSize: 13, cursor: 'pointer', padding: 0, textAlign: 'left', fontWeight: 600 }}
-                >
-                  {distributeTargets.length === orgStores.length ? 'Deseleziona tutti' : 'Seleziona tutti'}
-                </button>
+                    )
+                  })}
+                </div>
+              </>
+            )}
+
+            {/* Warehouse destinations */}
+            {warehouses.length > 0 && (
+              <>
+                <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-tertiary)', letterSpacing: '0.06em', textTransform: 'uppercase', marginBottom: 8 }}>🏭 Magazzini</div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 16 }}>
+                  {warehouses.map(w => {
+                    const isSelected = copyTargets.some(t => t.type === 'warehouse' && t.id === w.id)
+                    return (
+                      <div key={w.id} onClick={() => toggleCopyTarget('warehouse', w.id)} style={{
+                        display: 'flex', alignItems: 'center', gap: 12, padding: '10px 14px',
+                        background: isSelected ? '#EFF6FF' : 'var(--bg-surface)',
+                        border: `1.5px solid ${isSelected ? '#3B82F6' : 'var(--border-default)'}`,
+                        borderRadius: 10, cursor: 'pointer',
+                      }}>
+                        <div style={{ width: 20, height: 20, borderRadius: 6, border: `2px solid ${isSelected ? '#3B82F6' : 'var(--border-strong)'}`, background: isSelected ? '#3B82F6' : 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', fontSize: 11, flexShrink: 0 }}>
+                          {isSelected && '✓'}
+                        </div>
+                        <div style={{ flex: 1 }}>
+                          <div style={{ fontWeight: 600, fontSize: 14 }}>{w.type === 'central' ? '🏭' : '📦'} {w.name}</div>
+                          <div style={{ fontSize: 11, color: 'var(--text-tertiary)' }}>{w.type === 'central' ? 'Magazzino Centrale' : 'Secondario'}</div>
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              </>
+            )}
+
+            {allStores.filter(s => s.id !== viewStore).length === 0 && warehouses.length === 0 && (
+              <div style={{ textAlign: 'center', padding: 'var(--space-xl)', color: 'var(--text-tertiary)' }}>
+                Nessuno store o magazzino trovato. Creane uno prima.
               </div>
             )}
 
-            {distributeResult && (
+            {copyResult && (
               <div style={{ background: 'var(--success-light)', border: '1px solid var(--brand-primary)', borderRadius: 'var(--radius-sm)', padding: '10px 14px', fontSize: 13, color: 'var(--brand-primary-dark)', marginBottom: 'var(--space-md)' }}>
-                ✅ Distribuiti <strong>{distributeResult.ok}</strong> prodotti a <strong>{distributeResult.stores}</strong> store{distributeResult.skip > 0 && ` · ${distributeResult.skip} già esistenti (saltati)`}
+                ✅ Copiati <strong>{copyResult.ok}</strong> prodotti a <strong>{copyResult.dests}</strong> destinazioni{copyResult.skip > 0 && ` · ${copyResult.skip} già esistenti (saltati)`}
               </div>
             )}
 
             <div style={{ display: 'flex', gap: 'var(--space-sm)' }}>
-              <button className="btn btn-secondary" style={{ flex: 1 }} onClick={() => { setShowDistribute(false); setDistributeTargets([]); setDistributeResult(null) }}>Chiudi</button>
-              {orgStores.length > 0 && (
-                <button className="btn btn-primary" style={{ flex: 2 }} onClick={distributeToStores} disabled={distributing || distributeTargets.length === 0}>
-                  {distributing ? 'Distribuzione...' : `📦 Distribuisci a ${distributeTargets.length} Store`}
-                </button>
-              )}
+              <button className="btn btn-secondary" style={{ flex: 1 }} onClick={() => { setShowCopyTo(false); setCopyTargets([]); setCopyResult(null) }}>Chiudi</button>
+              <button className="btn btn-primary" style={{ flex: 2 }} onClick={copyToDestinations} disabled={copying || copyTargets.length === 0}>
+                {copying ? 'Copia in corso...' : `📋 Copia a ${copyTargets.length} destinazioni`}
+              </button>
             </div>
           </div>
         </div>
       )}
 
       {/* Header */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--space-xl)' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--space-xl)', flexWrap: 'wrap', gap: 8 }}>
         <h2>Gestione Prodotti</h2>
-        <div style={{ display: 'flex', gap: 'var(--space-sm)' }}>
-          {orgStores.length > 0 && <button className="btn btn-secondary" onClick={() => { setShowDistribute(true); setDistributeResult(null) }} style={{ fontSize: 12 }}>📦 Distribuisci a Store</button>}
-          <button className="btn btn-secondary" onClick={() => setShowImport(true)}> Import CSV</button>
+        <div style={{ display: 'flex', gap: 'var(--space-sm)', flexWrap: 'wrap' }}>
+          <button className="btn btn-secondary" onClick={() => { setShowCopyTo(true); setCopyResult(null) }} style={{ fontSize: 12 }}>📋 Copia a...</button>
+          <button className="btn btn-secondary" onClick={() => setShowImport(true)}>📥 Import CSV</button>
           <button className="btn btn-primary" onClick={openAdd}>+ Nuovo Prodotto</button>
         </div>
       </div>
+
+      {/* Selection toolbar */}
+      {selectedIds.size > 0 && (
+        <div style={{
+          background: 'var(--brand-primary-light)', border: '1.5px solid var(--brand-primary)',
+          borderRadius: 10, padding: '10px 16px', marginBottom: 'var(--space-lg)',
+          display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap',
+        }}>
+          <span style={{ fontWeight: 700, fontSize: 14, color: 'var(--brand-primary-dark)' }}>
+            ✓ {selectedIds.size} selezionati
+          </span>
+          <button className="btn btn-primary" onClick={() => { setShowCopyTo(true); setCopyResult(null) }} style={{ padding: '5px 14px', fontSize: 12 }}>
+            📋 Copia a Store/Magazzino
+          </button>
+          <button className="btn btn-secondary" onClick={() => setSelectedIds(new Set())} style={{ padding: '5px 10px', fontSize: 12 }}>
+            ✕ Deseleziona
+          </button>
+        </div>
+      )}
+
+      {/* Store filter tabs */}
+      {allStores.length > 1 && (
+        <div style={{ display:'flex', gap:6, marginBottom:'var(--space-lg)', flexWrap:'wrap' }}>
+          {allStores.map(s => (
+            <button
+              key={s.id}
+              onClick={() => { setViewStore(s.id); setLoading(true); setTimeout(() => loadData(), 50) }}
+              className={`badge ${viewStore === s.id ? 'badge-brand' : 'badge-gray'}`}
+              style={{ cursor:'pointer', border:'none', padding:'6px 14px', fontSize:13 }}
+            >
+              🏪 {s.name}
+            </button>
+          ))}
+        </div>
+      )}
 
       {/* Filters */}
       <div style={{ display: 'flex', gap: 'var(--space-md)', marginBottom: 'var(--space-lg)', flexWrap: 'wrap' }}>
@@ -441,17 +576,26 @@ export default function ProductsPage() {
       {/* Products table */}
       <div className="table-wrapper">
         <table>
-          <thead><tr><th>Nome</th><th>Categoria</th><th>Prezzo</th><th>Costo</th><th>Margine</th><th>Barcode</th><th>Stock</th><th>Stato</th><th>Azioni</th></tr></thead>
+          <thead><tr>
+            <th style={{ width: 36 }}>
+              <input type="checkbox" checked={filtered.length > 0 && selectedIds.size === filtered.length} onChange={toggleSelectAll} style={{ cursor: 'pointer', width: 16, height: 16 }} />
+            </th>
+            <th>Nome</th><th>Categoria</th><th>Prezzo</th><th>Costo</th><th>Margine</th><th>Barcode</th><th>Stock</th><th>Stato</th><th>Azioni</th>
+          </tr></thead>
           <tbody>
             {filtered.length === 0 && (
-              <tr><td colSpan={9} style={{ textAlign: 'center', padding: 'var(--space-2xl)', color: 'var(--text-tertiary)' }}>
+              <tr><td colSpan={10} style={{ textAlign: 'center', padding: 'var(--space-2xl)', color: 'var(--text-tertiary)' }}>
                 {products.length === 0 ? 'Nessun prodotto. Aggiungine uno o importa da CSV.' : 'Nessun prodotto trovato.'}
               </td></tr>
             )}
             {filtered.map(p => {
               const margin = calcMarginPct(p.price, p.cost)
+              const isSelected = selectedIds.has(p.id)
               return (
-                <tr key={p.id} style={{ opacity: p.is_active ? 1 : 0.5 }}>
+                <tr key={p.id} style={{ opacity: p.is_active ? 1 : 0.5, background: isSelected ? 'var(--brand-primary-light)' : undefined }}>
+                  <td>
+                    <input type="checkbox" checked={isSelected} onChange={() => toggleSelect(p.id)} style={{ cursor: 'pointer', width: 16, height: 16 }} />
+                  </td>
                   <td>
                     <div style={{ fontWeight: 600 }}>{p.name}</div>
                     <div style={{ fontSize: 11, color: 'var(--text-tertiary)' }}>{p.unit}</div>
