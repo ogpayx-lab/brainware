@@ -30,7 +30,7 @@ export default function ShiftOpenPage() {
 
   // Open session form (only when no session exists)
   const [showOpenForm, setShowOpenForm] = useState(false)
-  const [period, setPeriod] = useState<ShiftPeriod>('morning')
+  const autoPeriod: ShiftPeriod = new Date().getHours() < 14 ? 'morning' : 'evening'
   const [fce, setFce] = useState('')
   const [opening, setOpening] = useState(false)
 
@@ -131,8 +131,8 @@ export default function ShiftOpenPage() {
       .from('shifts')
       .insert({
         store_id: storeId,
-        user_id: authUserId, // store account opens the shift
-        period,
+        user_id: authUserId,
+        period: autoPeriod,
         fce: fceValue,
         status: 'open',
       })
@@ -157,7 +157,7 @@ export default function ShiftOpenPage() {
       store_id: storeId,
       type: 'shift_open',
       title: '🟢 Turno aperto',
-      message: `${selectedEmp.full_name} ha aperto il turno ${period === 'morning' ? 'mattina' : 'sera'} (FCE: €${fceValue.toFixed(2)}).`,
+      message: `${selectedEmp.full_name} ha aperto il turno ${autoPeriod === 'morning' ? 'mattina' : 'sera'} (FCE: €${fceValue.toFixed(2)}).`,
     })
 
     // Save active employee to localStorage
@@ -376,12 +376,8 @@ export default function ShiftOpenPage() {
                       📋 Apri la giornata
                     </div>
 
-                    <div className="input-group" style={{ marginBottom: 12 }}>
-                      <span className="input-label">Turno</span>
-                      <div className="toggle-group">
-                        <button type="button" className={`toggle-option ${period === 'morning' ? 'active' : ''}`} onClick={() => setPeriod('morning')}>Mattina</button>
-                        <button type="button" className={`toggle-option ${period === 'evening' ? 'active' : ''}`} onClick={() => setPeriod('evening')}>Sera</button>
-                      </div>
+                    <div style={{ marginBottom: 12, padding: '10px 14px', background: 'var(--brand-primary-light)', borderRadius: 8, fontSize: 13, color: 'var(--brand-primary-dark)', fontWeight: 600 }}>
+                      🕐 Turno: {autoPeriod === 'morning' ? '☀️ Mattina' : '🌙 Sera'} (auto)
                     </div>
 
                     <div className="input-group" style={{ marginBottom: 16 }}>

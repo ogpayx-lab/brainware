@@ -13,10 +13,14 @@ type ShopifyOrder = {
   total_price: string
   currency: string
   line_items: { title: string; quantity: number; price: string }[]
+  shipping_lines?: { title: string; code: string; price: string }[]
   shipping_address?: { name: string; address1: string; address2?: string; city: string; province?: string; zip?: string; country: string; phone?: string }
   customer?: { first_name: string; last_name: string; email: string; phone?: string }
   email: string
   phone?: string
+  tags: string
+  payment_gateway_names?: string[]
+  gateway?: string
 }
 
 export default function EmployeeOrdersPage() {
@@ -33,6 +37,9 @@ export default function EmployeeOrdersPage() {
     trackingCompany: '',
     trackingNumber: '',
     notifyCustomer: true,
+    sourceType: 'store' as 'store' | 'warehouse',
+    sourceId: '',
+    deductStock: true,
   })
   const [fulfillError, setFulfillError] = useState('')
   const [fulfillSuccess, setFulfillSuccess] = useState('')
@@ -40,6 +47,12 @@ export default function EmployeeOrdersPage() {
   const [filter, setFilter] = useState<'unfulfilled'|'all'>('unfulfilled')
   const [dateFrom, setDateFrom] = useState('')
   const [dateTo, setDateTo] = useState('')
+  const [stores, setStores] = useState<any[]>([])
+  const [warehouses, setWarehouses] = useState<any[]>([])
+  const [storeId, setStoreId] = useState<string|null>(null)
+  const [sourceStockMap, setSourceStockMap] = useState<Record<string,number>>({})
+  const [loadingStock, setLoadingStock] = useState(false)
+  const [suggestedStore, setSuggestedStore] = useState<string|null>(null)
 
   useEffect(() => { init() }, [])
 
@@ -49,6 +62,18 @@ export default function EmployeeOrdersPage() {
     const { data: { session } } = await supabase.auth.getSession()
     const token = session?.access_token ?? ''
     setAccessToken(token)
+
+    // Carica store e magazzini dell'organizzazione
+    const { data: profile } = await supabase.from('users').select('store_id, stores(organization_id, name, city)').eq('id', user.id).single()
+    if (profile?.store_id) setStoreId(profile.store_id)
+    const oid = (profile?.stores as any)?.organization_id
+    if (oid) {
+      const { data: storesData } = await supabase.from('stores').select('id,name,city').eq('organization_id', oid).eq('is_active', true)
+      setStores(storesData ?? [])
+      const { data: whData } = await supabase.from('warehouses').select('id,name,type').eq('organization_id', oid).eq('is_active', true)
+      setWarehouses(whData ?? [])
+    }
+
     await fetchOrders(token)
   }
 
@@ -69,10 +94,29 @@ export default function EmployeeOrdersPage() {
     setLoading(false)
   }
 
+  async function loadSourceStock(sourceType: 'store'|'warehouse', sourceId: string, lineItems: {title:string;quantity:number}[]) {
+    if (!sourceId) { setSourceStockMap({}); return }
+    setLoadingStock(true)
+    const map: Record<string,number> = {}
+    for (const li of lineItems) {
+      const name = li.title.toLowerCase().trim()
+      if (sourceType === 'warehouse') {
+        const { data } = await supabase.from('warehouse_stock').select('qty').eq('warehouse_id', sourceId).ilike('product_name', `%${name}%`).single()
+        map[li.title] = data?.qty ?? 0
+      } else {
+        const { data } = await supabase.from('products').select('stock').eq('store_id', sourceId).ilike('name', `%${name}%`).single()
+        map[li.title] = data?.stock ?? 0
+      }
+    }
+    setSourceStockMap(map)
+    setLoadingStock(false)
+  }
+
   async function fulfillOrder() {
     if (!fulfillModal) return
     if (!fulfillForm.trackingCompany.trim()) { setFulfillError('Il nome del corriere è obbligatorio'); return }
     if (!fulfillForm.trackingNumber.trim()) { setFulfillError('Il numero di tracking è obbligatorio'); return }
+    if (fulfillForm.deductStock && !fulfillForm.sourceId) { setFulfillError('Seleziona una sorgente inventario'); return }
 
     setFulfilling(true); setFulfillError('')
     const token = accessToken ?? (await supabase.auth.getSession()).data.session?.access_token ?? ''
@@ -94,6 +138,25 @@ export default function EmployeeOrdersPage() {
         return
       }
       setOrders(prev => prev.map(o => o.id === fulfillModal.id ? { ...o, fulfillment_status: 'fulfilled' } : o))
+
+      // Scala inventario dalla sorgente selezionata
+      if (fulfillForm.deductStock && fulfillForm.sourceId) {
+        for (const li of fulfillModal.line_items) {
+          const productName = li.title.toLowerCase().trim()
+          if (fulfillForm.sourceType === 'warehouse') {
+            const { data: whItem } = await supabase.from('warehouse_stock').select('id,qty').eq('warehouse_id', fulfillForm.sourceId).ilike('product_name', `%${productName}%`).single()
+            if (whItem) {
+              await supabase.from('warehouse_stock').update({ qty: Math.max(0, whItem.qty - li.quantity) }).eq('id', whItem.id)
+            }
+          } else {
+            const { data: prod } = await supabase.from('products').select('id,stock').eq('store_id', fulfillForm.sourceId).ilike('name', `%${productName}%`).single()
+            if (prod) {
+              await supabase.from('products').update({ stock: Math.max(0, prod.stock - li.quantity) }).eq('id', prod.id)
+            }
+          }
+        }
+      }
+
       setFulfillSuccess(`Ordine ${fulfillModal.name} evaso con successo!`)
       setTimeout(() => { setFulfillModal(null); setFulfillSuccess('') }, 2500)
     } catch (e: any) {
@@ -150,12 +213,24 @@ export default function EmployeeOrdersPage() {
                 {/* Articoli */}
                 <div style={{ background: 'var(--bg-surface)', borderRadius: 12, padding: '12px 14px', marginBottom: 14 }}>
                   <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-tertiary)', letterSpacing: '0.05em', marginBottom: 8 }}>ARTICOLI DA SPEDIRE</div>
-                  {fulfillModal.line_items.map((li, i) => (
+                  {fulfillModal.line_items.map((li, i) => {
+                    const avail = sourceStockMap[li.title]
+                    const hasStock = avail !== undefined
+                    const enough = hasStock && avail >= li.quantity
+                    return (
                     <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '6px 0', borderBottom: i < fulfillModal.line_items.length - 1 ? '1px solid var(--border-subtle)' : 'none' }}>
-                      <span style={{ fontSize: 14 }}>{li.title}</span>
-                      <span style={{ fontWeight: 700, fontSize: 14, background: 'var(--brand-primary-light)', color: 'var(--brand-primary)', borderRadius: 6, padding: '2px 8px' }}>×{li.quantity}</span>
+                      <div style={{ flex: 1 }}>
+                        <span style={{ fontSize: 14 }}>{li.title}</span>
+                        {hasStock && fulfillForm.deductStock && (
+                          <div style={{ fontSize: 11, color: enough ? 'var(--success, #22c55e)' : '#ef4444', fontWeight: 600, marginTop: 2 }}>
+                            {enough ? `✅ Disponibile: ${avail}` : `⚠️ Disponibile: ${avail} (servono ${li.quantity})`}
+                          </div>
+                        )}
+                      </div>
+                      <span style={{ fontWeight: 700, fontSize: 14, background: 'var(--brand-primary-light)', color: 'var(--brand-primary)', borderRadius: 6, padding: '2px 8px', flexShrink: 0 }}>×{li.quantity}</span>
                     </div>
-                  ))}
+                    )
+                  })}
                 </div>
 
                 {/* Destinatario */}
@@ -177,6 +252,55 @@ export default function EmployeeOrdersPage() {
                     {fulfillModal.email && (
                       <div style={{ fontSize: 12, color: 'var(--text-secondary)' }}>📧 {fulfillModal.email}</div>
                     )}
+                  </div>
+                </div>
+
+                {/* Suggerimento Local Delivery */}
+                {suggestedStore && (
+                  <div style={{ background: '#EDE9FE', border: '1px solid #A78BFA', borderRadius: 12, padding: '10px 14px', marginBottom: 14, fontSize: 12 }}>
+                    <div style={{ fontWeight: 700, color: '#5B21B6', marginBottom: 2 }}>📍 Store suggerito per Local Delivery</div>
+                    <div style={{ color: '#6D28D9' }}>{suggestedStore}</div>
+                  </div>
+                )}
+
+                {/* Sorgente Inventario */}
+                <div style={{ background: 'var(--bg-surface)', borderRadius: 12, padding: '12px 14px', marginBottom: 14 }}>
+                  <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-tertiary)', letterSpacing: '0.05em', marginBottom: 8 }}>📦 SORGENTE INVENTARIO</div>
+                  <div style={{ display: 'flex', gap: 6, marginBottom: 10 }}>
+                    <button
+                      onClick={() => { setFulfillForm(f => ({...f, sourceType:'store', sourceId:stores[0]?.id||''})); if (fulfillModal) loadSourceStock('store', stores[0]?.id||'', fulfillModal.line_items) }}
+                      style={{ flex:1, padding:'7px 10px', borderRadius:8, border:'none', background: fulfillForm.sourceType==='store' ? 'var(--brand-primary)' : 'var(--bg-primary, #fff)', color: fulfillForm.sourceType==='store' ? 'white' : 'var(--text-secondary)', cursor:'pointer', fontSize:13, fontWeight:600, transition:'all 0.15s' }}
+                    >
+                      🏠 Store
+                    </button>
+                    <button
+                      onClick={() => { setFulfillForm(f => ({...f, sourceType:'warehouse', sourceId:warehouses[0]?.id||''})); if (fulfillModal) loadSourceStock('warehouse', warehouses[0]?.id||'', fulfillModal.line_items) }}
+                      style={{ flex:1, padding:'7px 10px', borderRadius:8, border:'none', background: fulfillForm.sourceType==='warehouse' ? 'var(--brand-primary)' : 'var(--bg-primary, #fff)', color: fulfillForm.sourceType==='warehouse' ? 'white' : 'var(--text-secondary)', cursor:'pointer', fontSize:13, fontWeight:600, transition:'all 0.15s' }}
+                    >
+                      🏭 Magazzino
+                    </button>
+                  </div>
+                  <select
+                    className="input"
+                    value={fulfillForm.sourceId}
+                    onChange={e => { setFulfillForm(f => ({...f, sourceId:e.target.value})); if (fulfillModal) loadSourceStock(fulfillForm.sourceType, e.target.value, fulfillModal.line_items) }}
+                    style={{ marginBottom: 8, borderColor: fulfillError && fulfillForm.deductStock && !fulfillForm.sourceId ? 'var(--danger, #ef4444)' : undefined }}
+                  >
+                    <option value="">Seleziona {fulfillForm.sourceType === 'store' ? 'store' : 'magazzino'}...</option>
+                    {fulfillForm.sourceType === 'store'
+                      ? stores.map(s => <option key={s.id} value={s.id}>{s.name}{s.city ? ` (${s.city})` : ''}</option>)
+                      : warehouses.map(w => <option key={w.id} value={w.id}>{w.type === 'central' ? '🏭' : '📦'} {w.name}</option>)
+                    }
+                  </select>
+                  {loadingStock && <div style={{ fontSize: 11, color: 'var(--text-tertiary)', marginBottom: 4 }}>⏳ Verifica disponibilità...</div>}
+                  <div
+                    style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer', marginTop: 4 }}
+                    onClick={() => setFulfillForm(f => ({...f, deductStock: !f.deductStock}))}
+                  >
+                    <div style={{ width: 20, height: 20, borderRadius: 5, border: `2px solid ${fulfillForm.deductStock ? 'var(--brand-primary)' : 'var(--border-default, #ddd)'}`, background: fulfillForm.deductStock ? 'var(--brand-primary)' : 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, transition: 'all 0.15s' }}>
+                      {fulfillForm.deductStock && <span style={{ color: 'white', fontSize: 12, fontWeight: 700 }}>✓</span>}
+                    </div>
+                    <div style={{ fontSize: 13 }}>Scala automaticamente dall'inventario</div>
                   </div>
                 </div>
 
@@ -385,8 +509,28 @@ export default function EmployeeOrdersPage() {
                       style={{ fontSize: 13, padding: '8px 18px' }}
                       onClick={() => {
                         setFulfillModal(order)
-                        setFulfillForm({ trackingCompany: '', trackingNumber: '', notifyCustomer: true })
+                        const initialSourceId = stores[0]?.id || ''
+                        setFulfillForm({ trackingCompany: '', trackingNumber: '', notifyCustomer: true, sourceType: 'store', sourceId: initialSourceId, deductStock: true })
                         setFulfillError('')
+                        setSourceStockMap({})
+                        // Suggerimento local delivery
+                        const shTitle = order.shipping_lines?.[0]?.title?.toLowerCase() || order.tags?.toLowerCase() || ''
+                        const isLocal = shTitle.includes('local') || shTitle.includes('locale') || shTitle.includes('consegna') || shTitle.includes('pickup') || shTitle.includes('ritiro')
+                        let srcId = initialSourceId
+                        if (isLocal && order.shipping_address?.city && stores.length > 1) {
+                          const destCity = order.shipping_address.city.toLowerCase().trim()
+                          const match = stores.find((s: any) => s.city?.toLowerCase().trim() === destCity)
+                          if (match) {
+                            setSuggestedStore(match.name + (match.city ? ` (${match.city})` : ''))
+                            setFulfillForm(f => ({...f, sourceId: match.id}))
+                            srcId = match.id
+                          } else {
+                            setSuggestedStore(stores[0].name + ' (nessun match città)')
+                          }
+                        } else {
+                          setSuggestedStore(null)
+                        }
+                        if (srcId) loadSourceStock('store', srcId, order.line_items)
                       }}
                     >
                       📦 Evadi ordine →
