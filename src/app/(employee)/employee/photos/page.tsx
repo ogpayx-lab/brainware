@@ -85,6 +85,14 @@ export default function PhotosPage() {
         storage_path: path,
         caption: caption || null,
       })
+
+      const { data: empProfile } = await supabase.from('users').select('full_name').eq('id', userId).single()
+      await supabase.from('notifications').insert({
+        store_id: storeId,
+        type: 'photo',
+        title: '📸 Foto caricata',
+        message: `${empProfile?.full_name || 'Dipendente'} ha caricato una foto${caption ? `: "${caption}"` : '.'}.`,
+      })
     }
 
     setPendingFile(null)

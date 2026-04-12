@@ -90,6 +90,15 @@ export default function FidelityPage() {
         customer_nationality: form.nationality,
         acquisition_source: form.how,
       })
+
+      const { data: empProfile } = await supabase.from('users').select('full_name').eq('id', userId).single()
+      await supabase.from('notifications').insert({
+        store_id: storeId,
+        type: 'fidelity',
+        title: '💳 Nuova Fidelity Card',
+        message: `${empProfile?.full_name || 'Dipendente'} ha creato una e-Card per ${fullName} (${form.phone}).`,
+      })
+
       setForm({ first_name: '', last_name: '', email: '', phone: '', dob: '', notes: '', nationality: 'Italiana', how: 'Passaparola', privacy: false })
       await loadData()
     }

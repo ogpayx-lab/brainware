@@ -91,7 +91,23 @@ export default function MaintenancePage() {
       return
     }
 
-    setTasks(prev => prev.map(t => t.id === task.id ? { ...t, completed: newCompleted } : t))
+    setTasks(prev => {
+      const updated = prev.map(t => t.id === task.id ? { ...t, completed: newCompleted } : t)
+      // Notify owner when all tasks just completed
+      const allDone = updated.every(t => t.completed)
+      if (allDone && newCompleted) {
+        (async () => {
+          const { data: empProfile } = await supabase.from('users').select('full_name').eq('id', userId!).single()
+          await supabase.from('notifications').insert({
+            store_id: storeId,
+            type: 'maintenance',
+            title: '🔧 Manutenzione completata',
+            message: `${empProfile?.full_name || 'Dipendente'} ha completato tutte le ${updated.length} attività di manutenzione giornaliera.`,
+          })
+        })()
+      }
+      return updated
+    })
   }
 
   const completed = tasks.filter(t => t.completed).length

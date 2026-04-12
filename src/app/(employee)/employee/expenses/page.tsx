@@ -70,6 +70,13 @@ export default function ExpensesPage() {
 
     if (err) { setError('Errore nel salvataggio.'); setSaving(false); return }
 
+    await supabase.from('notifications').insert({
+      store_id: storeId,
+      type: 'expense',
+      title: '💸 Spesa registrata',
+      message: `${employeeName} ha registrato una spesa di €${amt.toFixed(2)}: ${description.trim()}`,
+    })
+
     setAmount('')
     setDescription('')
     await loadData()

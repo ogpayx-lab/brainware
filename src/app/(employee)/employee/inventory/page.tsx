@@ -6,7 +6,7 @@ import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import { categoryLabel } from '@/lib/utils'
 import { BottomNav } from '@/components/employee/BottomNav'
-import type { Product, ProductCategory, InventoryCountItem } from '@/types/database'
+import type { Product, ProductCategory } from '@/types/database'
 
 interface CountRow extends Product {
   counted: string
@@ -105,6 +105,19 @@ export default function InventoryPage() {
         attempt_count: r.attempts,
       }))
     )
+
+    // Get employee name
+    const { data: empProfile } = await supabase.from('users').select('full_name').eq('id', userId).single()
+    const empName = empProfile?.full_name || 'Dipendente'
+    const matches = counted.filter(r => r.status === 'match').length
+    const mismatches = counted.filter(r => r.status !== 'match').length
+
+    await supabase.from('notifications').insert({
+      store_id: storeId,
+      type: 'inventory_count',
+      title: '📋 Inventario completato',
+      message: `${empName} ha finalizzato il conteggio inventario: ${counted.length} prodotti, ${matches} ✅ match, ${mismatches} ⚠️ discrepanze.`,
+    })
 
     setFinalized(true)
     setFinalizing(false)

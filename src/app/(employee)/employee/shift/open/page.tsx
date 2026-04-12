@@ -152,6 +152,14 @@ export default function ShiftOpenPage() {
       store_id: storeId,
     })
 
+    // Notify owner
+    await supabase.from('notifications').insert({
+      store_id: storeId,
+      type: 'shift_open',
+      title: '🟢 Turno aperto',
+      message: `${selectedEmp.full_name} ha aperto il turno ${period === 'morning' ? 'mattina' : 'sera'} (FCE: €${fceValue.toFixed(2)}).`,
+    })
+
     // Save active employee to localStorage
     localStorage.setItem('activeEmployeeId', selectedEmp.id)
     localStorage.setItem('activeEmployeeName', selectedEmp.full_name)
@@ -184,6 +192,14 @@ export default function ShiftOpenPage() {
       setCheckingIn(false)
       return
     }
+
+    // Notify owner
+    await supabase.from('notifications').insert({
+      store_id: storeId,
+      type: 'shift_checkin',
+      title: '👤 Check-in dipendente',
+      message: `${selectedEmp.full_name} ha effettuato il check-in al turno.`,
+    })
 
     // Save active employee to localStorage
     localStorage.setItem('activeEmployeeId', selectedEmp.id)
