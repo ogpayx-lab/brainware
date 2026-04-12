@@ -153,11 +153,17 @@ export default function StockPage() {
           notes: `✅ Auto-approvato — conteggio ${empName} corrisponde`,
         }).eq('id', activeRequest.id)
 
+        const detailList = reqItems.map((item: any) => {
+          const prod = products.find(p => p.name.toLowerCase() === item.product_name?.toLowerCase() || p.id === item.product_id)
+          const qty = prod ? (countedQtys[prod.id] ?? 0) : 0
+          return `${item.product_name} ×${qty}`
+        }).join(', ')
+
         await supabase.from('notifications').insert({
           store_id: storeId,
           type: 'stock_approved',
           title: '✅ Ricarica completata',
-          message: `${empName} ha contato ${reqItems.length} prodotti. Quantità corrispondenti — stock aggiornato automaticamente.`,
+          message: `${empName} ha contato ${reqItems.length} prodotti — match confermato. Dettaglio: ${detailList}. Stock aggiornato.`,
         })
 
         setDoneMessage('✅ Conteggio corretto! Lo stock è stato aggiornato automaticamente.')
@@ -223,11 +229,13 @@ export default function StockPage() {
         }
       }
 
+      const detailList = items.map(i => `${i.product_name} ×${i.qty_delivered}`).join(', ')
+
       await supabase.from('notifications').insert({
         store_id: storeId,
         type: 'stock_approved',
         title: '✅ Ricarica Stock completata',
-        message: `${empName} ha ricaricato ${items.length} prodotti (${items.reduce((s, i) => s + i.qty_delivered, 0)} pezzi). Stock aggiornato.`,
+        message: `${empName} ha ricaricato ${items.length} prodotti (${items.reduce((s, i) => s + i.qty_delivered, 0)} pezzi). Dettaglio: ${detailList}.`,
       })
 
       setDoneMessage('✅ Stock aggiornato! L\'owner è stato notificato.')
