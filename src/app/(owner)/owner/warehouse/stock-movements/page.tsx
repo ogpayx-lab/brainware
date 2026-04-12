@@ -128,6 +128,16 @@ export default function StockApprovalsPage() {
       await supabase.from('stock_request_items').update({
         qty_delivered: approvedQty,
       }).eq('id', item.id)
+
+      // Update product stock
+      if (item.product_id && approvedQty > 0) {
+        const { data: prod } = await supabase.from('products').select('stock').eq('id', item.product_id).single()
+        if (prod) {
+          await supabase.from('products').update({
+            stock: prod.stock + approvedQty,
+          }).eq('id', item.product_id)
+        }
+      }
     }
 
     await supabase.from('stock_requests').update({

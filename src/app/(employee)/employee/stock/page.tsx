@@ -188,13 +188,14 @@ export default function StockPage() {
         setDoneMessage('⚠️ Conteggio inviato all\'owner — alcune quantità non corrispondono.')
       }
     } else {
-      // === MANUAL FLOW: create new stock_request ===
+      // === MANUAL FLOW: auto-approve and update stock directly ===
       const { data: req } = await supabase
         .from('stock_requests')
         .insert({
           shift_id: shiftId, store_id: storeId, user_id: userId,
-          status: 'owner_review',
-          notes: `Ricarica manuale da ${empName}`,
+          status: 'approved',
+          approved_at: new Date().toISOString(),
+          notes: `✅ Ricarica manuale da ${empName} — auto-approvata`,
         })
         .select('id').single()
 
@@ -208,18 +209,28 @@ export default function StockPage() {
           product_name: product.name,
           stock_before: product.stock,
           qty_requested: countedQtys[id] || 0,
+          qty_delivered: countedQtys[id] || 0,
         }
       })
       await supabase.from('stock_request_items').insert(items)
 
+      // Update stock for each product
+      for (const item of items) {
+        if (item.qty_delivered > 0) {
+          await supabase.from('products').update({
+            stock: (products.find(p => p.id === item.product_id)?.stock || 0) + item.qty_delivered,
+          }).eq('id', item.product_id)
+        }
+      }
+
       await supabase.from('notifications').insert({
         store_id: storeId,
-        type: 'stock_reload',
-        title: '📦 Ricarica Stock inviata',
-        message: `${empName} ha contato ${items.length} prodotti. In attesa di approvazione.`,
+        type: 'stock_approved',
+        title: '✅ Ricarica Stock completata',
+        message: `${empName} ha ricaricato ${items.length} prodotti (${items.reduce((s, i) => s + i.qty_delivered, 0)} pezzi). Stock aggiornato.`,
       })
 
-      setDoneMessage('Richiesta inviata all\'owner per approvazione.')
+      setDoneMessage('✅ Stock aggiornato! L\'owner è stato notificato.')
     }
 
     setDone(true)
