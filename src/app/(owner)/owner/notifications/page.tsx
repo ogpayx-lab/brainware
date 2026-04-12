@@ -30,20 +30,28 @@ export default function NotificationsPage() {
     if (!profile || profile.role !== 'owner') { router.push('/login'); return }
     setStoreId(profile.store_id)
 
-    // Carica notifiche del proprio store
+    // Load all store IDs in organization
+    const oid = (profile.stores as any)?.organization_id
+    let storeIds = [profile.store_id]
+    if (oid) {
+      const { data: orgStores } = await supabase.from('stores').select('id').eq('organization_id', oid)
+      storeIds = (orgStores ?? []).map(s => s.id)
+    }
+
+    // Load notifications from ALL stores
     const { data: notifs } = await supabase
       .from('notifications')
-      .select('*, users(full_name)')
-      .eq('store_id', profile.store_id)
+      .select('*, users(full_name), stores(name)')
+      .in('store_id', storeIds)
       .order('created_at', { ascending: false })
       .limit(100)
     setNotifications(notifs ?? [])
 
-    // Carica richieste giorni liberi pendenti
+    // Carica richieste giorni liberi pendenti (all stores)
     const { data: dorData } = await supabase
       .from('day_off_requests')
       .select('*, users(full_name)')
-      .eq('store_id', profile.store_id)
+      .in('store_id', storeIds)
       .eq('status', 'pending')
       .order('created_at', { ascending: false })
     setDayOffRequests(dorData ?? [])
@@ -187,6 +195,7 @@ export default function NotificationsPage() {
                 </div>
                 {notif.message && <div style={{ fontSize:13, color:'var(--text-secondary)', marginTop:2, lineHeight:1.4 }}>{notif.message}</div>}
                 <div style={{ fontSize:11, color:'var(--text-tertiary)', marginTop:4 }}>
+                  {(notif.stores as any)?.name && <span style={{ fontWeight: 600 }}>{(notif.stores as any).name} · </span>}
                   {new Date(notif.created_at).toLocaleDateString('it-IT', { day:'numeric', month:'short', hour:'2-digit', minute:'2-digit' })}
                   {notif.users?.full_name && ` · ${notif.users.full_name}`}
                 </div>
