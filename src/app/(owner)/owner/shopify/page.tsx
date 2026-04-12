@@ -11,7 +11,7 @@ type ShopifyOrder = {
   fulfillment_status: string | null
   total_price: string
   currency: string
-  line_items: { title: string; quantity: number; price: string }[]
+  line_items: { title: string; quantity: number; price: string; sku?: string }[]
   shipping_lines?: { title: string; code: string; price: string }[]
   shipping_address?: { name: string; address1: string; address2?: string; city: string; province?: string; zip?: string; country: string; phone?: string }
   billing_address?: { name: string; address1: string; city: string; country: string; phone?: string }
@@ -53,7 +53,7 @@ export default function ShopifyOrdersPage() {
   const [fulfillSuccess, setFulfillSuccess] = useState('')
   const [warehouses, setWarehouses] = useState<any[]>([])
   const [suggestedStore, setSuggestedStore] = useState<string|null>(null)
-  const [sourceStockMap, setSourceStockMap] = useState<Record<string,number>>({})
+  const [sourceStockMap, setSourceStockMap] = useState<Record<string,{qty:number;matchedId:string|null;matchType:string}>>({})
   const [loadingStock, setLoadingStock] = useState(false)
 
   useEffect(() => { checkAuthAndLoad() }, [])
@@ -121,18 +121,52 @@ export default function ShopifyOrdersPage() {
     setLoading(false)
   }
 
-  async function loadSourceStock(sourceType: 'store'|'warehouse', sourceId: string, lineItems: {title:string;quantity:number}[]) {
+  // Smart product matching: tries multiple strategies to find the local product
+  async function findLocalProduct(sourceType: 'store'|'warehouse', sourceId: string, shopifyTitle: string, shopifySku?: string): Promise<{id:string;qty:number;matchType:string}|null> {
+    const name = shopifyTitle.toLowerCase().trim()
+    const words = name.split(/[\s\-–_,./()]+/).filter(w => w.length > 2 && !/^\d+$/.test(w))
+
+    if (sourceType === 'warehouse') {
+      let { data } = await supabase.from('warehouse_stock').select('id,qty,product_name').eq('warehouse_id', sourceId).ilike('product_name', name).single()
+      if (data) return { id: data.id, qty: data.qty, matchType: 'esatto' }
+      if (shopifySku) {
+        ;({ data } = await supabase.from('warehouse_stock').select('id,qty,product_name').eq('warehouse_id', sourceId).ilike('product_name', `%${shopifySku}%`).single())
+        if (data) return { id: data.id, qty: data.qty, matchType: 'SKU' }
+      }
+      ;({ data } = await supabase.from('warehouse_stock').select('id,qty,product_name').eq('warehouse_id', sourceId).ilike('product_name', `%${name}%`).single())
+      if (data) return { id: data.id, qty: data.qty, matchType: 'contiene' }
+      for (const word of words) {
+        const { data: items } = await supabase.from('warehouse_stock').select('id,qty,product_name').eq('warehouse_id', sourceId).ilike('product_name', `%${word}%`)
+        if (items && items.length === 1) return { id: items[0].id, qty: items[0].qty, matchType: `parola "${word}"` }
+      }
+      return null
+    } else {
+      let { data } = await supabase.from('products').select('id,stock,name,barcode').eq('store_id', sourceId).eq('is_active', true).ilike('name', name).single()
+      if (data) return { id: data.id, qty: data.stock, matchType: 'esatto' }
+      if (shopifySku) {
+        ;({ data } = await supabase.from('products').select('id,stock,name,barcode').eq('store_id', sourceId).eq('is_active', true).eq('barcode', shopifySku).single())
+        if (data) return { id: data.id, qty: data.stock, matchType: 'SKU/barcode' }
+      }
+      ;({ data } = await supabase.from('products').select('id,stock,name,barcode').eq('store_id', sourceId).eq('is_active', true).ilike('name', `%${name}%`).single())
+      if (data) return { id: data.id, qty: data.stock, matchType: 'contiene' }
+      for (const word of words) {
+        const { data: items } = await supabase.from('products').select('id,stock,name,barcode').eq('store_id', sourceId).eq('is_active', true).ilike('name', `%${word}%`)
+        if (items && items.length === 1) return { id: items[0].id, qty: items[0].stock, matchType: `parola "${word}"` }
+      }
+      return null
+    }
+  }
+
+  async function loadSourceStock(sourceType: 'store'|'warehouse', sourceId: string, lineItems: {title:string;quantity:number;sku?:string}[]) {
     if (!sourceId) { setSourceStockMap({}); return }
     setLoadingStock(true)
-    const map: Record<string,number> = {}
+    const map: Record<string,{qty:number;matchedId:string|null;matchType:string}> = {}
     for (const li of lineItems) {
-      const name = li.title.toLowerCase().trim()
-      if (sourceType === 'warehouse') {
-        const { data } = await supabase.from('warehouse_stock').select('qty').eq('warehouse_id', sourceId).ilike('product_name', `%${name}%`).single()
-        map[li.title] = data?.qty ?? 0
+      const match = await findLocalProduct(sourceType, sourceId, li.title, li.sku)
+      if (match) {
+        map[li.title] = { qty: match.qty, matchedId: match.id, matchType: match.matchType }
       } else {
-        const { data } = await supabase.from('products').select('stock').eq('store_id', sourceId).ilike('name', `%${name}%`).single()
-        map[li.title] = data?.stock ?? 0
+        map[li.title] = { qty: -1, matchedId: null, matchType: 'non trovato' }
       }
     }
     setSourceStockMap(map)
@@ -193,21 +227,26 @@ export default function ShopifyOrdersPage() {
         ).then(() => {}) // fire and forget
       }
 
-      // Deduct stock if enabled
+      // Deduct stock if enabled (usa ID già matchati)
       if (fulfillForm.deductStock && fulfillForm.sourceId) {
         for (const li of fulfillModal.line_items) {
-          const productName = li.title.toLowerCase().trim()
-          if (fulfillForm.sourceType === 'warehouse') {
-            // Deduct from warehouse_stock
-            const { data: whItem } = await supabase.from('warehouse_stock').select('id,qty').eq('warehouse_id', fulfillForm.sourceId).ilike('product_name', `%${productName}%`).single()
-            if (whItem) {
-              await supabase.from('warehouse_stock').update({ qty: Math.max(0, whItem.qty - li.quantity) }).eq('id', whItem.id)
+          const stockInfo = sourceStockMap[li.title]
+          if (stockInfo?.matchedId) {
+            if (fulfillForm.sourceType === 'warehouse') {
+              const { data: whItem } = await supabase.from('warehouse_stock').select('qty').eq('id', stockInfo.matchedId).single()
+              if (whItem) await supabase.from('warehouse_stock').update({ qty: Math.max(0, whItem.qty - li.quantity) }).eq('id', stockInfo.matchedId)
+            } else {
+              const { data: prod } = await supabase.from('products').select('stock').eq('id', stockInfo.matchedId).single()
+              if (prod) await supabase.from('products').update({ stock: Math.max(0, prod.stock - li.quantity) }).eq('id', stockInfo.matchedId)
             }
           } else {
-            // Deduct from store products
-            const { data: prod } = await supabase.from('products').select('id,stock').eq('store_id', fulfillForm.sourceId).ilike('name', `%${productName}%`).single()
-            if (prod) {
-              await supabase.from('products').update({ stock: Math.max(0, prod.stock - li.quantity) }).eq('id', prod.id)
+            const match = await findLocalProduct(fulfillForm.sourceType, fulfillForm.sourceId, li.title, li.sku)
+            if (match) {
+              if (fulfillForm.sourceType === 'warehouse') {
+                await supabase.from('warehouse_stock').update({ qty: Math.max(0, match.qty - li.quantity) }).eq('id', match.id)
+              } else {
+                await supabase.from('products').update({ stock: Math.max(0, match.qty - li.quantity) }).eq('id', match.id)
+              }
             }
           }
         }
@@ -473,16 +512,27 @@ export default function ShopifyOrdersPage() {
                 <div style={{ background:'var(--bg-surface)', borderRadius:10, padding:12, marginBottom:16 }}>
                   <div style={{ fontSize:12, fontWeight:700, color:'var(--text-secondary)', marginBottom:8 }}>ARTICOLI</div>
                   {fulfillModal.line_items.map((li, i) => {
-                    const avail = sourceStockMap[li.title]
-                    const hasStock = avail !== undefined
-                    const enough = hasStock && avail >= li.quantity
+                    const stockInfo = sourceStockMap[li.title]
+                    const hasMatch = stockInfo && stockInfo.matchedId !== null
+                    const notFound = stockInfo && stockInfo.matchedId === null
+                    const enough = hasMatch && stockInfo.qty >= li.quantity
                     return (
                       <div key={i} style={{ display:'flex', justifyContent:'space-between', alignItems:'center', fontSize:13, padding:'6px 0', borderBottom: i < fulfillModal.line_items.length-1 ? '1px solid var(--border-subtle)' : 'none' }}>
                         <div style={{ flex:1 }}>
                           <div>{li.title}</div>
-                          {hasStock && fulfillForm.deductStock && (
-                            <div style={{ fontSize:11, color: enough ? 'var(--success)' : 'var(--danger)', fontWeight:600, marginTop:2 }}>
-                              {enough ? `✅ Disponibile: ${avail}` : `⚠️ Disponibile: ${avail} (servono ${li.quantity})`}
+                          {fulfillForm.deductStock && hasMatch && (
+                            <div style={{ fontSize:11, fontWeight:600, marginTop:2 }}>
+                              <span style={{ color: enough ? 'var(--success)' : 'var(--danger)' }}>
+                                {enough ? `✅ Disponibile: ${stockInfo.qty}` : `⚠️ Disponibile: ${stockInfo.qty} (servono ${li.quantity})`}
+                              </span>
+                              <span style={{ color:'var(--text-tertiary)', fontWeight:400, marginLeft:6, fontSize:10 }}>
+                                match: {stockInfo.matchType}
+                              </span>
+                            </div>
+                          )}
+                          {fulfillForm.deductStock && notFound && (
+                            <div style={{ fontSize:11, color:'#f59e0b', fontWeight:600, marginTop:2 }}>
+                              ❌ Prodotto non trovato nell'inventario — non verrà scalato
                             </div>
                           )}
                         </div>

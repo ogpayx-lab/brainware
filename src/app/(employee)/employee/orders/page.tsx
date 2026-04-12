@@ -12,7 +12,7 @@ type ShopifyOrder = {
   fulfillment_status: string | null
   total_price: string
   currency: string
-  line_items: { title: string; quantity: number; price: string }[]
+  line_items: { title: string; quantity: number; price: string; sku?: string }[]
   shipping_lines?: { title: string; code: string; price: string }[]
   shipping_address?: { name: string; address1: string; address2?: string; city: string; province?: string; zip?: string; country: string; phone?: string }
   customer?: { first_name: string; last_name: string; email: string; phone?: string }
@@ -50,9 +50,11 @@ export default function EmployeeOrdersPage() {
   const [stores, setStores] = useState<any[]>([])
   const [warehouses, setWarehouses] = useState<any[]>([])
   const [storeId, setStoreId] = useState<string|null>(null)
-  const [sourceStockMap, setSourceStockMap] = useState<Record<string,number>>({})
-  const [loadingStock, setLoadingStock] = useState(false)
+  const [sourceProducts, setSourceProducts] = useState<{id:string;name:string;stock:number}[]>([])
+  const [productMapping, setProductMapping] = useState<Record<string,string>>({})
+  const [loadingProducts, setLoadingProducts] = useState(false)
   const [suggestedStore, setSuggestedStore] = useState<string|null>(null)
+  const [productSearch, setProductSearch] = useState<Record<string,string>>({})
 
   useEffect(() => { init() }, [])
 
@@ -94,22 +96,17 @@ export default function EmployeeOrdersPage() {
     setLoading(false)
   }
 
-  async function loadSourceStock(sourceType: 'store'|'warehouse', sourceId: string, lineItems: {title:string;quantity:number}[]) {
-    if (!sourceId) { setSourceStockMap({}); return }
-    setLoadingStock(true)
-    const map: Record<string,number> = {}
-    for (const li of lineItems) {
-      const name = li.title.toLowerCase().trim()
-      if (sourceType === 'warehouse') {
-        const { data } = await supabase.from('warehouse_stock').select('qty').eq('warehouse_id', sourceId).ilike('product_name', `%${name}%`).single()
-        map[li.title] = data?.qty ?? 0
-      } else {
-        const { data } = await supabase.from('products').select('stock').eq('store_id', sourceId).ilike('name', `%${name}%`).single()
-        map[li.title] = data?.stock ?? 0
-      }
+  async function loadSourceProducts(sourceType: 'store'|'warehouse', sourceId: string) {
+    if (!sourceId) { setSourceProducts([]); return }
+    setLoadingProducts(true)
+    if (sourceType === 'warehouse') {
+      const { data } = await supabase.from('warehouse_stock').select('id,product_name,qty').eq('warehouse_id', sourceId).order('product_name')
+      setSourceProducts((data ?? []).map(d => ({ id: d.id, name: d.product_name, stock: d.qty })))
+    } else {
+      const { data } = await supabase.from('products').select('id,name,stock').eq('store_id', sourceId).eq('is_active', true).order('name')
+      setSourceProducts((data ?? []).map(d => ({ id: d.id, name: d.name, stock: d.stock })))
     }
-    setSourceStockMap(map)
-    setLoadingStock(false)
+    setLoadingProducts(false)
   }
 
   async function fulfillOrder() {
@@ -117,6 +114,11 @@ export default function EmployeeOrdersPage() {
     if (!fulfillForm.trackingCompany.trim()) { setFulfillError('Il nome del corriere è obbligatorio'); return }
     if (!fulfillForm.trackingNumber.trim()) { setFulfillError('Il numero di tracking è obbligatorio'); return }
     if (fulfillForm.deductStock && !fulfillForm.sourceId) { setFulfillError('Seleziona una sorgente inventario'); return }
+    // Verifica che tutti i prodotti siano mappati
+    if (fulfillForm.deductStock) {
+      const unmapped = fulfillModal.line_items.filter(li => !productMapping[li.title])
+      if (unmapped.length > 0) { setFulfillError(`Seleziona il prodotto locale per: ${unmapped.map(u => u.title).join(', ')}`); return }
+    }
 
     setFulfilling(true); setFulfillError('')
     const token = accessToken ?? (await supabase.auth.getSession()).data.session?.access_token ?? ''
@@ -139,19 +141,51 @@ export default function EmployeeOrdersPage() {
       }
       setOrders(prev => prev.map(o => o.id === fulfillModal.id ? { ...o, fulfillment_status: 'fulfilled' } : o))
 
-      // Scala inventario dalla sorgente selezionata
+      // Scala inventario usando i prodotti selezionati manualmente + registra movimento
       if (fulfillForm.deductStock && fulfillForm.sourceId) {
+        const { data: { user: currentUser } } = await supabase.auth.getUser()
         for (const li of fulfillModal.line_items) {
-          const productName = li.title.toLowerCase().trim()
+          const localProductId = productMapping[li.title]
+          if (!localProductId) continue
+          const selectedProduct = sourceProducts.find(p => p.id === localProductId)
           if (fulfillForm.sourceType === 'warehouse') {
-            const { data: whItem } = await supabase.from('warehouse_stock').select('id,qty').eq('warehouse_id', fulfillForm.sourceId).ilike('product_name', `%${productName}%`).single()
+            const { data: whItem } = await supabase.from('warehouse_stock').select('qty').eq('id', localProductId).single()
             if (whItem) {
-              await supabase.from('warehouse_stock').update({ qty: Math.max(0, whItem.qty - li.quantity) }).eq('id', whItem.id)
+              await supabase.from('warehouse_stock').update({ qty: Math.max(0, whItem.qty - li.quantity) }).eq('id', localProductId)
+              // Registra movimento magazzino
+              await supabase.from('warehouse_movements').insert({
+                warehouse_id: fulfillForm.sourceId,
+                stock_item_id: localProductId,
+                product_name: selectedProduct?.name || li.title,
+                movement_type: 'out',
+                qty: li.quantity,
+                reference_type: 'shopify_fulfillment',
+                destination_type: 'store',
+                destination_name: `Shopify ${fulfillModal.name}`,
+                notes: `Evasione ordine Shopify ${fulfillModal.name} - ${li.title} ×${li.quantity}`,
+                created_by: currentUser?.id || null,
+              })
             }
           } else {
-            const { data: prod } = await supabase.from('products').select('id,stock').eq('store_id', fulfillForm.sourceId).ilike('name', `%${productName}%`).single()
+            const { data: prod } = await supabase.from('products').select('stock').eq('id', localProductId).single()
             if (prod) {
-              await supabase.from('products').update({ stock: Math.max(0, prod.stock - li.quantity) }).eq('id', prod.id)
+              await supabase.from('products').update({ stock: Math.max(0, prod.stock - li.quantity) }).eq('id', localProductId)
+              // Registra movimento inventario (usa il primo warehouse dell'org come riferimento)
+              const whId = warehouses[0]?.id
+              if (whId) {
+                await supabase.from('warehouse_movements').insert({
+                  warehouse_id: whId,
+                  product_name: selectedProduct?.name || li.title,
+                  movement_type: 'out',
+                  qty: li.quantity,
+                  reference_type: 'shopify_fulfillment',
+                  destination_type: 'store',
+                  destination_id: fulfillForm.sourceId,
+                  destination_name: `Shopify ${fulfillModal.name}`,
+                  notes: `Evasione ordine Shopify ${fulfillModal.name} da store - ${li.title} ×${li.quantity}`,
+                  created_by: currentUser?.id || null,
+                })
+              }
             }
           }
         }
@@ -210,24 +244,61 @@ export default function EmployeeOrdersPage() {
                   <button onClick={() => { setFulfillModal(null); setFulfillError('') }} style={{ background: 'var(--bg-surface)', border: '1px solid var(--border-default)', borderRadius: 8, width: 32, height: 32, fontSize: 18, cursor: 'pointer' }}>×</button>
                 </div>
 
-                {/* Articoli */}
+                {/* Articoli + Selezione Prodotto */}
                 <div style={{ background: 'var(--bg-surface)', borderRadius: 12, padding: '12px 14px', marginBottom: 14 }}>
-                  <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-tertiary)', letterSpacing: '0.05em', marginBottom: 8 }}>ARTICOLI DA SPEDIRE</div>
+                  <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-tertiary)', letterSpacing: '0.05em', marginBottom: 8 }}>ARTICOLI DA SPEDIRE — ASSOCIA PRODOTTO</div>
                   {fulfillModal.line_items.map((li, i) => {
-                    const avail = sourceStockMap[li.title]
-                    const hasStock = avail !== undefined
-                    const enough = hasStock && avail >= li.quantity
+                    const selectedId = productMapping[li.title] || ''
+                    const selectedProduct = sourceProducts.find(p => p.id === selectedId)
+                    const enough = selectedProduct ? selectedProduct.stock >= li.quantity : false
+                    const searchTerm = productSearch[li.title] || ''
+                    const filteredProducts = searchTerm
+                      ? sourceProducts.filter(p => p.name.toLowerCase().includes(searchTerm.toLowerCase()))
+                      : sourceProducts
                     return (
-                    <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '6px 0', borderBottom: i < fulfillModal.line_items.length - 1 ? '1px solid var(--border-subtle)' : 'none' }}>
-                      <div style={{ flex: 1 }}>
-                        <span style={{ fontSize: 14 }}>{li.title}</span>
-                        {hasStock && fulfillForm.deductStock && (
-                          <div style={{ fontSize: 11, color: enough ? 'var(--success, #22c55e)' : '#ef4444', fontWeight: 600, marginTop: 2 }}>
-                            {enough ? `✅ Disponibile: ${avail}` : `⚠️ Disponibile: ${avail} (servono ${li.quantity})`}
-                          </div>
-                        )}
+                    <div key={i} style={{ padding: '10px 0', borderBottom: i < fulfillModal.line_items.length - 1 ? '1px solid var(--border-subtle)' : 'none' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+                        <div>
+                          <span style={{ fontSize: 14, fontWeight: 600 }}>🛍️ {li.title}</span>
+                          {li.sku && <span style={{ fontSize: 10, color: 'var(--text-tertiary)', marginLeft: 6 }}>SKU: {li.sku}</span>}
+                        </div>
+                        <span style={{ fontWeight: 700, fontSize: 14, background: 'var(--brand-primary-light)', color: 'var(--brand-primary)', borderRadius: 6, padding: '2px 8px', flexShrink: 0 }}>×{li.quantity}</span>
                       </div>
-                      <span style={{ fontWeight: 700, fontSize: 14, background: 'var(--brand-primary-light)', color: 'var(--brand-primary)', borderRadius: 6, padding: '2px 8px', flexShrink: 0 }}>×{li.quantity}</span>
+                      {fulfillForm.deductStock && fulfillForm.sourceId && (
+                        <>
+                          <input
+                            className="input"
+                            placeholder="🔍 Cerca prodotto nel sistema..."
+                            value={searchTerm}
+                            onChange={e => setProductSearch(prev => ({...prev, [li.title]: e.target.value}))}
+                            style={{ height: 30, fontSize: 12, marginBottom: 4 }}
+                          />
+                          <select
+                            className="input"
+                            value={selectedId}
+                            onChange={e => setProductMapping(prev => ({...prev, [li.title]: e.target.value}))}
+                            style={{ height: 34, fontSize: 12, borderColor: fulfillError && !selectedId ? '#ef4444' : selectedId ? 'var(--success, #22c55e)' : undefined, fontWeight: selectedId ? 600 : 400 }}
+                          >
+                            <option value="">— Seleziona prodotto locale —</option>
+                            {filteredProducts.map(p => (
+                              <option key={p.id} value={p.id}>
+                                {p.name} (stock: {p.stock})
+                              </option>
+                            ))}
+                          </select>
+                          {selectedProduct && (
+                            <div style={{ fontSize: 11, fontWeight: 600, marginTop: 4, color: enough ? 'var(--success, #22c55e)' : '#ef4444' }}>
+                              {enough
+                                ? `✅ ${selectedProduct.name} — Disponibile: ${selectedProduct.stock}`
+                                : `⚠️ ${selectedProduct.name} — Stock: ${selectedProduct.stock} (servono ${li.quantity})`
+                              }
+                            </div>
+                          )}
+                          {!selectedId && !loadingProducts && sourceProducts.length > 0 && (
+                            <div style={{ fontSize: 11, color: '#f59e0b', marginTop: 4 }}>⚠️ Seleziona il prodotto corrispondente</div>
+                          )}
+                        </>
+                      )}
                     </div>
                     )
                   })}
@@ -268,13 +339,13 @@ export default function EmployeeOrdersPage() {
                   <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-tertiary)', letterSpacing: '0.05em', marginBottom: 8 }}>📦 SORGENTE INVENTARIO</div>
                   <div style={{ display: 'flex', gap: 6, marginBottom: 10 }}>
                     <button
-                      onClick={() => { setFulfillForm(f => ({...f, sourceType:'store', sourceId:stores[0]?.id||''})); if (fulfillModal) loadSourceStock('store', stores[0]?.id||'', fulfillModal.line_items) }}
+                      onClick={() => { setFulfillForm(f => ({...f, sourceType:'store', sourceId:stores[0]?.id||''})); setProductMapping({}); setProductSearch({}); loadSourceProducts('store', stores[0]?.id||'') }}
                       style={{ flex:1, padding:'7px 10px', borderRadius:8, border:'none', background: fulfillForm.sourceType==='store' ? 'var(--brand-primary)' : 'var(--bg-primary, #fff)', color: fulfillForm.sourceType==='store' ? 'white' : 'var(--text-secondary)', cursor:'pointer', fontSize:13, fontWeight:600, transition:'all 0.15s' }}
                     >
                       🏠 Store
                     </button>
                     <button
-                      onClick={() => { setFulfillForm(f => ({...f, sourceType:'warehouse', sourceId:warehouses[0]?.id||''})); if (fulfillModal) loadSourceStock('warehouse', warehouses[0]?.id||'', fulfillModal.line_items) }}
+                      onClick={() => { setFulfillForm(f => ({...f, sourceType:'warehouse', sourceId:warehouses[0]?.id||''})); setProductMapping({}); setProductSearch({}); loadSourceProducts('warehouse', warehouses[0]?.id||'') }}
                       style={{ flex:1, padding:'7px 10px', borderRadius:8, border:'none', background: fulfillForm.sourceType==='warehouse' ? 'var(--brand-primary)' : 'var(--bg-primary, #fff)', color: fulfillForm.sourceType==='warehouse' ? 'white' : 'var(--text-secondary)', cursor:'pointer', fontSize:13, fontWeight:600, transition:'all 0.15s' }}
                     >
                       🏭 Magazzino
@@ -283,7 +354,7 @@ export default function EmployeeOrdersPage() {
                   <select
                     className="input"
                     value={fulfillForm.sourceId}
-                    onChange={e => { setFulfillForm(f => ({...f, sourceId:e.target.value})); if (fulfillModal) loadSourceStock(fulfillForm.sourceType, e.target.value, fulfillModal.line_items) }}
+                    onChange={e => { setFulfillForm(f => ({...f, sourceId:e.target.value})); setProductMapping({}); setProductSearch({}); loadSourceProducts(fulfillForm.sourceType, e.target.value) }}
                     style={{ marginBottom: 8, borderColor: fulfillError && fulfillForm.deductStock && !fulfillForm.sourceId ? 'var(--danger, #ef4444)' : undefined }}
                   >
                     <option value="">Seleziona {fulfillForm.sourceType === 'store' ? 'store' : 'magazzino'}...</option>
@@ -292,7 +363,8 @@ export default function EmployeeOrdersPage() {
                       : warehouses.map(w => <option key={w.id} value={w.id}>{w.type === 'central' ? '🏭' : '📦'} {w.name}</option>)
                     }
                   </select>
-                  {loadingStock && <div style={{ fontSize: 11, color: 'var(--text-tertiary)', marginBottom: 4 }}>⏳ Verifica disponibilità...</div>}
+                  {loadingProducts && <div style={{ fontSize: 11, color: 'var(--text-tertiary)', marginBottom: 4 }}>⏳ Caricamento prodotti...</div>}
+                  {sourceProducts.length > 0 && <div style={{ fontSize: 11, color: 'var(--text-tertiary)', marginBottom: 4 }}>📋 {sourceProducts.length} prodotti disponibili</div>}
                   <div
                     style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer', marginTop: 4 }}
                     onClick={() => setFulfillForm(f => ({...f, deductStock: !f.deductStock}))}
@@ -512,7 +584,8 @@ export default function EmployeeOrdersPage() {
                         const initialSourceId = stores[0]?.id || ''
                         setFulfillForm({ trackingCompany: '', trackingNumber: '', notifyCustomer: true, sourceType: 'store', sourceId: initialSourceId, deductStock: true })
                         setFulfillError('')
-                        setSourceStockMap({})
+                        setProductMapping({})
+                        setProductSearch({})
                         // Suggerimento local delivery
                         const shTitle = order.shipping_lines?.[0]?.title?.toLowerCase() || order.tags?.toLowerCase() || ''
                         const isLocal = shTitle.includes('local') || shTitle.includes('locale') || shTitle.includes('consegna') || shTitle.includes('pickup') || shTitle.includes('ritiro')
@@ -530,7 +603,7 @@ export default function EmployeeOrdersPage() {
                         } else {
                           setSuggestedStore(null)
                         }
-                        if (srcId) loadSourceStock('store', srcId, order.line_items)
+                        if (srcId) loadSourceProducts('store', srcId)
                       }}
                     >
                       📦 Evadi ordine →
