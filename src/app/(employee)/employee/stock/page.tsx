@@ -35,9 +35,6 @@ export default function StockPage() {
   // Pending transfers
   const [pendingRequests, setPendingRequests] = useState<any[]>([])
   const [activeRequest, setActiveRequest] = useState<any>(null)
-  const [requestItems, setRequestItems] = useState<any[]>([])
-  const [transferCountedQtys, setTransferCountedQtys] = useState<Record<string, number>>({})
-  const [transferStep, setTransferStep] = useState<'count' | 'review'>('count')
 
   useEffect(() => { loadData() }, [])
 
@@ -100,160 +97,136 @@ export default function StockPage() {
   }
 
   async function submitManualCount() {
-    const confirmed = confirm('⚠️ Sei sicuro di aver contato bene?\n\nI dati verranno inviati all\'owner per approvazione.')
+    const isTransfer = !!activeRequest
+    const confirmMsg = isTransfer
+      ? '⚠️ Sei sicuro di aver contato bene?\n\nSe il conteggio corrisponde, lo stock verrà aggiornato automaticamente.'
+      : '⚠️ Sei sicuro di aver contato bene?\n\nI dati verranno inviati all\'owner per approvazione.'
+    const confirmed = confirm(confirmMsg)
     if (!confirmed) return
-    if (!shiftId || !storeId || !userId) return
-    setSaving(true)
-
-    const activeEmpStr = typeof window !== 'undefined' ? localStorage.getItem('brainware_active_employee') : null
-    const activeEmp = activeEmpStr ? JSON.parse(activeEmpStr) : null
-
-    const { data: req } = await supabase
-      .from('stock_requests')
-      .insert({
-        shift_id: shiftId, store_id: storeId, user_id: userId,
-        status: 'owner_review',
-        notes: activeEmp ? `Ricarica manuale da ${activeEmp.name}` : 'Ricarica manuale',
-      })
-      .select('id').single()
-
-    if (!req) { setSaving(false); return }
-
-    const items = Array.from(selectedIds).map(id => {
-      const product = products.find(p => p.id === id)!
-      return {
-        stock_request_id: req.id,
-        product_id: id,
-        product_name: product.name,
-        stock_before: product.stock,
-        qty_requested: countedQtys[id] || 0,
-      }
-    })
-    await supabase.from('stock_request_items').insert(items)
-
-    await supabase.from('notifications').insert({
-      store_id: storeId,
-      type: 'stock_reload',
-      title: '📦 Ricarica Stock inviata',
-      message: `${activeEmp?.name || 'Dipendente'} ha contato ${items.length} prodotti. In attesa di approvazione.`,
-    })
-
-    setDoneMessage('Richiesta inviata all\'owner per approvazione.')
-    setDone(true)
-    setSaving(false)
-  }
-
-  // === TRANSFER COUNTING ===
-  function openTransferCount(request: any) {
-    setActiveRequest(request)
-    const items = request.stock_request_items || []
-    setRequestItems(items)
-    const initial: Record<string, number> = {}
-    items.forEach((item: any) => { initial[item.id] = 0 })
-    setTransferCountedQtys(initial)
-    setTransferStep('count')
-  }
-
-  function goToTransferReview() {
-    const hasEmpty = requestItems.some((item: any) => (transferCountedQtys[item.id] ?? 0) <= 0)
-    if (hasEmpty) {
-      alert('⚠️ Inserisci una quantità per tutti i prodotti')
-      return
-    }
-    setTransferStep('review')
-  }
-
-  async function submitTransferCount() {
-    const confirmed = confirm('⚠️ Sei sicuro di aver contato bene?\n\nSe il conteggio corrisponde, lo stock verrà aggiornato automaticamente.')
-    if (!confirmed) return
-    if (!activeRequest) return
+    if (!storeId) return
     setSaving(true)
 
     const activeEmpStr = typeof window !== 'undefined' ? localStorage.getItem('brainware_active_employee') : null
     const activeEmp = activeEmpStr ? JSON.parse(activeEmpStr) : null
     const empName = activeEmp?.name || 'Dipendente'
 
-    // Update each item with counted qty
-    for (const item of requestItems) {
-      const counted = transferCountedQtys[item.id] ?? 0
-      await supabase.from('stock_request_items')
-        .update({ qty_requested: counted })
-        .eq('id', item.id)
-    }
+    if (isTransfer) {
+      // === TRANSFER FLOW: update existing stock_request items with counted qty ===
+      const reqItems = activeRequest.stock_request_items || []
 
-    // Check if ALL items match
-    const allMatch = requestItems.every((item: any) => {
-      const counted = transferCountedQtys[item.id] ?? 0
-      const sent = item.qty_sent ?? 0
-      return counted === sent
-    })
-
-    if (allMatch) {
-      // ✅ AUTO-APPROVE: update stock directly
-      for (const item of requestItems) {
-        const counted = transferCountedQtys[item.id] ?? 0
-        // Set qty_delivered
+      // Update each item with counted qty
+      for (const item of reqItems) {
+        const prod = products.find(p => p.name.toLowerCase() === item.product_name?.toLowerCase() || p.id === item.product_id)
+        const counted = prod ? (countedQtys[prod.id] ?? 0) : 0
         await supabase.from('stock_request_items')
-          .update({ qty_delivered: counted })
+          .update({ qty_requested: counted })
           .eq('id', item.id)
-
-        // Update product stock — use product_id if available, else match by name
-        if (item.product_id) {
-          const product = products.find(p => p.id === item.product_id)
-          if (product) {
-            await supabase.from('products').update({
-              stock: product.stock + counted,
-            }).eq('id', product.id)
-          }
-        } else {
-          const product = products.find(p => p.name.toLowerCase() === item.product_name?.toLowerCase())
-          if (product) {
-            await supabase.from('products').update({
-              stock: product.stock + counted,
-            }).eq('id', product.id)
-          }
-        }
       }
 
-      await supabase.from('stock_requests').update({
-        status: 'approved',
-        approved_at: new Date().toISOString(),
-        notes: `✅ Auto-approvato — conteggio ${empName} corrisponde`,
-      }).eq('id', activeRequest.id)
-
-      // Notify owner of successful match
-      await supabase.from('notifications').insert({
-        store_id: storeId,
-        type: 'stock_approved',
-        title: '✅ Ricarica completata',
-        message: `${empName} ha contato ${requestItems.length} prodotti. Quantità corrispondenti — stock aggiornato automaticamente.`,
+      // Check if ALL items match
+      const allMatch = reqItems.every((item: any) => {
+        const prod = products.find(p => p.name.toLowerCase() === item.product_name?.toLowerCase() || p.id === item.product_id)
+        const counted = prod ? (countedQtys[prod.id] ?? 0) : 0
+        return counted === (item.qty_sent ?? 0)
       })
 
-      setDoneMessage('✅ Conteggio corretto! Lo stock è stato aggiornato automaticamente.')
+      if (allMatch) {
+        // ✅ AUTO-APPROVE: update stock directly
+        for (const item of reqItems) {
+          const prod = products.find(p => p.name.toLowerCase() === item.product_name?.toLowerCase() || p.id === item.product_id)
+          const counted = prod ? (countedQtys[prod.id] ?? 0) : 0
+
+          await supabase.from('stock_request_items')
+            .update({ qty_delivered: counted })
+            .eq('id', item.id)
+
+          if (prod) {
+            await supabase.from('products').update({
+              stock: prod.stock + counted,
+            }).eq('id', prod.id)
+          }
+        }
+
+        await supabase.from('stock_requests').update({
+          status: 'approved',
+          approved_at: new Date().toISOString(),
+          notes: `✅ Auto-approvato — conteggio ${empName} corrisponde`,
+        }).eq('id', activeRequest.id)
+
+        await supabase.from('notifications').insert({
+          store_id: storeId,
+          type: 'stock_approved',
+          title: '✅ Ricarica completata',
+          message: `${empName} ha contato ${reqItems.length} prodotti. Quantità corrispondenti — stock aggiornato automaticamente.`,
+        })
+
+        setDoneMessage('✅ Conteggio corretto! Lo stock è stato aggiornato automaticamente.')
+      } else {
+        // ❌ MISMATCH: send to owner
+        const mismatches = reqItems
+          .filter((item: any) => {
+            const prod = products.find(p => p.name.toLowerCase() === item.product_name?.toLowerCase() || p.id === item.product_id)
+            return (prod ? (countedQtys[prod.id] ?? 0) : 0) !== (item.qty_sent ?? 0)
+          })
+          .map((item: any) => {
+            const prod = products.find(p => p.name.toLowerCase() === item.product_name?.toLowerCase() || p.id === item.product_id)
+            return `${item.product_name}: inviati ${item.qty_sent}, contati ${prod ? (countedQtys[prod.id] ?? 0) : 0}`
+          })
+
+        await supabase.from('stock_requests').update({
+          status: 'owner_review',
+          notes: `⚠️ Discrepanza — ${empName} ha contato quantità diverse`,
+        }).eq('id', activeRequest.id)
+
+        await supabase.from('notifications').insert({
+          store_id: storeId,
+          type: 'stock_counted',
+          title: '⚠️ Discrepanza conteggio',
+          message: `${empName}: ${mismatches.join(', ')}`,
+        })
+
+        setDoneMessage('⚠️ Conteggio inviato all\'owner — alcune quantità non corrispondono.')
+      }
     } else {
-      // ❌ MISMATCH: send to owner for review
-      const mismatches = requestItems
-        .filter((item: any) => (transferCountedQtys[item.id] ?? 0) !== (item.qty_sent ?? 0))
-        .map((item: any) => `${item.product_name}: inviati ${item.qty_sent}, contati ${transferCountedQtys[item.id] ?? 0}`)
+      // === MANUAL FLOW: create new stock_request ===
+      const { data: req } = await supabase
+        .from('stock_requests')
+        .insert({
+          shift_id: shiftId, store_id: storeId, user_id: userId,
+          status: 'owner_review',
+          notes: `Ricarica manuale da ${empName}`,
+        })
+        .select('id').single()
 
-      await supabase.from('stock_requests').update({
-        status: 'owner_review',
-        notes: `⚠️ Discrepanza — ${empName} ha contato quantità diverse`,
-      }).eq('id', activeRequest.id)
+      if (!req) { setSaving(false); return }
+
+      const items = Array.from(selectedIds).map(id => {
+        const product = products.find(p => p.id === id)!
+        return {
+          stock_request_id: req.id,
+          product_id: id,
+          product_name: product.name,
+          stock_before: product.stock,
+          qty_requested: countedQtys[id] || 0,
+        }
+      })
+      await supabase.from('stock_request_items').insert(items)
 
       await supabase.from('notifications').insert({
         store_id: storeId,
-        type: 'stock_counted',
-        title: '⚠️ Discrepanza conteggio',
-        message: `${empName} ha contato quantità diverse: ${mismatches.join(', ')}. Verifica e approva manualmente.`,
+        type: 'stock_reload',
+        title: '📦 Ricarica Stock inviata',
+        message: `${empName} ha contato ${items.length} prodotti. In attesa di approvazione.`,
       })
 
-      setDoneMessage('⚠️ Conteggio inviato all\'owner — alcune quantità non corrispondono.')
+      setDoneMessage('Richiesta inviata all\'owner per approvazione.')
     }
 
     setDone(true)
     setSaving(false)
   }
+
+
 
   // === FILTERS ===
   const filtered = products.filter(p => {
@@ -286,180 +259,88 @@ export default function StockPage() {
           onClick={e => {
             if (step === 'review') { e.preventDefault(); setStep('count') }
             else if (step === 'count') { e.preventDefault(); setStep('select') }
-            else if (activeRequest && transferStep === 'review') { e.preventDefault(); setTransferStep('count') }
-            else if (activeRequest) { e.preventDefault(); setActiveRequest(null) }
           }}
           style={{ textDecoration: 'none', color: 'var(--text-primary)', fontSize: 20 }}
         >←</Link>
         <div style={{ flex: 1 }}>
           <h3 style={{ fontSize: 16 }}>📦 Ricarica Stock</h3>
-          {!activeRequest && (
-            <div style={{ fontSize: 12, color: 'var(--text-tertiary)' }}>
-              {step === 'select' ? 'Step 1: Seleziona prodotti' : step === 'count' ? 'Step 2: Inserisci quantità' : 'Step 3: Conferma'}
-            </div>
-          )}
-          {activeRequest && (
-            <div style={{ fontSize: 12, color: 'var(--text-tertiary)' }}>
-              {transferStep === 'count' ? 'Conta merce ricevuta' : 'Conferma conteggio'}
-            </div>
-          )}
+          <div style={{ fontSize: 12, color: 'var(--text-tertiary)' }}>
+            {step === 'select' ? 'Step 1: Seleziona prodotti' : step === 'count' ? 'Step 2: Inserisci quantità' : 'Step 3: Conferma'}
+          </div>
         </div>
         {/* Step indicator */}
-        {!activeRequest && (
-          <div style={{ display: 'flex', gap: 4 }}>
-            {[1, 2, 3].map(n => (
-              <div key={n} style={{
-                width: 24, height: 24, borderRadius: '50%',
-                background: n <= (['select', 'count', 'review'].indexOf(step) + 1) ? 'var(--brand-primary)' : 'var(--border-default)',
-                color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center',
-                fontSize: 11, fontWeight: 700,
-              }}>{n}</div>
-            ))}
-          </div>
-        )}
+        <div style={{ display: 'flex', gap: 4 }}>
+          {[1, 2, 3].map(n => (
+            <div key={n} style={{
+              width: 24, height: 24, borderRadius: '50%',
+              background: n <= (['select', 'count', 'review'].indexOf(step) + 1) ? 'var(--brand-primary)' : 'var(--border-default)',
+              color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center',
+              fontSize: 11, fontWeight: 700,
+            }}>{n}</div>
+          ))}
+        </div>
       </div>
 
-      {/* ===== TRANSFER COUNTING MODE ===== */}
-      {activeRequest && transferStep === 'count' && (
-        <div style={{ padding: 'var(--space-lg)', flex: 1 }}>
-          <div style={{
-            background: '#FEF3C7', border: '1.5px solid #F59E0B', borderRadius: 12,
-            padding: 'var(--space-md)', marginBottom: 'var(--space-lg)',
-          }}>
-            <div style={{ fontWeight: 700, fontSize: 14 }}>📦 Conta la merce ricevuta</div>
-            <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginTop: 4 }}>
-              Inserisci la quantità effettiva ricevuta per ciascun prodotto
-            </div>
-          </div>
-
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-            {requestItems.map((item: any) => (
-              <div key={item.id} className="card card-sm" style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 16px' }}>
-                <div style={{ flex: 1 }}>
-                  <div style={{ fontSize: 14, fontWeight: 600 }}>{item.product_name}</div>
-                  <div style={{ fontSize: 12, color: 'var(--text-tertiary)' }}>
-                    Attesi: <strong>{item.qty_sent ?? '?'}</strong>
-                  </div>
-                </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                  <button
-                    onClick={() => setTransferCountedQtys(prev => ({ ...prev, [item.id]: Math.max(0, (prev[item.id] || 0) - 1) }))}
-                    className="btn btn-secondary" style={{ width: 36, height: 36, padding: 0, fontSize: 16 }}>−</button>
-                  <input
-                    type="number" min="0"
-                    value={transferCountedQtys[item.id] ?? 0}
-                    onChange={e => setTransferCountedQtys(prev => ({ ...prev, [item.id]: parseInt(e.target.value) || 0 }))}
-                    style={{
-                      width: 64, textAlign: 'center', border: '2px solid var(--border-default)',
-                      borderRadius: 8, padding: '6px', fontSize: 18, fontWeight: 700,
-                    }}
-                  />
-                  <button
-                    onClick={() => setTransferCountedQtys(prev => ({ ...prev, [item.id]: (prev[item.id] || 0) + 1 }))}
-                    className="btn btn-secondary" style={{ width: 36, height: 36, padding: 0, fontSize: 16 }}>+</button>
-                </div>
-              </div>
-            ))}
-          </div>
-
-          <div style={{ position: 'fixed', bottom: 60, left: 0, right: 0, padding: '12px var(--space-lg)', background: 'var(--bg-primary)', borderTop: '1px solid var(--border-subtle)', boxShadow: '0 -4px 20px rgba(0,0,0,0.1)', zIndex: 50 }}>
-            <button onClick={goToTransferReview} className="btn btn-primary btn-full btn-lg">
-              Avanti → Riepilogo
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* ===== TRANSFER REVIEW ===== */}
-      {activeRequest && transferStep === 'review' && (
-        <div style={{ padding: 'var(--space-lg)', flex: 1 }}>
-          <div style={{ background: 'var(--brand-primary-light)', border: '1.5px solid var(--brand-primary)', borderRadius: 12, padding: 'var(--space-md)', marginBottom: 'var(--space-lg)' }}>
-            <div style={{ fontWeight: 700, fontSize: 14 }}>📋 Riepilogo Conteggio</div>
-            <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginTop: 4 }}>Verifica i dati prima di inviare all'owner</div>
-          </div>
-
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 'var(--space-xl)' }}>
-            {requestItems.map((item: any) => {
-              const counted = transferCountedQtys[item.id] ?? 0
-              const expected = item.qty_sent ?? 0
-              const match = counted === expected
-              return (
-                <div key={item.id} style={{
-                  padding: '12px 16px', borderRadius: 10,
-                  background: match ? '#F0FDF4' : '#FEF2F2',
-                  border: `1.5px solid ${match ? '#22C55E' : '#EF4444'}`,
-                  display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-                }}>
-                  <div>
-                    <div style={{ fontWeight: 600, fontSize: 14 }}>{item.product_name}</div>
-                    <div style={{ fontSize: 12, color: 'var(--text-secondary)' }}>Attesi: {expected}</div>
-                  </div>
-                  <div style={{ textAlign: 'right' }}>
-                    <div style={{ fontWeight: 700, fontSize: 20, color: match ? '#22C55E' : '#EF4444' }}>{counted}</div>
-                    {!match && <div style={{ fontSize: 11, color: '#EF4444', fontWeight: 600 }}>Δ {counted - expected}</div>}
-                    {match && <div style={{ fontSize: 11, color: '#22C55E' }}>✅ Corretto</div>}
-                  </div>
-                </div>
-              )
-            })}
-          </div>
-
-          <div style={{ background: 'var(--bg-surface)', borderRadius: 10, padding: 14, marginBottom: 'var(--space-lg)' }}>
-            <div style={{ fontSize: 13, color: 'var(--text-secondary)', display: 'flex', justifyContent: 'space-between' }}>
-              <span>Prodotti contati</span><strong>{requestItems.length}</strong>
-            </div>
-            <div style={{ fontSize: 13, color: 'var(--text-secondary)', display: 'flex', justifyContent: 'space-between', marginTop: 6 }}>
-              <span>Totale pezzi</span><strong>{Object.values(transferCountedQtys).reduce((a, b) => a + b, 0)}</strong>
-            </div>
-            <div style={{ fontSize: 13, display: 'flex', justifyContent: 'space-between', marginTop: 6 }}>
-              <span>Discrepanze</span>
-              <strong style={{ color: requestItems.some((i: any) => (transferCountedQtys[i.id] ?? 0) !== (i.qty_sent ?? 0)) ? '#EF4444' : '#22C55E' }}>
-                {requestItems.filter((i: any) => (transferCountedQtys[i.id] ?? 0) !== (i.qty_sent ?? 0)).length}
-              </strong>
-            </div>
-          </div>
-
-          <div style={{ display: 'flex', gap: 8 }}>
-            <button onClick={() => setTransferStep('count')} className="btn btn-secondary" style={{ flex: 1 }}>← Modifica</button>
-            <button onClick={submitTransferCount} disabled={saving} className="btn btn-primary" style={{ flex: 2 }}>
-              {saving ? 'Invio...' : '✅ Conferma e Invia'}
-            </button>
-          </div>
-        </div>
-      )}
 
       {/* ===== STEP 1: SELECT PRODUCTS ===== */}
-      {!activeRequest && step === 'select' && (
+      {step === 'select' && (
         <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
-          {/* Pending transfers banner */}
+          {/* Pending transfers info */}
           {pendingRequests.length > 0 && (
             <div style={{ padding: 'var(--space-lg)', paddingBottom: 0 }}>
-              {pendingRequests.map(req => (
-                <div key={req.id} style={{
-                  background: '#FEF3C7', border: '1.5px solid #F59E0B', borderRadius: 12,
-                  padding: 'var(--space-md)', marginBottom: 8,
-                }}>
-                  <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 4 }}>
-                    📦 {(req.stock_request_items || []).length} prodotti in arrivo
-                  </div>
-                  <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginBottom: 8 }}>
-                    {req.notes || 'Trasferimento in attesa di conteggio'}
-                  </div>
-                  <div style={{ display: 'flex', gap: 6, marginBottom: 10, flexWrap: 'wrap' }}>
-                    {(req.stock_request_items || []).slice(0, 4).map((item: any) => (
-                      <span key={item.id} className="badge badge-gray" style={{ fontSize: 11 }}>
-                        {item.product_name} ×{item.qty_sent}
-                      </span>
-                    ))}
-                    {(req.stock_request_items || []).length > 4 && (
-                      <span style={{ fontSize: 11, color: 'var(--text-tertiary)' }}>+{(req.stock_request_items || []).length - 4} altri</span>
+              {pendingRequests.map(req => {
+                const items = req.stock_request_items || []
+                const allPreSelected = items.every((i: any) => {
+                  const prod = products.find(p => p.name.toLowerCase() === i.product_name?.toLowerCase() || p.id === i.product_id)
+                  return prod && selectedIds.has(prod.id)
+                })
+                return (
+                  <div key={req.id} style={{
+                    background: '#FEF3C7', border: '1.5px solid #F59E0B', borderRadius: 12,
+                    padding: 'var(--space-md)', marginBottom: 8,
+                  }}>
+                    <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 4 }}>
+                      📦 {items.length} prodotti in arrivo
+                    </div>
+                    <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginBottom: 8 }}>
+                      {req.notes || 'Trasferimento in attesa di conteggio'} — seleziona i prodotti e conta
+                    </div>
+                    <div style={{ display: 'flex', gap: 6, marginBottom: 10, flexWrap: 'wrap' }}>
+                      {items.slice(0, 6).map((item: any) => (
+                        <span key={item.id} className="badge badge-gray" style={{ fontSize: 11 }}>
+                          {item.product_name} ×{item.qty_sent}
+                        </span>
+                      ))}
+                      {items.length > 6 && (
+                        <span style={{ fontSize: 11, color: 'var(--text-tertiary)' }}>+{items.length - 6} altri</span>
+                      )}
+                    </div>
+                    {!allPreSelected && (
+                      <button
+                        onClick={() => {
+                          // Pre-select all products from the transfer
+                          const newIds = new Set(selectedIds)
+                          for (const item of items) {
+                            const prod = products.find(p => p.name.toLowerCase() === item.product_name?.toLowerCase() || p.id === item.product_id)
+                            if (prod) newIds.add(prod.id)
+                          }
+                          setSelectedIds(newIds)
+                          // Store the active request for later match checking
+                          setActiveRequest(req)
+                        }}
+                        className="btn btn-primary btn-full" style={{ fontSize: 13 }}
+                      >
+                        ✅ Seleziona tutti i prodotti in arrivo
+                      </button>
+                    )}
+                    {allPreSelected && (
+                      <div style={{ fontSize: 12, color: 'var(--success)', fontWeight: 600 }}>
+                        ✅ Prodotti selezionati — procedi con il conteggio
+                      </div>
                     )}
                   </div>
-                  <button onClick={() => openTransferCount(req)} className="btn btn-primary btn-full" style={{ fontSize: 13 }}>
-                    📋 Inizia Conteggio Merce
-                  </button>
-                </div>
-              ))}
+                )
+              })}
             </div>
           )}
 
@@ -520,7 +401,7 @@ export default function StockPage() {
       )}
 
       {/* ===== STEP 2: COUNT QUANTITIES ===== */}
-      {!activeRequest && step === 'count' && (
+      {step === 'count' && (
         <div style={{ padding: 'var(--space-lg)', flex: 1 }}>
           <div style={{ background: 'var(--brand-primary-light)', border: '1.5px solid var(--brand-primary)', borderRadius: 12, padding: 'var(--space-md)', marginBottom: 'var(--space-lg)' }}>
             <div style={{ fontWeight: 700, fontSize: 14 }}>📝 Inserisci le quantità ricevute</div>
@@ -564,7 +445,7 @@ export default function StockPage() {
       )}
 
       {/* ===== STEP 3: REVIEW & CONFIRM ===== */}
-      {!activeRequest && step === 'review' && (
+      {step === 'review' && (
         <div style={{ padding: 'var(--space-lg)', flex: 1 }}>
           <div style={{ background: 'var(--brand-primary-light)', border: '1.5px solid var(--brand-primary)', borderRadius: 12, padding: 'var(--space-md)', marginBottom: 'var(--space-lg)' }}>
             <div style={{ fontWeight: 700, fontSize: 14 }}>📋 Riepilogo prima dell'invio</div>
