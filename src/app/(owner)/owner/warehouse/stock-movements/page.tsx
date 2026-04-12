@@ -255,6 +255,17 @@ export default function StockApprovalsPage() {
     if (!fulfilling || !fulfillSource) return
     const validItems = fulfillItems.filter(i => parseInt(i.qty) > 0)
     if (validItems.length === 0) { alert('Inserisci almeno una quantità'); return }
+
+    // Validate quantities don't exceed available stock
+    for (const item of validItems) {
+      const qty = parseInt(item.qty) || 0
+      const sourceItem = fulfillSourceStock.find(s => s.product_name.toLowerCase() === item.product_name.toLowerCase())
+      if (!sourceItem || qty > sourceItem.qty) {
+        alert(`⚠️ ${item.product_name}: disponibili solo ${sourceItem?.qty ?? 0}, richiesti ${qty}`)
+        return
+      }
+    }
+
     setFulfillSaving(true)
 
     const destStoreId = fulfilling.store_id
@@ -483,35 +494,68 @@ export default function StockApprovalsPage() {
             {/* Items with quantities */}
             {fulfillSource && (
               <>
-                <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-tertiary)', letterSpacing: '0.06em', textTransform: 'uppercase', marginBottom: 8 }}>
-                  Prodotti richiesti — inserisci quantità
-                </div>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 'var(--space-lg)' }}>
-                  {fulfillItems.map((item, idx) => (
-                    <div key={idx} style={{
-                      display: 'flex', alignItems: 'center', gap: 10,
-                      padding: '10px 14px', background: 'var(--bg-surface)', borderRadius: 10,
-                      border: '1px solid var(--border-default)',
-                    }}>
-                      <div style={{ flex: 1 }}>
-                        <div style={{ fontWeight: 600, fontSize: 14 }}>{item.product_name}</div>
-                        <div style={{ fontSize: 11, color: item.available > 0 ? 'var(--success)' : 'var(--danger)' }}>
-                          Disponibile: {item.available}
-                        </div>
-                      </div>
-                      <input
-                        type="number" min="0" max={item.available}
-                        placeholder="Qty"
-                        value={item.qty}
-                        onChange={e => setFulfillItems(prev => prev.map((p, i) => i === idx ? { ...p, qty: e.target.value } : p))}
-                        style={{
-                          width: 80, textAlign: 'center', border: '1.5px solid var(--border-default)',
-                          borderRadius: 8, padding: '8px', fontSize: 14, fontWeight: 700,
-                        }}
-                      />
+                {/* Available products */}
+                {fulfillItems.filter(i => i.available > 0).length > 0 && (
+                  <>
+                    <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-tertiary)', letterSpacing: '0.06em', textTransform: 'uppercase', marginBottom: 8 }}>
+                      ✅ Disponibili in magazzino — inserisci quantità
                     </div>
-                  ))}
-                </div>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 'var(--space-lg)' }}>
+                      {fulfillItems.filter(i => i.available > 0).map((item, idx) => {
+                        const realIdx = fulfillItems.indexOf(item)
+                        return (
+                          <div key={realIdx} style={{
+                            display: 'flex', alignItems: 'center', gap: 10,
+                            padding: '10px 14px', background: 'var(--bg-surface)', borderRadius: 10,
+                            border: '1.5px solid var(--success)',
+                          }}>
+                            <div style={{ flex: 1 }}>
+                              <div style={{ fontWeight: 600, fontSize: 14 }}>{item.product_name}</div>
+                              <div style={{ fontSize: 11, color: 'var(--success)', fontWeight: 600 }}>
+                                Disponibile: {item.available}
+                              </div>
+                            </div>
+                            <input
+                              type="number" min="0" max={item.available}
+                              placeholder="Qty"
+                              value={item.qty}
+                              onChange={e => {
+                                const val = Math.min(parseInt(e.target.value) || 0, item.available)
+                                setFulfillItems(prev => prev.map((p, i) => i === realIdx ? { ...p, qty: val.toString() } : p))
+                              }}
+                              style={{
+                                width: 80, textAlign: 'center', border: '1.5px solid var(--success)',
+                                borderRadius: 8, padding: '8px', fontSize: 14, fontWeight: 700,
+                              }}
+                            />
+                          </div>
+                        )
+                      })}
+                    </div>
+                  </>
+                )}
+
+                {/* Unavailable products */}
+                {fulfillItems.filter(i => i.available === 0).length > 0 && (
+                  <>
+                    <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--danger)', letterSpacing: '0.06em', textTransform: 'uppercase', marginBottom: 8 }}>
+                      ❌ Non disponibili in questo magazzino ({fulfillItems.filter(i => i.available === 0).length})
+                    </div>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 'var(--space-lg)' }}>
+                      {fulfillItems.filter(i => i.available === 0).map((item, idx) => (
+                        <span key={idx} style={{ fontSize: 11, padding: '4px 10px', background: '#FEF2F2', color: 'var(--danger)', borderRadius: 6, border: '1px solid #FECACA' }}>
+                          {item.product_name}
+                        </span>
+                      ))}
+                    </div>
+                  </>
+                )}
+
+                {fulfillItems.filter(i => i.available > 0).length === 0 && (
+                  <div style={{ padding: 'var(--space-lg)', textAlign: 'center', color: 'var(--danger)', fontSize: 14, fontWeight: 600 }}>
+                    ⚠️ Nessun prodotto richiesto è disponibile in questo magazzino. Seleziona un altro magazzino.
+                  </div>
+                )}
               </>
             )}
 
