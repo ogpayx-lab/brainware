@@ -49,7 +49,7 @@ export default function InventoryPage() {
     setShiftId(shift.id)
 
     const { data: prods } = await supabase
-      .from('products').select('*').eq('store_id', profile.store_id).eq('is_active', true).order('name')
+      .from('products').select('*').eq('store_id', profile.store_id).eq('is_active', true).gt('stock', 0).order('name')
 
     // Check for existing draft (non-finalized count for this store)
     const { data: existingCount } = await supabase
