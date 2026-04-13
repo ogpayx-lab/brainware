@@ -98,6 +98,7 @@ export default function LandingPage() {
           </div>
           <div className="l-hero-grid" />
 
+          <div className="l-hero-inner">
           <div className="l-hero-content">
             <div className="l-hero-badge l-animate">⚡ {t('hero_badge')}</div>
             <h1 className="l-animate l-animate-d1">
@@ -159,6 +160,7 @@ export default function LandingPage() {
                 </div>
               </div>
             </div>
+          </div>
           </div>
         </section>
 
