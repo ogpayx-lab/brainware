@@ -33,9 +33,12 @@ export async function middleware(request: NextRequest) {
 
   // Public paths - always allow
   if (
+    path === '/' ||
     path === '/login' ||
     path === '/signup' ||
     path === '/onboarding' ||
+    path === '/privacy' ||
+    path === '/terms' ||
     path.startsWith('/auth/') ||
     path.startsWith('/superadmin/login') ||
     path.startsWith('/api/')
