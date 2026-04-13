@@ -242,7 +242,10 @@ export default function POSContent() {
     // Map canale acquisizione al valore corretto dell'enum
     const channelMap: Record<string, string> = {
       'walk-in': 'walk-in', 'walkin': 'walk-in',
+      'usual-customer': 'walk-in',
       'social': 'social', 'google': 'google',
+      'ai/chatgpt/gemini-etc..': 'other',
+      'friends': 'referral',
       'referral': 'referral', 'other': 'other',
     }
     const rawChannel = customer.channel.toLowerCase().replace(/\s+/g, '-')
@@ -464,10 +467,30 @@ export default function POSContent() {
               {customerError && <div style={{ fontSize:12, color:'var(--danger)' }}>⚠️ {customerError}</div>}
               <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:6 }}>
                 <select className="input" value={customer.nationality} onChange={e => setCustomer(c=>({...c,nationality:e.target.value}))} style={{ height:34, fontSize:12 }}>
-                  {['Italia','Germania','Francia','UK','USA','Spagna','Altra'].map(n => <option key={n}>{n}</option>)}
+                  {[
+                    'Afghanistan','Albania','Algeria','Andorra','Angola','Antigua e Barbuda','Arabia Saudita','Argentina','Armenia','Australia',
+                    'Austria','Azerbaigian','Bahamas','Bahrain','Bangladesh','Barbados','Belgio','Belize','Benin','Bhutan',
+                    'Bielorussia','Bolivia','Bosnia ed Erzegovina','Botswana','Brasile','Brunei','Bulgaria','Burkina Faso','Burundi','Cambogia',
+                    'Camerun','Canada','Capo Verde','Ciad','Cile','Cina','Cipro','Colombia','Comore','Congo',
+                    'Corea del Nord','Corea del Sud','Costa Rica',"Costa d'Avorio",'Croazia','Cuba','Danimarca','Dominica','Ecuador','Egitto',
+                    'El Salvador','Emirati Arabi Uniti','Eritrea','Estonia','Eswatini','Etiopia','Fiji','Filippine','Finlandia','Francia',
+                    'Gabon','Gambia','Georgia','Germania','Ghana','Giamaica','Giappone','Gibuti','Giordania','Grecia',
+                    'Grenada','Guatemala','Guinea','Guinea-Bissau','Guinea Equatoriale','Guyana','Haiti','Honduras','India','Indonesia',
+                    'Iran','Iraq','Irlanda','Islanda','Israele','Italia','Kazakistan','Kenya','Kirghizistan','Kiribati',
+                    'Kuwait','Laos','Lesotho','Lettonia','Libano','Liberia','Libia','Liechtenstein','Lituania','Lussemburgo',
+                    'Madagascar','Malawi','Malaysia','Maldive','Mali','Malta','Marocco','Mauritania','Mauritius','Messico',
+                    'Micronesia','Moldavia','Monaco','Mongolia','Montenegro','Mozambico','Myanmar','Namibia','Nauru','Nepal',
+                    'Nicaragua','Niger','Nigeria','Norvegia','Nuova Zelanda','Oman','Paesi Bassi','Pakistan','Palau','Panama',
+                    'Papua Nuova Guinea','Paraguay','Per\u00f9','Polonia','Portogallo','Qatar','Regno Unito','Rep. Ceca','Rep. Dominicana','Romania',
+                    'Ruanda','Russia','Saint Kitts e Nevis','Saint Lucia','Saint Vincent','Samoa','San Marino','S\u00e3o Tom\u00e9','Senegal','Serbia',
+                    'Seychelles','Sierra Leone','Singapore','Siria','Slovacchia','Slovenia','Somalia','Spagna','Sri Lanka','Stati Uniti',
+                    'Sudafrica','Sudan','Sudan del Sud','Suriname','Svezia','Svizzera','Tagikistan','Tanzania','Thailandia','Timor Est',
+                    'Togo','Tonga','Trinidad e Tobago','Tunisia','Turchia','Turkmenistan','Tuvalu','Ucraina','Uganda','Ungheria',
+                    'Uruguay','Uzbekistan','Vanuatu','Venezuela','Vietnam','Yemen','Zambia','Zimbabwe'
+                  ].map(n => <option key={n}>{n}</option>)}
                 </select>
                 <select className="input" value={customer.channel} onChange={e => setCustomer(c=>({...c,channel:e.target.value}))} style={{ height:34, fontSize:12 }}>
-                  {['Walk-in','Social','Google','Referral','Altro'].map(c => <option key={c}>{c}</option>)}
+                  {['Walk-in','Usual Customer','Google','Social','AI/ChatGPT/Gemini Etc..','Friends'].map(c => <option key={c}>{c}</option>)}
                 </select>
               </div>
               <input className="input" type="email" placeholder="Email (opzionale)" value={customer.email} onChange={e => setCustomer(c=>({...c,email:e.target.value}))} style={{ height:34, fontSize:13 }} />
@@ -790,18 +813,20 @@ export default function POSContent() {
 
         {/* ═══════════════ DESKTOP CART (side panel) ═══════════════ */}
         {cart.length > 0 && (
-          <div className="pos-cart-desktop" style={{ width:360, borderLeft:'1px solid var(--border-subtle)', background:'var(--bg-primary)', display:'flex', flexDirection:'column', overflowY:'auto' }}>
-            <div style={{ padding:'12px var(--space-lg) 8px', display:'flex', justifyContent:'space-between', alignItems:'center' }}>
+          <div className="pos-cart-desktop" style={{ width:360, borderLeft:'1px solid var(--border-subtle)', background:'var(--bg-primary)', display:'flex', flexDirection:'column', overflow:'hidden' }}>
+            <div style={{ padding:'12px var(--space-lg) 8px', display:'flex', justifyContent:'space-between', alignItems:'center', flexShrink:0 }}>
               <h4>{mode==='trasferimento'?'Prodotti':'Carrello'} ({cart.reduce((s,i)=>s+i.qty,0)})</h4>
               <button onClick={() => setCart([])} style={{ background:'none', border:'none', color:'var(--danger)', fontSize:12, cursor:'pointer' }}>Svuota</button>
             </div>
 
-            <div style={{ flex:1, overflowY:'auto', padding:'0 var(--space-lg)' }}>
+            <div style={{ flex:1, overflowY:'auto', padding:'0 var(--space-lg)', minHeight:0 }}>
               {renderCartItems()}
               {renderCartExtras()}
             </div>
 
-            {renderCartFooter()}
+            <div style={{ flexShrink:0 }}>
+              {renderCartFooter()}
+            </div>
           </div>
         )}
       </div>

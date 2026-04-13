@@ -32,12 +32,32 @@ export default function FidelityPage() {
 
   const [form, setForm] = useState({
     first_name: '', last_name: '', email: '', phone: '',
-    dob: '', notes: '', nationality: 'Italiana', how: 'Passaparola',
+    dob: '', notes: '', nationality: 'Italia', how: 'Walk-in',
     privacy: false,
   })
 
-  const NATIONALITIES = ['Italiana', 'Tedesca', 'Francese', 'Inglese', 'Spagnola', 'Americana', 'Altra']
-  const HOW_OPTIONS = ['Passaparola', 'Social Media', 'Google', 'Passaggio', 'Pubblicita', 'Altro']
+  const NATIONALITIES = [
+    'Afghanistan','Albania','Algeria','Andorra','Angola','Antigua e Barbuda','Arabia Saudita','Argentina','Armenia','Australia',
+    'Austria','Azerbaigian','Bahamas','Bahrain','Bangladesh','Barbados','Belgio','Belize','Benin','Bhutan',
+    'Bielorussia','Bolivia','Bosnia ed Erzegovina','Botswana','Brasile','Brunei','Bulgaria','Burkina Faso','Burundi','Cambogia',
+    'Camerun','Canada','Capo Verde','Ciad','Cile','Cina','Cipro','Colombia','Comore','Congo',
+    'Corea del Nord','Corea del Sud','Costa Rica','Costa d\'Avorio','Croazia','Cuba','Danimarca','Dominica','Ecuador','Egitto',
+    'El Salvador','Emirati Arabi Uniti','Eritrea','Estonia','Eswatini','Etiopia','Fiji','Filippine','Finlandia','Francia',
+    'Gabon','Gambia','Georgia','Germania','Ghana','Giamaica','Giappone','Gibuti','Giordania','Grecia',
+    'Grenada','Guatemala','Guinea','Guinea-Bissau','Guinea Equatoriale','Guyana','Haiti','Honduras','India','Indonesia',
+    'Iran','Iraq','Irlanda','Islanda','Israele','Italia','Kazakistan','Kenya','Kirghizistan','Kiribati',
+    'Kuwait','Laos','Lesotho','Lettonia','Libano','Liberia','Libia','Liechtenstein','Lituania','Lussemburgo',
+    'Madagascar','Malawi','Malaysia','Maldive','Mali','Malta','Marocco','Mauritania','Mauritius','Messico',
+    'Micronesia','Moldavia','Monaco','Mongolia','Montenegro','Mozambico','Myanmar','Namibia','Nauru','Nepal',
+    'Nicaragua','Niger','Nigeria','Norvegia','Nuova Zelanda','Oman','Paesi Bassi','Pakistan','Palau','Panama',
+    'Papua Nuova Guinea','Paraguay','Per\u00f9','Polonia','Portogallo','Qatar','Regno Unito','Rep. Ceca','Rep. Dominicana','Romania',
+    'Ruanda','Russia','Saint Kitts e Nevis','Saint Lucia','Saint Vincent','Samoa','San Marino','S\u00e3o Tom\u00e9','Senegal','Serbia',
+    'Seychelles','Sierra Leone','Singapore','Siria','Slovacchia','Slovenia','Somalia','Spagna','Sri Lanka','Stati Uniti',
+    'Sudafrica','Sudan','Sudan del Sud','Suriname','Svezia','Svizzera','Tagikistan','Tanzania','Thailandia','Timor Est',
+    'Togo','Tonga','Trinidad e Tobago','Tunisia','Turchia','Turkmenistan','Tuvalu','Ucraina','Uganda','Ungheria',
+    'Uruguay','Uzbekistan','Vanuatu','Venezuela','Vietnam','Yemen','Zambia','Zimbabwe'
+  ]
+  const HOW_OPTIONS = ['Walk-in', 'Usual Customer', 'Google', 'Social', 'AI/ChatGPT/Gemini Etc..', 'Friends']
 
   useEffect(() => { loadData() }, [])
 
@@ -99,7 +119,7 @@ export default function FidelityPage() {
         message: `${empProfile?.full_name || 'Dipendente'} ha creato una e-Card per ${fullName} (${form.phone}).`,
       })
 
-      setForm({ first_name: '', last_name: '', email: '', phone: '', dob: '', notes: '', nationality: 'Italiana', how: 'Passaparola', privacy: false })
+      setForm({ first_name: '', last_name: '', email: '', phone: '', dob: '', notes: '', nationality: 'Italia', how: 'Walk-in', privacy: false })
       await loadData()
     }
     setSaving(false)
