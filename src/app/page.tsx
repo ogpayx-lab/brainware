@@ -44,29 +44,34 @@ export default function LandingPage() {
     { q: t('faq_q5'), a: t('faq_a5') }, { q: t('faq_q6'), a: t('faq_a6') },
   ]
 
+  const heroTitle = {
+    it: { pre: 'Il gestionale', br: 'intelligente per il tuo', accent: 'retail' },
+    en: { pre: 'The intelligent', br: 'platform for your', accent: 'retail' },
+    de: { pre: 'Die intelligente', br: 'Plattform für Ihren', accent: 'Einzelhandel' },
+    fr: { pre: 'La plateforme', br: 'intelligente pour votre', accent: 'commerce' },
+    es: { pre: 'La plataforma', br: 'inteligente para tu', accent: 'comercio' },
+  }
+
+  const ht = heroTitle[lang]
+
   return (
     <div className="landing">
       {/* JSON-LD */}
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify({
         '@context': 'https://schema.org', '@type': 'SoftwareApplication', name: 'BrainWare',
         applicationCategory: 'BusinessApplication', operatingSystem: 'Web',
-        description: 'Retail management platform with POS, inventory, employee management, and AI analytics.',
         offers: [
           { '@type': 'Offer', name: 'Starter', price: '49', priceCurrency: 'EUR' },
           { '@type': 'Offer', name: 'Growth', price: '99', priceCurrency: 'EUR' },
           { '@type': 'Offer', name: 'Business', price: '149', priceCurrency: 'EUR' },
         ],
-        aggregateRating: { '@type': 'AggregateRating', ratingValue: '4.9', reviewCount: '127' },
       }) }} />
 
-      {/* ═══════ NAVBAR ═══════ */}
+      {/* ═══ NAV ═══ */}
       <header>
         <nav className={`l-nav ${scrolled ? 'scrolled' : ''}`} aria-label="Main navigation">
           <div className="l-nav-inner">
-            <a href="#" className="l-nav-logo">
-              <div className="l-nav-logo-icon">B</div>
-              BrainWare
-            </a>
+            <a href="#" className="l-nav-logo"><div className="l-nav-logo-icon">B</div>BrainWare</a>
             <div className="l-nav-links">
               <a href="#features">{t('nav_features')}</a>
               <a href="#pricing">{t('nav_pricing')}</a>
@@ -84,85 +89,136 @@ export default function LandingPage() {
       </header>
 
       <main>
-        {/* ═══════ HERO ═══════ */}
+        {/* ═══ HERO ═══ */}
         <section className="l-hero" aria-label="Hero">
-          <div className="l-orb l-orb-1" />
-          <div className="l-orb l-orb-2" />
-          <div className="l-hero-inner">
-            <div>
-              <div className="l-hero-badge l-animate">
-                <span style={{ fontSize: 16 }}>⚡</span> {t('hero_badge')}
-              </div>
-              <h1 className="l-animate l-animate-d1">
-                {lang === 'it' ? (
-                  <>Il sistema operativo<br/>per il tuo <span className="l-gradient">retail</span></>
-                ) : lang === 'de' ? (
-                  <>Das Betriebssystem<br/>für Ihren <span className="l-gradient">Einzelhandel</span></>
-                ) : lang === 'fr' ? (
-                  <>Le système d&apos;exploitation<br/>pour votre <span className="l-gradient">commerce</span></>
-                ) : lang === 'es' ? (
-                  <>El sistema operativo<br/>para tu <span className="l-gradient">comercio</span></>
-                ) : (
-                  <>The operating system<br/>for your <span className="l-gradient">retail</span></>
-                )}
-              </h1>
-              <p className="l-animate l-animate-d2">{t('hero_subtitle')}</p>
-              <div className="l-hero-buttons l-animate l-animate-d3">
-                <Link href="/signup" className="l-btn l-btn-primary l-btn-lg">{t('hero_cta')}</Link>
-                <a href="#features" className="l-btn l-btn-secondary l-btn-lg">{t('hero_cta_secondary')}</a>
-              </div>
-              <div className="l-hero-note l-animate l-animate-d4">{t('hero_no_cc')}</div>
-            </div>
+          <div className="l-hero-bg">
+            <div className="orb orb-1" />
+            <div className="orb orb-2" />
+            <div className="orb orb-3" />
+          </div>
+          <div className="l-hero-grid" />
 
-            {/* Dashboard Mockup with 3D perspective */}
-            <div className="l-hero-mockup l-animate l-animate-d2">
-              <div className="l-hero-mockup-inner">
-                <div className="l-mockup-bar">
-                  <div className="l-mockup-dot" style={{ background: '#EF4444' }} />
-                  <div className="l-mockup-dot" style={{ background: '#F59E0B' }} />
-                  <div className="l-mockup-dot" style={{ background: '#22C55E' }} />
-                  <div className="l-mockup-url">app.brainware.io/dashboard</div>
+          <div className="l-hero-content">
+            <div className="l-hero-badge l-animate">⚡ {t('hero_badge')}</div>
+            <h1 className="l-animate l-animate-d1">
+              {ht.pre}<br/>{ht.br} <span className="l-gradient-text">{ht.accent}</span>
+            </h1>
+            <p className="l-hero-sub l-animate l-animate-d2">{t('hero_subtitle')}</p>
+            <div className="l-hero-buttons l-animate l-animate-d3">
+              <Link href="/signup" className="l-btn l-btn-primary l-btn-lg">{t('hero_cta')}</Link>
+              <a href="#features" className="l-btn l-btn-secondary l-btn-lg">{t('hero_cta_secondary')}</a>
+            </div>
+            <div className="l-hero-note l-animate l-animate-d4">{t('hero_no_cc')}</div>
+          </div>
+
+          {/* ── Premium Dashboard ── */}
+          <div className="l-hero-visual l-animate l-animate-d5">
+            <div className="l-dashboard">
+              {/* Floating card left */}
+              <div className="l-float-card l-float-card-1">
+                <div className="l-float-card-title">AI Insight</div>
+                <div className="l-float-card-value" style={{ color: '#22C55E', fontSize: 18 }}>+23% Revenue</div>
+                <div className="l-float-card-sub">vs last month</div>
+              </div>
+              {/* Floating card right */}
+              <div className="l-float-card l-float-card-2">
+                <div className="l-float-card-title">System Status</div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 4 }}>
+                  <span className="l-dot-green" />
+                  <span style={{ fontSize: 14, fontWeight: 600 }}>All systems operational</span>
                 </div>
-                <div className="l-mockup-metrics">
-                  {[
-                    { label: 'Revenue', value: '€12,480', change: '+18.2%', color: '#22C55E' },
-                    { label: 'Orders', value: '284', change: '+12.5%', color: '#3B82F6' },
-                    { label: 'Customers', value: '1,205', change: '+7.3%', color: '#8B5CF6' },
-                  ].map(m => (
-                    <div key={m.label} className="l-mockup-metric">
-                      <div className="l-mockup-metric-label">{m.label}</div>
-                      <div className="l-mockup-metric-value">{m.value}</div>
-                      <div className="l-mockup-metric-change" style={{ color: m.color }}>↑ {m.change}</div>
+              </div>
+
+              <div className="l-dash-main">
+                {/* Browser bar */}
+                <div className="l-dash-toolbar">
+                  <div className="l-dash-dots">
+                    <div className="l-dash-dot" style={{ background: '#EF4444' }} />
+                    <div className="l-dash-dot" style={{ background: '#F59E0B' }} />
+                    <div className="l-dash-dot" style={{ background: '#22C55E' }} />
+                  </div>
+                  <div className="l-dash-url">app.brainware.io</div>
+                </div>
+
+                <div className="l-dash-body">
+                  {/* Sidebar */}
+                  <div className="l-dash-sidebar">
+                    {[
+                      { icon: '📊', label: 'Dashboard', active: true },
+                      { icon: '🛒', label: 'POS' },
+                      { icon: '📦', label: 'Inventory' },
+                      { icon: '👥', label: 'Employees' },
+                      { icon: '📈', label: 'Analytics' },
+                      { icon: '🔔', label: 'Notifications' },
+                      { icon: '⚙️', label: 'Settings' },
+                    ].map(item => (
+                      <div key={item.label} className={`l-dash-sidebar-item ${item.active ? 'active' : ''}`}>
+                        <span>{item.icon}</span> {item.label}
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* Content */}
+                  <div className="l-dash-content">
+                    <div className="l-dash-greeting">
+                      Good morning, Andrea <span>· Store Milano Centro</span>
                     </div>
-                  ))}
-                </div>
-                <div className="l-mockup-chart">
-                  <div className="l-mockup-chart-label">Revenue Overview — Last 6 months</div>
-                  <svg viewBox="0 0 400 100" style={{ width: '100%', height: 'auto' }}>
-                    <defs>
-                      <linearGradient id="cg" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="0%" stopColor="#22C55E" stopOpacity="0.4" />
-                        <stop offset="100%" stopColor="#22C55E" stopOpacity="0" />
-                      </linearGradient>
-                    </defs>
-                    <path d="M0,85 C40,80 60,70 100,55 S160,25 200,30 S280,45 320,35 S380,15 400,10 L400,100 L0,100 Z" fill="url(#cg)" />
-                    <path d="M0,85 C40,80 60,70 100,55 S160,25 200,30 S280,45 320,35 S380,15 400,10" fill="none" stroke="#22C55E" strokeWidth="2.5" strokeLinecap="round" />
-                    <circle cx="400" cy="10" r="4" fill="#22C55E">
-                      <animate attributeName="r" values="4;6;4" dur="2s" repeatCount="indefinite" />
-                    </circle>
-                  </svg>
-                </div>
-                <div className="l-mockup-pills">
-                  {['📦 Inventory: 94%', '👥 Staff: 8 active', '🔔 Alerts: 2 new', '⭐ Rating: 4.9/5'].map(item => (
-                    <div key={item} className="l-mockup-pill">{item}</div>
-                  ))}
+
+                    <div className="l-dash-kpis">
+                      {[
+                        { label: 'Revenue', val: '€12,480', change: '+18.2%', color: '#22C55E', bg: 'rgba(34,197,94,0.1)' },
+                        { label: 'Orders', val: '284', change: '+12.5%', color: '#3B82F6', bg: 'rgba(59,130,246,0.1)' },
+                        { label: 'Customers', val: '1,205', change: '+7.3%', color: '#8B5CF6', bg: 'rgba(139,92,246,0.1)' },
+                        { label: 'Avg. Order', val: '€43.90', change: '+5.1%', color: '#F59E0B', bg: 'rgba(245,158,11,0.1)' },
+                      ].map(kpi => (
+                        <div key={kpi.label} className="l-dash-kpi">
+                          <div className="l-dash-kpi-label">{kpi.label}</div>
+                          <div className="l-dash-kpi-row">
+                            <div className="l-dash-kpi-val">{kpi.val}</div>
+                            <div className="l-dash-kpi-change" style={{ color: kpi.color, background: kpi.bg }}>{kpi.change}</div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+
+                    <div className="l-dash-chart-area">
+                      <div className="l-dash-chart-box">
+                        <div className="l-dash-chart-title">Revenue — Last 6 months</div>
+                        <svg viewBox="0 0 380 90" style={{ width: '100%' }}>
+                          <defs>
+                            <linearGradient id="cg" x1="0" y1="0" x2="0" y2="1">
+                              <stop offset="0%" stopColor="#22C55E" stopOpacity="0.3" />
+                              <stop offset="100%" stopColor="#22C55E" stopOpacity="0" />
+                            </linearGradient>
+                          </defs>
+                          <path d="M0,75 C30,72 50,65 90,50 S140,25 190,30 S260,42 310,32 S360,12 380,8 L380,90 L0,90 Z" fill="url(#cg)" />
+                          <path d="M0,75 C30,72 50,65 90,50 S140,25 190,30 S260,42 310,32 S360,12 380,8" fill="none" stroke="#22C55E" strokeWidth="2" strokeLinecap="round" />
+                          <circle cx="380" cy="8" r="4" fill="#22C55E"><animate attributeName="opacity" values="1;0.4;1" dur="2s" repeatCount="indefinite" /></circle>
+                        </svg>
+                      </div>
+                      <div className="l-dash-chart-box">
+                        <div className="l-dash-chart-title">Top Products</div>
+                        {[
+                          { name: 'CBD Oil 10%', val: '€2,340' },
+                          { name: 'Vape Starter Kit', val: '€1,890' },
+                          { name: 'Hemp Cream', val: '€1,120' },
+                          { name: 'Disposable Vape', val: '€980' },
+                        ].map(p => (
+                          <div key={p.name} className="l-dash-list-item">
+                            <span className="l-dash-list-name">{p.name}</span>
+                            <span className="l-dash-list-val">{p.val}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
           </div>
         </section>
 
-        {/* ═══════ STATS ═══════ */}
+        {/* ═══ STATS ═══ */}
         <section className="l-stats" aria-label="Statistics">
           <div className="l-stats-inner">
             {[
@@ -179,7 +235,7 @@ export default function LandingPage() {
           </div>
         </section>
 
-        {/* ═══════ FEATURES ═══════ */}
+        {/* ═══ FEATURES ═══ */}
         <section className="l-section l-section-alt" id="features" aria-label="Features">
           <div className="l-section-inner">
             <div className="l-section-header">
@@ -199,7 +255,7 @@ export default function LandingPage() {
           </div>
         </section>
 
-        {/* ═══════ AI SECTION ═══════ */}
+        {/* ═══ AI ═══ */}
         <section className="l-ai" aria-label="AI Features">
           <div className="l-ai-inner">
             <div className="l-section-header">
@@ -208,10 +264,8 @@ export default function LandingPage() {
               <p>{t('ai_subtitle')}</p>
             </div>
             <div className="l-ai-visual">
-              {['Machine Learning', 'Natural Language', 'Predictive Analytics', 'Smart Automation', 'Real-time Insights'].map(chip => (
-                <div key={chip} className="l-ai-chip">
-                  <span style={{ fontSize: 14 }}>⚡</span> {chip}
-                </div>
+              {['Machine Learning', 'NLP', 'Predictive Analytics', 'Smart Automation', 'Real-time Insights'].map(chip => (
+                <div key={chip} className="l-ai-chip">⚡ {chip}</div>
               ))}
             </div>
             <div className="l-ai-grid">
@@ -228,13 +282,11 @@ export default function LandingPage() {
                 </div>
               ))}
             </div>
-            <div className="l-ai-quote">
-              <p>&ldquo;{t('ai_quote')}&rdquo;</p>
-            </div>
+            <div className="l-ai-quote"><p>&ldquo;{t('ai_quote')}&rdquo;</p></div>
           </div>
         </section>
 
-        {/* ═══════ HOW IT WORKS ═══════ */}
+        {/* ═══ HOW ═══ */}
         <section className="l-section l-section-dark" aria-label="How it works">
           <div className="l-section-inner">
             <div className="l-section-header">
@@ -257,7 +309,7 @@ export default function LandingPage() {
           </div>
         </section>
 
-        {/* ═══════ PRICING ═══════ */}
+        {/* ═══ PRICING ═══ */}
         <section className="l-section l-section-alt" id="pricing" aria-label="Pricing">
           <div className="l-section-inner">
             <div className="l-section-header">
@@ -274,7 +326,7 @@ export default function LandingPage() {
                   {plan.price ? (
                     <div className="l-price-amount">€{plan.price}<span className="l-price-period">{t('pricing_per_month')}</span></div>
                   ) : (
-                    <div className="l-price-amount" style={{ fontSize: 32 }}>{t('plan_enterprise_price')}</div>
+                    <div className="l-price-amount" style={{ fontSize: 30 }}>{t('plan_enterprise_price')}</div>
                   )}
                   <div className="l-price-stores">{plan.stores}</div>
                   <div className="l-price-trial">🎁 {t('pricing_trial')}</div>
@@ -292,7 +344,7 @@ export default function LandingPage() {
           </div>
         </section>
 
-        {/* ═══════ FAQ ═══════ */}
+        {/* ═══ FAQ ═══ */}
         <section className="l-section l-section-dark" id="faq" aria-label="FAQ">
           <div className="l-section-inner">
             <div className="l-section-header">
@@ -313,7 +365,7 @@ export default function LandingPage() {
           </div>
         </section>
 
-        {/* ═══════ CTA ═══════ */}
+        {/* ═══ CTA ═══ */}
         <section className="l-cta" aria-label="Call to action">
           <h2>{t('cta_title')}</h2>
           <p>{t('cta_subtitle')}</p>
@@ -322,15 +374,12 @@ export default function LandingPage() {
         </section>
       </main>
 
-      {/* ═══════ FOOTER ═══════ */}
+      {/* ═══ FOOTER ═══ */}
       <footer className="l-footer">
         <div className="l-footer-inner">
           <div className="l-footer-grid">
             <div className="l-footer-brand">
-              <a href="#" className="l-nav-logo">
-                <div className="l-nav-logo-icon">B</div>
-                BrainWare
-              </a>
+              <a href="#" className="l-nav-logo"><div className="l-nav-logo-icon">B</div>BrainWare</a>
               <p>{t('footer_tagline')}</p>
             </div>
             <div className="l-footer-col">
