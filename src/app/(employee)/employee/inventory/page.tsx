@@ -98,23 +98,30 @@ export default function InventoryPage() {
     setLoading(false)
   }
 
-  function handleCount(productId: string, val: string) {
+  function handleInput(productId: string, val: string) {
+    setRows(prev => prev.map(r =>
+      r.id === productId ? { ...r, counted: val, status: val === '' ? 'pending' as const : r.status } : r
+    ))
+  }
+
+  function handleValidate(productId: string) {
     setRows(prev => prev.map(r => {
       if (r.id !== productId) return r
-      if (r.escalated) return r // bloccato dopo 2 tentativi
-      if (val === '') return { ...r, counted: '', status: 'pending' }
+      if (r.escalated) return r
+      if (r.counted === '') return { ...r, status: 'pending' as const }
 
-      const counted = parseInt(val)
+      const counted = parseInt(r.counted)
+      if (isNaN(counted)) return r
       const isMatch = counted === r.stock
 
-      if (isMatch) return { ...r, counted: val, status: 'match', attempts: r.attempts + 1 }
+      if (isMatch) return { ...r, status: 'match' as const }
 
-      // Mismatch
+      // Mismatch — conta tentativo solo se è un nuovo tentativo
       const newAttempts = r.attempts + 1
-      if (newAttempts >= 2 && !isMatch) {
-        return { ...r, counted: val, status: 'escalated', attempts: newAttempts, escalated: true, showEscalateModal: true }
+      if (newAttempts >= 2) {
+        return { ...r, status: 'escalated' as const, attempts: newAttempts, escalated: true, showEscalateModal: true }
       }
-      return { ...r, counted: val, status: 'mismatch', attempts: newAttempts }
+      return { ...r, status: 'mismatch' as const, attempts: newAttempts }
     }))
   }
 
@@ -300,7 +307,9 @@ export default function InventoryPage() {
                       type="number"
                       min="0"
                       value={row.counted}
-                      onChange={e => handleCount(row.id, e.target.value)}
+                      onChange={e => handleInput(row.id, e.target.value)}
+                      onBlur={() => handleValidate(row.id)}
+                      onKeyDown={e => { if (e.key === 'Enter') { e.currentTarget.blur() } }}
                       placeholder=""
                       style={{
                         width: 64, padding: '4px 8px',
