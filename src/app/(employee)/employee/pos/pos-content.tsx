@@ -583,7 +583,7 @@ export default function POSContent() {
   }
 
   return (
-    <div style={{ minHeight:'100vh', background:'var(--bg-surface)', display:'flex', flexDirection:'column', paddingBottom:60 }}>
+    <div style={{ height:'100dvh', background:'var(--bg-surface)', display:'flex', flexDirection:'column', overflow:'hidden' }}>
       {/* QR Scanner Modal */}
       {showQR && (
         <div className="modal-overlay">
@@ -760,7 +760,7 @@ export default function POSContent() {
         </div>
       )}
 
-      <div style={{ display:'flex', flex:1, overflow:'hidden' }}>
+      <div style={{ display:'flex', flex:1, overflow:'hidden', minHeight:0 }}>
         {/* Left: Catalog – always full width on mobile */}
         <div style={{ flex:1, overflowY:'auto', padding:'var(--space-lg)', paddingBottom: cart.length > 0 ? 80 : 'var(--space-lg)' }}>
           <div style={{ display:'flex', gap:8, marginBottom:'var(--space-md)' }}>
