@@ -111,148 +111,50 @@ export default function LandingPage() {
             <div className="l-hero-note l-animate l-animate-d4">{t('hero_no_cc')}</div>
           </div>
 
-          {/* ── Premium Dashboard ── */}
+          {/* ── Platform Video Demo ── */}
           <div className="l-hero-visual l-animate l-animate-d5">
-            <div className="l-dashboard">
-              {/* Floating notification */}
-              <div className="l-float-card l-float-card-1">
-                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                  <div style={{ width: 36, height: 36, borderRadius: 10, background: 'rgba(34,197,94,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18 }}>📈</div>
-                  <div>
-                    <div style={{ fontSize: 13, fontWeight: 700, color: 'white' }}>AI Insight</div>
-                    <div style={{ fontSize: 12, color: '#22C55E', fontWeight: 600 }}>Revenue up 23% this week</div>
-                  </div>
+            <div className="l-video-container">
+              <div className="l-video-toolbar">
+                <div className="l-dash-dots">
+                  <div className="l-dash-dot" style={{ background: '#EF4444' }} />
+                  <div className="l-dash-dot" style={{ background: '#F59E0B' }} />
+                  <div className="l-dash-dot" style={{ background: '#22C55E' }} />
+                </div>
+                <div className="l-dash-url">
+                  <span style={{ marginRight: 6, fontSize: 10, color: '#22C55E' }}>🔒</span>
+                  app.brainware.io
                 </div>
               </div>
-              {/* Floating status */}
-              <div className="l-float-card l-float-card-2">
-                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                  <div style={{ width: 36, height: 36, borderRadius: 10, background: 'rgba(59,130,246,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18 }}>🔔</div>
-                  <div>
-                    <div style={{ fontSize: 13, fontWeight: 700, color: 'white' }}>New Order #1042</div>
-                    <div style={{ fontSize: 12, color: '#94A3B8' }}>CBD Oil 10% × 2 — €49.80</div>
-                  </div>
-                </div>
-              </div>
-
-              <div className="l-dash-main">
-                <div className="l-dash-toolbar">
-                  <div className="l-dash-dots">
-                    <div className="l-dash-dot" style={{ background: '#EF4444' }} />
-                    <div className="l-dash-dot" style={{ background: '#F59E0B' }} />
-                    <div className="l-dash-dot" style={{ background: '#22C55E' }} />
-                  </div>
-                  <div className="l-dash-url">
-                    <span style={{ marginRight: 6, fontSize: 10, color: '#22C55E' }}>🔒</span>
-                    app.brainware.io/dashboard
-                  </div>
-                </div>
-
-                <div className="l-dash-body">
-                  <div className="l-dash-sidebar">
-                    <div style={{ padding: '4px 20px 20px', borderBottom: '1px solid rgba(255,255,255,0.04)', marginBottom: 8 }}>
-                      <div style={{ fontSize: 11, color: '#64748B', textTransform: 'uppercase', letterSpacing: '0.1em', fontWeight: 700, marginBottom: 6 }}>Store</div>
-                      <div style={{ fontSize: 14, fontWeight: 700, color: 'white' }}>Milano Centro</div>
-                    </div>
+              <div className="l-video-content">
+                <video
+                  autoPlay
+                  loop
+                  muted
+                  playsInline
+                  poster="/demo-poster.jpg"
+                  style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '0 0 20px 20px' }}
+                >
+                  <source src="/demo.mp4" type="video/mp4" />
+                  <source src="/demo.webm" type="video/webm" />
+                </video>
+                {/* Fallback: shown until you add /public/demo.mp4 */}
+                <div className="l-video-fallback">
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12, width: '100%', maxWidth: 700, marginBottom: 24 }}>
                     {[
-                      { icon: '◻️', label: 'Dashboard', active: true },
-                      { icon: '🛒', label: 'POS' },
-                      { icon: '📦', label: 'Inventario' },
-                      { icon: '👥', label: 'Dipendenti' },
-                      { icon: '📊', label: 'Analytics' },
-                      { icon: '🔧', label: 'Settings' },
-                    ].map(item => (
-                      <div key={item.label} className={`l-dash-sidebar-item ${item.active ? 'active' : ''}`}>
-                        <span>{item.icon}</span> {item.label}
+                      { icon: '📊', label: 'Dashboard', desc: 'Real-time KPIs' },
+                      { icon: '🛒', label: 'POS', desc: 'Smart checkout' },
+                      { icon: '📦', label: 'Inventory', desc: 'Live tracking' },
+                      { icon: '🤖', label: 'AI Insights', desc: 'Auto reports' },
+                    ].map(f => (
+                      <div key={f.label} style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: 14, padding: '20px 16px', textAlign: 'center' }}>
+                        <div style={{ fontSize: 28, marginBottom: 8 }}>{f.icon}</div>
+                        <div style={{ fontSize: 14, fontWeight: 700, color: 'white', marginBottom: 4 }}>{f.label}</div>
+                        <div style={{ fontSize: 12, color: '#64748B' }}>{f.desc}</div>
                       </div>
                     ))}
                   </div>
-
-                  <div className="l-dash-content">
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
-                      <div>
-                        <div style={{ fontSize: 22, fontWeight: 800, letterSpacing: '-0.02em' }}>Dashboard</div>
-                        <div style={{ fontSize: 13, color: '#64748B', marginTop: 2 }}>Domenica 13 Aprile, 2025</div>
-                      </div>
-                      <div style={{ display: 'flex', gap: 8 }}>
-                        <div style={{ padding: '6px 14px', background: 'rgba(34,197,94,0.1)', border: '1px solid rgba(34,197,94,0.2)', borderRadius: 8, fontSize: 12, color: '#22C55E', fontWeight: 600 }}>Today</div>
-                        <div style={{ padding: '6px 14px', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: 8, fontSize: 12, color: '#64748B', fontWeight: 500 }}>7 Days</div>
-                        <div style={{ padding: '6px 14px', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: 8, fontSize: 12, color: '#64748B', fontWeight: 500 }}>30 Days</div>
-                      </div>
-                    </div>
-
-                    <div className="l-dash-kpis">
-                      {[
-                        { label: 'Revenue', val: '€12,480', change: '+18.2%', color: '#22C55E', bg: 'rgba(34,197,94,0.08)', spark: 'M0,20 Q8,18 16,15 T32,10 T48,12 T64,5' },
-                        { label: 'Orders', val: '284', change: '+12.5%', color: '#3B82F6', bg: 'rgba(59,130,246,0.08)', spark: 'M0,18 Q12,15 24,12 T48,8 T64,10' },
-                        { label: 'Customers', val: '1,205', change: '+7.3%', color: '#8B5CF6', bg: 'rgba(139,92,246,0.08)', spark: 'M0,16 Q16,14 32,10 T48,12 T64,8' },
-                        { label: 'Avg. Order', val: '€43.90', change: '+5.1%', color: '#F59E0B', bg: 'rgba(245,158,11,0.08)', spark: 'M0,15 Q10,12 24,14 T48,8 T64,6' },
-                      ].map(kpi => (
-                        <div key={kpi.label} className="l-dash-kpi">
-                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start' }}>
-                            <div>
-                              <div className="l-dash-kpi-label">{kpi.label}</div>
-                              <div className="l-dash-kpi-val">{kpi.val}</div>
-                            </div>
-                            <svg viewBox="0 0 64 24" style={{ width: 64, height: 24, marginTop: 4 }}>
-                              <path d={kpi.spark} fill="none" stroke={kpi.color} strokeWidth="2" strokeLinecap="round" opacity="0.7" />
-                            </svg>
-                          </div>
-                          <div className="l-dash-kpi-change" style={{ color: kpi.color, background: kpi.bg }}>↑ {kpi.change}</div>
-                        </div>
-                      ))}
-                    </div>
-
-                    <div className="l-dash-chart-area">
-                      <div className="l-dash-chart-box">
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-                          <div className="l-dash-chart-title">Revenue Overview</div>
-                          <div style={{ fontSize: 11, color: '#22C55E', fontWeight: 600 }}>€12,480 total</div>
-                        </div>
-                        <svg viewBox="0 0 380 80" style={{ width: '100%' }}>
-                          <defs>
-                            <linearGradient id="cg" x1="0" y1="0" x2="0" y2="1">
-                              <stop offset="0%" stopColor="#22C55E" stopOpacity="0.25" />
-                              <stop offset="100%" stopColor="#22C55E" stopOpacity="0" />
-                            </linearGradient>
-                          </defs>
-                          {/* Grid lines */}
-                          {[20, 40, 60].map(y => (
-                            <line key={y} x1="0" y1={y} x2="380" y2={y} stroke="rgba(255,255,255,0.03)" strokeWidth="1" />
-                          ))}
-                          <path d="M0,70 C25,68 40,60 80,48 S130,22 180,28 S250,40 300,30 S350,10 380,6 L380,80 L0,80 Z" fill="url(#cg)" />
-                          <path d="M0,70 C25,68 40,60 80,48 S130,22 180,28 S250,40 300,30 S350,10 380,6" fill="none" stroke="#22C55E" strokeWidth="2" strokeLinecap="round" />
-                          <circle cx="380" cy="6" r="3.5" fill="#22C55E">
-                            <animate attributeName="r" values="3.5;5;3.5" dur="2s" repeatCount="indefinite" />
-                          </circle>
-                          <circle cx="380" cy="6" r="8" fill="none" stroke="#22C55E" strokeWidth="1" opacity="0.3">
-                            <animate attributeName="r" values="8;14;8" dur="2s" repeatCount="indefinite" />
-                            <animate attributeName="opacity" values="0.3;0;0.3" dur="2s" repeatCount="indefinite" />
-                          </circle>
-                        </svg>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 8, fontSize: 10, color: '#475569' }}>
-                          <span>Oct</span><span>Nov</span><span>Dec</span><span>Jan</span><span>Feb</span><span>Mar</span>
-                        </div>
-                      </div>
-                      <div className="l-dash-chart-box">
-                        <div className="l-dash-chart-title">Top Products</div>
-                        {[
-                          { name: 'CBD Oil 10%', val: '€2,340', pct: 85 },
-                          { name: 'Vape Kit Pro', val: '€1,890', pct: 70 },
-                          { name: 'Hemp Cream', val: '€1,120', pct: 48 },
-                        ].map(p => (
-                          <div key={p.name} style={{ marginBottom: 14 }}>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, marginBottom: 6 }}>
-                              <span style={{ color: '#CBD5E1', fontWeight: 500 }}>{p.name}</span>
-                              <span style={{ color: '#22C55E', fontWeight: 700 }}>{p.val}</span>
-                            </div>
-                            <div style={{ height: 4, borderRadius: 4, background: 'rgba(255,255,255,0.04)' }}>
-                              <div style={{ height: '100%', borderRadius: 4, width: `${p.pct}%`, background: 'linear-gradient(90deg, #22C55E, #4ADE80)' }} />
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
+                  <div style={{ fontSize: 14, color: '#475569', fontWeight: 500 }}>
+                    Interactive platform demo — coming soon
                   </div>
                 </div>
               </div>
