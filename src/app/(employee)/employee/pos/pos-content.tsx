@@ -583,7 +583,7 @@ export default function POSContent() {
   }
 
   return (
-    <div style={{ height:'100dvh', background:'var(--bg-surface)', display:'flex', flexDirection:'column', overflow:'hidden' }}>
+    <div style={{ height:'100dvh', background:'var(--bg-surface)', display:'flex', flexDirection:'column', overflow:'hidden', paddingBottom:56 }}>
       {/* QR Scanner Modal */}
       {showQR && (
         <div className="modal-overlay">
