@@ -14,7 +14,7 @@ export default function SettingsPage() {
   const [store, setStore] = useState({ name: '', address: '', city: '' })
   const [brand, setBrand] = useState({ brand_name: '', logo_letter: '', primary_color: '#22C55E', piva: '', receipt_header: '', receipt_footer: 'Grazie per il tuo acquisto!' })
   const [brandId, setBrandId] = useState<string | null>(null)
-  const [cfg, setCfg] = useState({ fcu_default: 200, morning_shift_start: '08:00', morning_shift_end: '14:00', evening_shift_start: '14:00', evening_shift_end: '22:00', stock_alert_threshold: 5, discount_notify_pct: 15 })
+  const [cfg, setCfg] = useState({ fcu_default: 200, morning_shift_start: '08:00', morning_shift_end: '14:00', evening_shift_start: '14:00', evening_shift_end: '22:00', stock_alert_threshold: 5, discount_notify_pct: 15, punctuality_tolerance_min: 5 })
   const [cfgId, setCfgId] = useState<string | null>(null)
   const [bonus, setBonus] = useState({ sales_commission_pct: 0.01, hours_bonus_amount: 5, hours_bonus_threshold: 8, avg_sale_threshold: 40 })
   const [bonusId, setBonusId] = useState<string | null>(null)
@@ -70,7 +70,7 @@ export default function SettingsPage() {
 
     if (storeData) setStore({ name: storeData.name, address: storeData.address ?? '', city: storeData.city ?? '' })
     if (brandData) { setBrand({ brand_name: brandData.brand_name, logo_letter: brandData.logo_letter, primary_color: brandData.primary_color, piva: brandData.piva ?? '', receipt_header: brandData.receipt_header ?? '', receipt_footer: brandData.receipt_footer ?? '' }); setBrandId(brandData.id) }
-    if (cfgData) { setCfg({ fcu_default: cfgData.fcu_default, morning_shift_start: cfgData.morning_shift_start, morning_shift_end: cfgData.morning_shift_end, evening_shift_start: cfgData.evening_shift_start, evening_shift_end: cfgData.evening_shift_end, stock_alert_threshold: cfgData.stock_alert_threshold, discount_notify_pct: cfgData.discount_notify_pct }); setCfgId(cfgData.id) }
+    if (cfgData) { setCfg({ fcu_default: cfgData.fcu_default, morning_shift_start: cfgData.morning_shift_start, morning_shift_end: cfgData.morning_shift_end, evening_shift_start: cfgData.evening_shift_start, evening_shift_end: cfgData.evening_shift_end, stock_alert_threshold: cfgData.stock_alert_threshold, discount_notify_pct: cfgData.discount_notify_pct, punctuality_tolerance_min: cfgData.punctuality_tolerance_min ?? 5 }); setCfgId(cfgData.id) }
     if (bonusData) { setBonus({ sales_commission_pct: bonusData.sales_commission_pct, hours_bonus_amount: bonusData.hours_bonus_amount, hours_bonus_threshold: bonusData.hours_bonus_threshold, avg_sale_threshold: bonusData.avg_sale_threshold }); setBonusId(bonusData.id) }
 
     // Shopify
@@ -298,6 +298,8 @@ export default function SettingsPage() {
               <div className="input-group"><label className="input-label">Fine Mattina</label><input className="input" type="time" value={cfg.morning_shift_end} onChange={e => setCfg(c => ({ ...c, morning_shift_end: e.target.value }))} /></div>
               <div className="input-group"><label className="input-label">Inizio Sera</label><input className="input" type="time" value={cfg.evening_shift_start} onChange={e => setCfg(c => ({ ...c, evening_shift_start: e.target.value }))} /></div>
               <div className="input-group"><label className="input-label">Fine Sera</label><input className="input" type="time" value={cfg.evening_shift_end} onChange={e => setCfg(c => ({ ...c, evening_shift_end: e.target.value }))} /></div>
+              <div className="input-group"><label className="input-label">Tolleranza Puntualità (min)</label><input className="input" type="number" min="0" max="30" value={cfg.punctuality_tolerance_min} onChange={e => setCfg(c => ({ ...c, punctuality_tolerance_min: parseInt(e.target.value) || 0 }))} /></div>
+              <div style={{ fontSize: 11, color: 'var(--text-tertiary)', display: 'flex', alignItems: 'center' }}>⏰ Il dipendente è "puntuale" se apre il turno entro {cfg.punctuality_tolerance_min} min dall'orario previsto</div>
             </div>
             <h4>Soglie</h4>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--space-md)' }}>

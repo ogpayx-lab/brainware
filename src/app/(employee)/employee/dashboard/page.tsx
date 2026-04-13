@@ -131,27 +131,52 @@ export default function EmployeeDashboard() {
 
     // --- Performance metrics ---
     try {
-      // Puntualità: ultimi 30 turni, check-in entro 10 min dall'apertura turno
+      // Load store schedule
+      const { data: storeCfg } = await supabase
+        .from('store_config')
+        .select('morning_shift_start, evening_shift_start, punctuality_tolerance_min')
+        .eq('store_id', profile.store_id)
+        .single()
+
+      const morningStart = storeCfg?.morning_shift_start || '08:00'
+      const eveningStart = storeCfg?.evening_shift_start || '14:00'
+      const TOLERANCE_MIN = storeCfg?.punctuality_tolerance_min ?? 5
+
+      // Puntualità: ultimi 30 turni
       const { data: recentShifts } = await supabase
         .from('shifts')
         .select('id, created_at, period')
         .eq('store_id', profile.store_id)
         .order('created_at', { ascending: false })
         .limit(30)
-      const punctualityTotal = recentShifts?.length ?? 0
-      // Consider on-time if shift was opened (simplified: count total shifts as on-time check)
-      const punctualityOnTime = punctualityTotal // placeholder — all opened shifts count as on-time
 
-      // Match inventario: ultimi conteggi
-      const { data: countItems } = await supabase
-        .from('inventory_count_items')
-        .select('status')
-        .eq('status', 'match')
-      const { count: invTotalCount } = await supabase
-        .from('inventory_count_items')
-        .select('id', { count: 'exact', head: true })
-      const invMatch = countItems?.length ?? 0
-      const invTotal = invTotalCount ?? 0
+      const punctualityTotal = recentShifts?.length ?? 0
+      let punctualityOnTime = 0
+      for (const s of recentShifts ?? []) {
+        const openedAt = new Date(s.created_at)
+        const expectedTime = s.period === 'morning' ? morningStart : eveningStart
+        const [h, m] = expectedTime.split(':').map(Number)
+        const expected = new Date(openedAt)
+        expected.setHours(h, m, 0, 0)
+        const diffMin = (openedAt.getTime() - expected.getTime()) / 60000
+        if (diffMin <= TOLERANCE_MIN) punctualityOnTime++
+      }
+
+      // Match inventario: conteggi di questo store
+      const { data: storeCountIds } = await supabase
+        .from('inventory_counts')
+        .select('id')
+        .eq('store_id', profile.store_id)
+      const countIds = (storeCountIds ?? []).map((c: any) => c.id)
+      let invMatch = 0, invTotal = 0
+      if (countIds.length > 0) {
+        const { data: allItems } = await supabase
+          .from('inventory_count_items')
+          .select('status')
+          .in('inventory_count_id', countIds)
+        invTotal = allItems?.length ?? 0
+        invMatch = allItems?.filter((i: any) => i.status === 'match').length ?? 0
+      }
 
       // Task giornalieri completati oggi
       const todayStr = new Date().toISOString().split('T')[0]
