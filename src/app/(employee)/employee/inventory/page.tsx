@@ -30,6 +30,8 @@ export default function InventoryPage() {
   const [loading, setLoading] = useState(true)
   const [finalizing, setFinalizing] = useState(false)
   const [finalized, setFinalized] = useState(false)
+  const [saving, setSaving] = useState(false)
+  const [savedMsg, setSavedMsg] = useState('')
 
   useEffect(() => { loadData() }, [])
 
@@ -42,22 +44,57 @@ export default function InventoryPage() {
     if (!profile?.store_id) return
     setStoreId(profile.store_id)
 
-    const { data: shift } = await supabase.from('shifts').select('id').eq('user_id', user.id).eq('status', 'open').order('created_at',{ascending:false}).limit(1).single()
+    const { data: shift } = await supabase.from('shifts').select('id').eq('store_id', profile.store_id).eq('status', 'open').order('created_at',{ascending:false}).limit(1).single()
     if (!shift) { router.push('/employee/shift/open'); return }
     setShiftId(shift.id)
 
     const { data: prods } = await supabase
       .from('products').select('*').eq('store_id', profile.store_id).eq('is_active', true).order('name')
 
-    setRows((prods ?? []).map(p => ({
-      ...p,
-      counted: '',
-      status: 'pending',
-      mismatchReason: '',
-      attempts: 0,
-      escalated: false,
-      showEscalateModal: false,
-    })))
+    // Check for existing draft (non-finalized count for this store)
+    const { data: existingCount } = await supabase
+      .from('inventory_counts')
+      .select('id')
+      .eq('store_id', profile.store_id)
+      .eq('finalized', false)
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .single()
+
+    let savedItems: any[] = []
+    if (existingCount) {
+      setCountId(existingCount.id)
+      const { data: items } = await supabase
+        .from('inventory_count_items')
+        .select('*')
+        .eq('inventory_count_id', existingCount.id)
+      savedItems = items ?? []
+    }
+
+    setRows((prods ?? []).map(p => {
+      const saved = savedItems.find(s => s.product_id === p.id)
+      if (saved) {
+        const isEscalated = saved.status === 'escalated'
+        return {
+          ...p,
+          counted: saved.counted_qty?.toString() ?? '',
+          status: saved.status || 'pending',
+          mismatchReason: saved.mismatch_reason || '',
+          attempts: saved.attempt_count || 0,
+          escalated: isEscalated,
+          showEscalateModal: false,
+        }
+      }
+      return {
+        ...p,
+        counted: '',
+        status: 'pending' as const,
+        mismatchReason: '',
+        attempts: 0,
+        escalated: false,
+        showEscalateModal: false,
+      }
+    }))
     setLoading(false)
   }
 
@@ -81,43 +118,78 @@ export default function InventoryPage() {
     }))
   }
 
+  async function saveItems(targetCountId: string) {
+    const countedRows = rows.filter(r => r.counted !== '')
+    // Delete old items and re-insert
+    await supabase.from('inventory_count_items').delete().eq('inventory_count_id', targetCountId)
+    if (countedRows.length > 0) {
+      await supabase.from('inventory_count_items').insert(
+        countedRows.map(r => ({
+          inventory_count_id: targetCountId,
+          product_id: r.id,
+          product_name: r.name,
+          system_qty: r.stock,
+          counted_qty: parseInt(r.counted),
+          status: r.status,
+          mismatch_reason: r.mismatchReason || null,
+          attempt_count: r.attempts,
+        }))
+      )
+    }
+  }
+
+  async function handleSaveDraft() {
+    if (!shiftId || !storeId || !userId) return
+    setSaving(true)
+    setSavedMsg('')
+
+    let draftId = countId
+    if (!draftId) {
+      const { data: count } = await supabase
+        .from('inventory_counts')
+        .insert({ shift_id: shiftId, store_id: storeId, user_id: userId, finalized: false })
+        .select('id').single()
+      if (!count) { setSaving(false); return }
+      draftId = count.id
+      setCountId(draftId)
+    }
+
+    await saveItems(draftId!)
+    setSaving(false)
+    setSavedMsg('✅ Inventario salvato!')
+    setTimeout(() => setSavedMsg(''), 3000)
+  }
+
   async function handleFinalize() {
     if (!shiftId || !storeId || !userId) return
     setFinalizing(true)
 
-    // Create inventory count record
-    const { data: count } = await supabase
-      .from('inventory_counts')
-      .insert({ shift_id: shiftId, store_id: storeId, user_id: userId, finalized: true, finalized_at: new Date().toISOString() })
-      .select('id').single()
+    let finalId = countId
+    if (!finalId) {
+      const { data: count } = await supabase
+        .from('inventory_counts')
+        .insert({ shift_id: shiftId, store_id: storeId, user_id: userId, finalized: true, finalized_at: new Date().toISOString() })
+        .select('id').single()
+      if (!count) { setFinalizing(false); return }
+      finalId = count.id
+    } else {
+      await supabase.from('inventory_counts').update({ finalized: true, finalized_at: new Date().toISOString() }).eq('id', finalId)
+    }
 
-    if (!count) { setFinalizing(false); return }
-
-    const counted = rows.filter(r => r.counted !== '')
-    await supabase.from('inventory_count_items').insert(
-      counted.map(r => ({
-        inventory_count_id: count.id,
-        product_id: r.id,
-        product_name: r.name,
-        system_qty: r.stock,
-        counted_qty: parseInt(r.counted),
-        status: r.status,
-        mismatch_reason: r.mismatchReason || null,
-        attempt_count: r.attempts,
-      }))
-    )
+    await saveItems(finalId!)
 
     // Get employee name
     const { data: empProfile } = await supabase.from('users').select('full_name').eq('id', userId).single()
     const empName = empProfile?.full_name || 'Dipendente'
-    const matches = counted.filter(r => r.status === 'match').length
-    const mismatches = counted.filter(r => r.status !== 'match').length
+    const countedRows = rows.filter(r => r.counted !== '')
+    const matches = countedRows.filter(r => r.status === 'match').length
+    const mismatches = countedRows.filter(r => r.status !== 'match').length
 
     await supabase.from('notifications').insert({
       store_id: storeId,
       type: 'inventory_count',
       title: '📋 Inventario completato',
-      message: `${empName} ha finalizzato il conteggio inventario: ${counted.length} prodotti, ${matches} ✅ match, ${mismatches} ⚠️ discrepanze.`,
+      message: `${empName} ha finalizzato il conteggio inventario: ${countedRows.length} prodotti, ${matches} ✅ match, ${mismatches} ⚠️ discrepanze.`,
     })
 
     setFinalized(true)
@@ -264,20 +336,33 @@ export default function InventoryPage() {
         </table>
       </div>
 
-      {/* Finalize */}
-      <div style={{ padding: 'var(--space-lg)' }}>
-        <button
-          onClick={handleFinalize}
-          disabled={!canFinalize || finalizing}
-          className="btn btn-primary btn-full btn-lg"
-        >
-          {finalizing ? 'Finalizzazione...' : `Finalizza Conteggio (${counted.length} prodotti)`}
-        </button>
-        {mismatchCount > 0 && (
-          <div style={{ textAlign: 'center', fontSize: 12, color: 'var(--text-tertiary)', marginTop: 8 }}>
-            ⚠️ {mismatchCount} prodotti con discrepanze — verranno segnalati al responsabile
+      {/* Actions */}
+      <div style={{ padding: 'var(--space-lg)', display: 'flex', flexDirection: 'column', gap: 8 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+          <button
+            onClick={handleSaveDraft}
+            disabled={saving || counted.length === 0}
+            className="btn btn-secondary btn-lg"
+          >
+            {saving ? '⏳ Salvataggio...' : '💾 Salva Inventario'}
+          </button>
+          <button
+            onClick={handleFinalize}
+            disabled={!canFinalize || finalizing}
+            className="btn btn-primary btn-lg"
+          >
+            {finalizing ? 'Finalizzazione...' : '✅ Finalizza Conteggio'}
+          </button>
+        </div>
+        {savedMsg && (
+          <div style={{ textAlign: 'center', fontSize: 13, color: 'var(--success)', fontWeight: 600 }}>
+            {savedMsg}
           </div>
         )}
+        <div style={{ textAlign: 'center', fontSize: 12, color: 'var(--text-tertiary)' }}>
+          {counted.length} prodotti contati · {matchCount} ✅ · {mismatchCount} ⚠️
+          {countId && <span> · 📂 Bozza salvata</span>}
+        </div>
       </div>
 
       <BottomNav />
