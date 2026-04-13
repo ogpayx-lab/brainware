@@ -64,6 +64,7 @@ export default function InventoryPage() {
   function handleCount(productId: string, val: string) {
     setRows(prev => prev.map(r => {
       if (r.id !== productId) return r
+      if (r.escalated) return r // bloccato dopo 2 tentativi
       if (val === '') return { ...r, counted: '', status: 'pending' }
 
       const counted = parseInt(val)
@@ -74,7 +75,7 @@ export default function InventoryPage() {
       // Mismatch
       const newAttempts = r.attempts + 1
       if (newAttempts >= 2 && !isMatch) {
-        return { ...r, counted: val, status: 'escalated', attempts: newAttempts, showEscalateModal: true }
+        return { ...r, counted: val, status: 'escalated', attempts: newAttempts, escalated: true, showEscalateModal: true }
       }
       return { ...r, counted: val, status: 'mismatch', attempts: newAttempts }
     }))
@@ -128,7 +129,7 @@ export default function InventoryPage() {
   const counted = rows.filter(r => r.counted !== '')
   const matchCount = counted.filter(r => r.status === 'match').length
   const mismatchCount = counted.filter(r => r.status === 'mismatch' || r.status === 'escalated').length
-  const canFinalize = counted.length > 0 && rows.filter(r => r.status === 'mismatch').every(r => r.mismatchReason.trim().length > 0)
+  const canFinalize = counted.length > 0
 
   if (loading) return <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100vh' }}>Caricamento...</div>
 
@@ -203,41 +204,52 @@ export default function InventoryPage() {
           <thead>
             <tr>
               <th>Prodotto</th>
-              <th>Sistema</th>
               <th>Contato</th>
               <th>Stato</th>
-              <th>Motivo</th>
+              <th>Note</th>
             </tr>
           </thead>
           <tbody>
             {filtered.map(row => (
               <tr key={row.id}>
                 <td style={{ fontWeight: 600 }}>{row.name}</td>
-                <td style={{ color: 'var(--text-secondary)' }}>{row.stock}</td>
                 <td>
-                  <input
-                    type="number"
-                    min="0"
-                    value={row.counted}
-                    onChange={e => handleCount(row.id, e.target.value)}
-                    placeholder=""
-                    style={{
-                      width: 64, padding: '4px 8px', border: '1.5px solid var(--border-default)',
-                      borderRadius: 'var(--radius-sm)', fontSize: 14, fontWeight: 700, textAlign: 'center',
-                    }}
-                  />
+                  {row.escalated ? (
+                    <div style={{ display:'flex', alignItems:'center', gap:6 }}>
+                      <span style={{ fontWeight:700, fontSize:14 }}>{row.counted}</span>
+                      <button
+                        onClick={() => setRows(prev => prev.map(r => r.id === row.id ? { ...r, showEscalateModal: true } : r))}
+                        title="Richiedi assistenza"
+                        style={{ background:'none', border:'none', fontSize:20, cursor:'pointer', padding:0 }}
+                      >🆘</button>
+                    </div>
+                  ) : (
+                    <input
+                      type="number"
+                      min="0"
+                      value={row.counted}
+                      onChange={e => handleCount(row.id, e.target.value)}
+                      placeholder=""
+                      style={{
+                        width: 64, padding: '4px 8px',
+                        border: `1.5px solid ${row.status === 'mismatch' ? 'var(--warning)' : 'var(--border-default)'}`,
+                        borderRadius: 'var(--radius-sm)', fontSize: 14, fontWeight: 700, textAlign: 'center',
+                      }}
+                    />
+                  )}
+                  {row.status === 'mismatch' && <div style={{ fontSize:10, color:'var(--warning)', marginTop:2 }}>Tentativo {row.attempts}/2</div>}
                 </td>
                 <td>
                   {row.status === 'pending' && <span className="badge badge-gray">In attesa</span>}
-                  {row.status === 'match' && <span className="badge badge-success"> Match</span>}
-                  {row.status === 'mismatch' && <span className="badge badge-danger"> Non corrisponde</span>}
-                  {row.status === 'escalated' && <span className="badge badge-warning"> Escalato</span>}
+                  {row.status === 'match' && <span className="badge badge-success">✅ Match</span>}
+                  {row.status === 'mismatch' && <span className="badge badge-warning">⚠️ Riprova</span>}
+                  {row.status === 'escalated' && <span className="badge badge-danger">🆘 Assistenza</span>}
                 </td>
                 <td>
                   {(row.status === 'mismatch' || row.status === 'escalated') && (
                     <input
                       type="text"
-                      placeholder="Motivo..."
+                      placeholder="Note (opzionale)"
                       value={row.mismatchReason}
                       onChange={e => setRows(prev => prev.map(r =>
                         r.id === row.id ? { ...r, mismatchReason: e.target.value } : r
@@ -261,9 +273,9 @@ export default function InventoryPage() {
         >
           {finalizing ? 'Finalizzazione...' : `Finalizza Conteggio (${counted.length} prodotti)`}
         </button>
-        {!canFinalize && mismatchCount > 0 && (
+        {mismatchCount > 0 && (
           <div style={{ textAlign: 'center', fontSize: 12, color: 'var(--text-tertiary)', marginTop: 8 }}>
-            Inserisci tutti i motivi per procedere
+            ⚠️ {mismatchCount} prodotti con discrepanze — verranno segnalati al responsabile
           </div>
         )}
       </div>
