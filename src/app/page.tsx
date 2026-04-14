@@ -312,12 +312,14 @@ export default function LandingPage() {
         </section>
 
         {/* ═══ CTA ═══ */}
-        <section className="l-cta" aria-label="Call to action">
-          <h2>{t('cta_title')}</h2>
-          <p>{t('cta_subtitle')}</p>
-          <Link href="/signup" className="l-btn l-btn-primary l-btn-lg">{t('cta_button')}</Link>
-          <div className="l-cta-note">{t('cta_note')}</div>
-        </section>
+        <div style={{ padding: '80px 40px', background: 'var(--white)' }}>
+          <section className="l-cta" aria-label="Call to action">
+            <h2>{t('cta_title')}</h2>
+            <p>{t('cta_subtitle')}</p>
+            <Link href="/signup" className="l-btn l-btn-primary l-btn-lg">{t('cta_button')}</Link>
+            <div className="l-cta-note">{t('cta_note')}</div>
+          </section>
+        </div>
       </main>
 
       {/* ═══ FOOTER ═══ */}
