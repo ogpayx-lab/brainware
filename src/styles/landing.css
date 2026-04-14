@@ -100,6 +100,21 @@
 .l-section-dark .l-section-header h2 { color: white; }
 .l-section-dark .l-section-header p { color: rgba(255,255,255,0.6); }
 
+/* ── Problems ── */
+.l-problems-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 20px; }
+.l-problem-card { background: var(--white); border: 1px solid var(--border); border-radius: 20px; padding: 28px; transition: all 0.3s; }
+.l-problem-card:hover { border-color: var(--gray-300); box-shadow: 0 12px 32px rgba(0,0,0,0.06); transform: translateY(-2px); }
+.l-problem-header { display: flex; align-items: center; gap: 12px; margin-bottom: 20px; }
+.l-problem-icon { font-size: 24px; width: 44px; height: 44px; border-radius: 12px; background: var(--brand-bg); display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.l-problem-header h3 { font-size: 18px; font-weight: 700; color: var(--text); margin: 0; }
+.l-problem-body { display: flex; flex-direction: column; gap: 14px; }
+.l-problem-before, .l-problem-after { padding: 16px; border-radius: 12px; }
+.l-problem-before { background: #FEF2F2; border: 1px solid #FECACA; }
+.l-problem-after { background: #F0FDF4; border: 1px solid #BBF7D0; }
+.l-problem-label { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 6px; color: #DC2626; }
+.l-problem-label-green { color: var(--brand); }
+.l-problem-before p, .l-problem-after p { font-size: 14px; line-height: 1.6; margin: 0; color: var(--text-secondary); }
+
 /* ── Features ── */
 .l-features-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; }
 .l-feat-card { background: var(--white); border: 1px solid var(--border); border-radius: 16px; padding: 28px 24px; transition: all 0.3s cubic-bezier(0.16,1,0.3,1); }
@@ -208,6 +223,7 @@
   .l-section { padding: 72px 20px; }
   .l-section-header h2 { font-size: 26px; }
   .l-features-grid { grid-template-columns: 1fr; }
+  .l-problems-grid { grid-template-columns: 1fr; }
   .l-how-grid { grid-template-columns: 1fr; gap: 36px; }
   .l-how-grid::after { display: none; }
   .l-pricing-grid { grid-template-columns: 1fr; max-width: 380px; margin: 0 auto; }

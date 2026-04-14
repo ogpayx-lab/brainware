@@ -181,6 +181,44 @@ export default function LandingPage() {
           </div>
         </section>
 
+        {/* ═══ PROBLEMS ═══ */}
+        <section className="l-section l-section-white" aria-label="Problems we solve">
+          <div className="l-section-inner">
+            <div className="l-section-header">
+              <div className="l-section-badge">🎯 {t('problems_badge')}</div>
+              <h2>{t('problems_title')}</h2>
+              <p>{t('problems_subtitle')}</p>
+            </div>
+            <div className="l-problems-grid">
+              {[
+                { icon: '📦', num: '1', titleKey: 'prob1_title', probKey: 'prob1_problem', solKey: 'prob1_solution' },
+                { icon: '👥', num: '2', titleKey: 'prob2_title', probKey: 'prob2_problem', solKey: 'prob2_solution' },
+                { icon: '💰', num: '3', titleKey: 'prob3_title', probKey: 'prob3_problem', solKey: 'prob3_solution' },
+                { icon: '📊', num: '4', titleKey: 'prob4_title', probKey: 'prob4_problem', solKey: 'prob4_solution' },
+                { icon: '🏪', num: '5', titleKey: 'prob5_title', probKey: 'prob5_problem', solKey: 'prob5_solution' },
+                { icon: '✅', num: '6', titleKey: 'prob6_title', probKey: 'prob6_problem', solKey: 'prob6_solution' },
+              ].map((item) => (
+                <div key={item.num} className="l-problem-card">
+                  <div className="l-problem-header">
+                    <span className="l-problem-icon">{item.icon}</span>
+                    <h3>{t(item.titleKey)}</h3>
+                  </div>
+                  <div className="l-problem-body">
+                    <div className="l-problem-before">
+                      <div className="l-problem-label">❌ Il problema</div>
+                      <p>{t(item.probKey)}</p>
+                    </div>
+                    <div className="l-problem-after">
+                      <div className="l-problem-label l-problem-label-green">✓ La soluzione</div>
+                      <p>{t(item.solKey)}</p>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
+
         {/* ═══ FEATURES ═══ */}
         <section className="l-section l-section-alt" id="features" aria-label="Features">
           <div className="l-section-inner">
