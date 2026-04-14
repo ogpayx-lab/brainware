@@ -233,7 +233,7 @@ export default function LandingPage() {
         </section>
 
         {/* ═══ HOW ═══ */}
-        <section className="l-section l-section-dark" aria-label="How it works">
+        <section className="l-section l-section-white" aria-label="How it works">
           <div className="l-section-inner">
             <div className="l-section-header">
               <div className="l-section-badge">→ {t('how_badge')}</div>
@@ -291,7 +291,7 @@ export default function LandingPage() {
         </section>
 
         {/* ═══ FAQ ═══ */}
-        <section className="l-section l-section-dark" id="faq" aria-label="FAQ">
+        <section className="l-section l-section-white" id="faq" aria-label="FAQ">
           <div className="l-section-inner">
             <div className="l-section-header">
               <div className="l-section-badge">❓ {t('faq_badge')}</div>
