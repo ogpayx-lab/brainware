@@ -140,21 +140,21 @@ export default function LandingPage() {
                 </video>
                 {/* Fallback: shown until you add /public/demo.mp4 */}
                 <div className="l-video-fallback">
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12, width: '100%', maxWidth: 700, marginBottom: 24 }}>
+                  <div className="l-video-fallback-grid">
                     {[
                       { icon: '📊', label: 'Dashboard', desc: 'Real-time KPIs' },
                       { icon: '🛒', label: 'POS', desc: 'Smart checkout' },
                       { icon: '📦', label: 'Inventory', desc: 'Live tracking' },
                       { icon: '🤖', label: 'AI Insights', desc: 'Auto reports' },
                     ].map(f => (
-                      <div key={f.label} style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: 14, padding: '20px 16px', textAlign: 'center' }}>
-                        <div style={{ fontSize: 28, marginBottom: 8 }}>{f.icon}</div>
-                        <div style={{ fontSize: 14, fontWeight: 700, color: 'white', marginBottom: 4 }}>{f.label}</div>
-                        <div style={{ fontSize: 12, color: '#64748B' }}>{f.desc}</div>
+                      <div key={f.label} className="l-video-fallback-item">
+                        <div className="l-video-fallback-icon">{f.icon}</div>
+                        <div className="l-video-fallback-label">{f.label}</div>
+                        <div className="l-video-fallback-desc">{f.desc}</div>
                       </div>
                     ))}
                   </div>
-                  <div style={{ fontSize: 14, color: '#475569', fontWeight: 500 }}>
+                  <div className="l-video-fallback-note">
                     Interactive platform demo — coming soon
                   </div>
                 </div>
@@ -205,11 +205,11 @@ export default function LandingPage() {
                   </div>
                   <div className="l-problem-body">
                     <div className="l-problem-before">
-                      <div className="l-problem-label">❌ Il problema</div>
+                      <div className="l-problem-label">❌ {t('prob_label_problem')}</div>
                       <p>{t(item.probKey)}</p>
                     </div>
                     <div className="l-problem-after">
-                      <div className="l-problem-label l-problem-label-green">✓ La soluzione</div>
+                      <div className="l-problem-label l-problem-label-green">✓ {t('prob_label_solution')}</div>
                       <p>{t(item.solKey)}</p>
                     </div>
                   </div>
@@ -350,7 +350,7 @@ export default function LandingPage() {
         </section>
 
         {/* ═══ CTA ═══ */}
-        <div style={{ padding: '80px 40px', background: 'var(--white)' }}>
+        <div className="l-cta-wrap">
           <section className="l-cta" aria-label="Call to action">
             <h2>{t('cta_title')}</h2>
             <p>{t('cta_subtitle')}</p>

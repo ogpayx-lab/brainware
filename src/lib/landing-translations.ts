@@ -54,6 +54,8 @@ const translations: Record<LandingLang, Record<string, string>> = {
     prob6_problem: 'Manutenzione, pulizie e checklist. Nessuno sa cosa fare e nessuno controlla.',
     prob6_solution: 'Task e checklist giornalieri assegnati ai dipendenti con foto di verifica e notifica a completamento.',
     prob6_title: 'Task dimenticati',
+    prob_label_problem: 'Il problema',
+    prob_label_solution: 'La soluzione',
 
     // Features
     features_badge: 'FUNZIONALITÀ',
@@ -214,6 +216,8 @@ const translations: Record<LandingLang, Record<string, string>> = {
     prob6_problem: 'Maintenance, cleaning, and checklists. Nobody knows what to do and nobody checks.',
     prob6_solution: 'Daily tasks and checklists assigned to employees with photo verification and completion notifications.',
     prob6_title: 'Forgotten tasks',
+    prob_label_problem: 'The problem',
+    prob_label_solution: 'The solution',
 
     features_badge: 'FEATURES',
     features_title: 'Everything you need to run your store',
@@ -366,6 +370,8 @@ const translations: Record<LandingLang, Record<string, string>> = {
     prob6_problem: 'Wartung und Checklisten werden vergessen. Niemand kontrolliert.',
     prob6_solution: 'Tägliche Aufgaben mit Foto-Verifikation und Abschluss-Benachrichtigungen.',
     prob6_title: 'Vergessene Aufgaben',
+    prob_label_problem: 'Das Problem',
+    prob_label_solution: 'Die Lösung',
 
     features_badge: 'FUNKTIONEN',
     features_title: 'Alles was Sie für Ihren Store brauchen',
@@ -517,6 +523,8 @@ const translations: Record<LandingLang, Record<string, string>> = {
     prob6_problem: 'Maintenance et checklists oubliées. Personne ne sait quoi faire.',
     prob6_solution: 'Tâches quotidiennes avec vérification photo et notifications de complétion.',
     prob6_title: 'Tâches oubliées',
+    prob_label_problem: 'Le problème',
+    prob_label_solution: 'La solution',
 
     features_badge: 'FONCTIONNALITÉS',
     features_title: 'Tout ce qu\'il faut pour gérer votre boutique',
@@ -668,6 +676,8 @@ const translations: Record<LandingLang, Record<string, string>> = {
     prob6_problem: 'Mantenimiento y checklists olvidados. Nadie sabe qué hacer.',
     prob6_solution: 'Tareas diarias con verificación fotográfica y notificaciones de completado.',
     prob6_title: 'Tareas olvidadas',
+    prob_label_problem: 'El problema',
+    prob_label_solution: 'La solución',
 
     features_badge: 'FUNCIONES',
     features_title: 'Todo lo que necesitas para gestionar tu tienda',
