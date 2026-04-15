@@ -247,26 +247,37 @@ export default function LandingPage() {
               <h2>{t('ai_title')}</h2>
               <p>{t('ai_subtitle')}</p>
             </div>
-            <div className="l-ai-visual">
-              {['Machine Learning', 'NLP', 'Predictive Analytics', 'Smart Automation', 'Real-time Insights'].map(chip => (
-                <div key={chip} className="l-ai-chip">⚡ {chip}</div>
+
+            {/* Prompt showcase — simulated chat */}
+            <div className="l-ai-prompts">
+              {[t('ai_prompt1'), t('ai_prompt2'), t('ai_prompt3'), t('ai_prompt4')].map((prompt, i) => (
+                <div key={i} className={`l-ai-prompt-bubble ${i === 3 ? 'l-ai-prompt-feature' : ''}`}>
+                  <span className="l-ai-prompt-avatar">{i === 3 ? '💡' : '👤'}</span>
+                  <span>{prompt}</span>
+                </div>
               ))}
             </div>
-            <div className="l-ai-grid">
+
+            <div className="l-ai-grid-3">
               {[
-                { icon: '📊', title: t('ai_card1_title'), desc: t('ai_card1_desc') },
-                { icon: '🔮', title: t('ai_card2_title'), desc: t('ai_card2_desc') },
+                { icon: '💬', title: t('ai_card1_title'), desc: t('ai_card1_desc') },
+                { icon: '📡', title: t('ai_card2_title'), desc: t('ai_card2_desc') },
                 { icon: '📋', title: t('ai_card3_title'), desc: t('ai_card3_desc') },
-                { icon: '💬', title: t('ai_card4_title'), desc: t('ai_card4_desc') },
+                { icon: '🔮', title: t('ai_card4_title'), desc: t('ai_card4_desc') },
+                { icon: '🚀', title: t('ai_card5_title'), desc: t('ai_card5_desc') },
+                { icon: '🔔', title: t('ai_card6_title'), desc: t('ai_card6_desc') },
               ].map((card, i) => (
-                <div key={i} className="l-ai-card">
+                <div key={i} className={`l-ai-card ${i === 4 ? 'l-ai-card-highlight' : ''}`}>
                   <div className="l-ai-card-icon">{card.icon}</div>
                   <h3>{card.title}</h3>
                   <p>{card.desc}</p>
                 </div>
               ))}
             </div>
-            <div className="l-ai-quote"><p>&ldquo;{t('ai_quote')}&rdquo;</p></div>
+
+            <div className="l-ai-bottom-cta">
+              <p>{t('ai_cta_text')}</p>
+            </div>
           </div>
         </section>
 
