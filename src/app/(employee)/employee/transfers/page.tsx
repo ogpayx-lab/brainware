@@ -4,9 +4,11 @@ import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
-import { formatDate } from '@/lib/utils'
+import { formatDate, fmt, categoryLabel } from '@/lib/utils'
 import { BottomNav } from '@/components/employee/BottomNav'
-import type { Product, Store } from '@/types/database'
+import type { Product, ProductCategory, Store } from '@/types/database'
+
+const CATEGORIES: ProductCategory[] = ['flowers', 'hashish', 'oils', 'edibles', 'accessories', 'cosmetics', 'clothes', 'seeds', 'vape', 'food']
 
 interface TransferItem { product: Product; qty: number }
 
@@ -21,6 +23,7 @@ export default function TransfersPage() {
   const [toStoreId, setToStoreId] = useState('')
   const [notes, setNotes] = useState('')
   const [search, setSearch] = useState('')
+  const [activeCat, setActiveCat] = useState<ProductCategory | 'all'>('all')
 
   const [storeId, setStoreId] = useState<string | null>(null)
   const [userId, setUserId] = useState<string | null>(null)
@@ -62,12 +65,18 @@ export default function TransfersPage() {
     setLoading(false)
   }
 
-  function toggleProduct(p: Product) {
+  function addToTransfer(p: Product) {
     setSelected(prev => {
       const exists = prev.find(i => i.product.id === p.id)
-      if (exists) return prev.filter(i => i.product.id !== p.id)
+      if (exists) {
+        return prev.map(i => i.product.id === p.id ? { ...i, qty: Math.min(i.qty + 1, i.product.stock) } : i)
+      }
       return [...prev, { product: p, qty: 1 }]
     })
+  }
+
+  function removeFromTransfer(productId: string) {
+    setSelected(prev => prev.filter(i => i.product.id !== productId))
   }
 
   function updateQty(productId: string, qty: number) {
@@ -104,7 +113,9 @@ export default function TransfersPage() {
   }
 
   const filtered = products.filter(p =>
-    !search || p.name.toLowerCase().includes(search.toLowerCase())
+    (activeCat === 'all' || p.category === activeCat) &&
+    (!search || p.name.toLowerCase().includes(search.toLowerCase())) &&
+    p.stock > 0
   )
 
   const statusBadge: Record<string, string> = {
@@ -124,9 +135,9 @@ export default function TransfersPage() {
 
   if (done) return (
     <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 'var(--space-lg)', padding: 'var(--space-lg)' }}>
-      <span style={{ fontSize: 64 }}></span>
+      <span style={{ fontSize: 64 }}>✅</span>
       <h3>Trasferimento richiesto!</h3>
-      <p style={{ color: 'var(--text-secondary)', textAlign: 'center' }}>La richiesta e stata inviata all'owner per approvazione.</p>
+      <p style={{ color: 'var(--text-secondary)', textAlign: 'center' }}>La richiesta è stata inviata all&apos;owner per approvazione.</p>
       <Link href="/employee/dashboard" className="btn btn-primary">Torna alla Dashboard</Link>
     </div>
   )
@@ -134,7 +145,7 @@ export default function TransfersPage() {
   return (
     <div className="page" style={{ paddingBottom: 80 }}>
       <div style={{ background: 'var(--bg-primary)', borderBottom: '1px solid var(--border-subtle)', padding: 'var(--space-lg)', display: 'flex', alignItems: 'center', gap: 'var(--space-md)' }}>
-        <Link href="/employee/dashboard" style={{ textDecoration: 'none', color: 'var(--text-primary)', fontSize: 20 }}></Link>
+        <Link href="/employee/dashboard" style={{ textDecoration: 'none', color: 'var(--text-primary)', fontSize: 20 }}>←</Link>
         <h3>Trasferimenti</h3>
       </div>
 
@@ -157,57 +168,83 @@ export default function TransfersPage() {
               </select>
             </div>
 
-            {/* Search products */}
-            <input className="input" placeholder="Cerca prodotto..." value={search} onChange={e => setSearch(e.target.value)} />
-
-            {/* Selected */}
+            {/* Selected items summary (mini-cart style) */}
             {selected.length > 0 && (
-              <div>
-                <h4 style={{ marginBottom: 'var(--space-md)' }}>Prodotti da trasferire ({selected.length})</h4>
+              <div style={{ background: 'var(--brand-primary-light)', border: '1px solid var(--brand-primary)', borderRadius: 'var(--radius-lg)', padding: 'var(--space-md)' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--space-sm)' }}>
+                  <h4 style={{ fontSize: 14 }}>📦 Prodotti da trasferire ({selected.reduce((s, i) => s + i.qty, 0)})</h4>
+                  <button onClick={() => setSelected([])} style={{ background: 'none', border: 'none', color: 'var(--danger)', fontSize: 12, cursor: 'pointer', fontWeight: 600 }}>Svuota</button>
+                </div>
                 {selected.map(item => (
-                  <div key={item.product.id} className="card card-sm" style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-md)', marginBottom: 'var(--space-sm)' }}>
-                    <div style={{ flex: 1 }}>
-                      <div style={{ fontWeight: 600, fontSize: 14 }}>{item.product.name}</div>
-                      <div style={{ fontSize: 12, color: 'var(--text-tertiary)' }}>Disponibile: {item.product.stock}</div>
+                  <div key={item.product.id} style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-sm)', padding: '6px 0', borderTop: '1px solid rgba(0,0,0,0.06)' }}>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontWeight: 600, fontSize: 13, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{item.product.name}</div>
                     </div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                      <button onClick={() => updateQty(item.product.id, item.qty - 1)} className="btn btn-secondary" style={{ width: 30, height: 30, padding: 0 }}></button>
-                      <span style={{ fontWeight: 700, minWidth: 24, textAlign: 'center' }}>{item.qty}</span>
-                      <button onClick={() => updateQty(item.product.id, item.qty + 1)} className="btn btn-secondary" style={{ width: 30, height: 30, padding: 0 }}>+</button>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
+                      <button onClick={() => updateQty(item.product.id, item.qty - 1)} className="btn btn-secondary" style={{ width: 28, height: 28, padding: 0, fontSize: 14, borderRadius: 8 }}>−</button>
+                      <span style={{ fontWeight: 700, minWidth: 22, textAlign: 'center', fontSize: 14 }}>{item.qty}</span>
+                      <button onClick={() => updateQty(item.product.id, item.qty + 1)} className="btn btn-secondary" style={{ width: 28, height: 28, padding: 0, fontSize: 14, borderRadius: 8 }}>+</button>
                     </div>
-                    <button onClick={() => toggleProduct(item.product)} style={{ color: 'var(--danger)', background: 'none', border: 'none', cursor: 'pointer', fontSize: 18 }}></button>
+                    <button onClick={() => removeFromTransfer(item.product.id)} style={{ color: 'var(--danger)', background: 'none', border: 'none', cursor: 'pointer', fontSize: 16, padding: '0 4px' }}>✕</button>
                   </div>
                 ))}
               </div>
             )}
 
-            {/* Product list */}
-            <div>
-              <h4 style={{ marginBottom: 'var(--space-sm)' }}>Seleziona Prodotti</h4>
+            {/* Search bar with icon — POS style */}
+            <div style={{ display: 'flex', gap: 8 }}>
+              <div style={{ flex: 1, position: 'relative' }}>
+                <input className="input" placeholder="Cerca prodotto..." value={search} onChange={e => setSearch(e.target.value)} style={{ paddingLeft: 36 }} />
+                <span style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', fontSize: 16 }}>🔍</span>
+              </div>
+            </div>
+
+            {/* Category filter — horizontal scroll */}
+            <div style={{ display: 'flex', gap: 6, overflowX: 'auto', paddingBottom: 4, marginTop: -8 }}>
+              {(['all', ...CATEGORIES] as (ProductCategory | 'all')[]).map(c => (
+                <button
+                  key={c}
+                  onClick={() => setActiveCat(c)}
+                  className={`badge ${activeCat === c ? 'badge-brand' : 'badge-gray'}`}
+                  style={{ cursor: 'pointer', border: 'none', padding: '6px 14px', whiteSpace: 'nowrap', flexShrink: 0 }}
+                >
+                  {c === 'all' ? 'Tutto' : categoryLabel[c]}
+                </button>
+              ))}
+            </div>
+
+            {/* Product grid — POS style */}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(150px,1fr))', gap: 'var(--space-md)' }}>
               {filtered.map(p => {
-                const isSelected = selected.some(i => i.product.id === p.id)
+                const inCart = selected.find(i => i.product.id === p.id)
                 return (
-                  <div
-                    key={p.id}
-                    onClick={() => toggleProduct(p)}
-                    style={{
-                      display: 'flex', alignItems: 'center', gap: 'var(--space-md)',
-                      padding: 'var(--space-md)',
-                      background: isSelected ? 'var(--brand-primary-light)' : 'var(--bg-primary)',
-                      border: `1px solid ${isSelected ? 'var(--brand-primary)' : 'var(--border-default)'}`,
-                      borderRadius: 'var(--radius-md)', cursor: 'pointer', marginBottom: 'var(--space-sm)',
-                    }}
-                  >
-                    <div style={{ width: 20, height: 20, borderRadius: 4, border: `2px solid ${isSelected ? 'var(--brand-primary)' : 'var(--border-strong)'}`, background: isSelected ? 'var(--brand-primary)' : 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', fontSize: 12 }}>
-                      {isSelected && ''}
+                  <div key={p.id} className="card card-sm" style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                    <div>
+                      <div style={{ fontWeight: 600, fontSize: 13 }}>{p.name}</div>
+                      <div style={{ fontSize: 12, color: 'var(--text-secondary)' }}>{fmt(p.price)}/{p.unit}</div>
+                      <span className="badge badge-indigo" style={{ fontSize: 10, marginTop: 4 }}>{categoryLabel[p.category]}</span>
                     </div>
-                    <div style={{ flex: 1 }}>
-                      <div style={{ fontWeight: 600, fontSize: 14 }}>{p.name}</div>
-                      <div style={{ fontSize: 12, color: 'var(--text-tertiary)' }}>Stock: {p.stock}</div>
-                    </div>
+                    <div style={{ fontSize: 11, color: p.stock <= p.stock_alert ? 'var(--danger)' : 'var(--success)', fontWeight: 600 }}>Stock: {p.stock}</div>
+                    {inCart ? (
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 6, justifyContent: 'center' }}>
+                        <button onClick={() => updateQty(p.id, inCart.qty - 1)} className="btn btn-secondary" style={{ width: 30, height: 30, padding: 0, fontSize: 14, borderRadius: 8 }}>−</button>
+                        <span style={{ fontWeight: 700, minWidth: 24, textAlign: 'center' }}>{inCart.qty}</span>
+                        <button onClick={() => updateQty(p.id, inCart.qty + 1)} className="btn btn-secondary" style={{ width: 30, height: 30, padding: 0, fontSize: 14, borderRadius: 8 }}>+</button>
+                        <button onClick={() => removeFromTransfer(p.id)} style={{ color: 'var(--danger)', background: 'none', border: 'none', cursor: 'pointer', fontSize: 14, marginLeft: 4 }}>✕</button>
+                      </div>
+                    ) : (
+                      <button className="btn btn-primary" style={{ padding: 8, fontSize: 12 }} onClick={() => addToTransfer(p)}>
+                        + Aggiungi
+                      </button>
+                    )}
                   </div>
                 )
               })}
+              {filtered.length === 0 && (
+                <div style={{ gridColumn: '1/-1', textAlign: 'center', padding: 'var(--space-xl)', color: 'var(--text-tertiary)' }}>
+                  Nessun prodotto trovato
+                </div>
+              )}
             </div>
 
             <div className="input-group">
@@ -217,7 +254,7 @@ export default function TransfersPage() {
 
             {selected.length > 0 && (
               <button onClick={handleSubmit} disabled={saving} className="btn btn-primary btn-full btn-lg">
-                {saving ? 'Invio...' : `Richiedi Trasferimento (${selected.length} prodotti)`}
+                {saving ? 'Invio...' : `Richiedi Trasferimento (${selected.reduce((s, i) => s + i.qty, 0)} prodotti)`}
               </button>
             )}
           </>
@@ -240,7 +277,7 @@ export default function TransfersPage() {
                 </div>
                 <div style={{ fontSize: 12, color: 'var(--text-tertiary)', marginBottom: 4 }}>{formatDate(t.created_at)}</div>
                 <div style={{ fontSize: 13, color: 'var(--text-secondary)' }}>
-                  {(t.transfer_items ?? []).map((i: any) => `${i.product_name} ${i.qty}`).join(', ')}
+                  {(t.transfer_items ?? []).map((i: any) => `${i.product_name} ×${i.qty}`).join(', ')}
                 </div>
                 {t.notes && <div style={{ fontSize: 12, color: 'var(--text-tertiary)', marginTop: 4 }}>{t.notes}</div>}
               </div>
