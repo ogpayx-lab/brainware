@@ -16,6 +16,8 @@ const NAV_MAGAZZINO = [
   { href: '/owner/warehouse/secondary',        icon: '📦', label: 'Secondari' },
   { href: '/owner/warehouse/stores',           icon: '🏪', label: 'Stock Store' },
   { href: '/owner/warehouse/stock-movements',  icon: '📋', label: 'Movimenti Stock' },
+  { href: '/owner/inventory-setup',            icon: '📥', label: 'Inventario Iniziale' },
+  { href: '/owner/inventory-audit',            icon: '🔍', label: 'Audit Inventario' },
 ]
 const NAV_GESTIONE = [
   { href: '/owner/multistore',        icon: '🏪', label: 'Multistore' },

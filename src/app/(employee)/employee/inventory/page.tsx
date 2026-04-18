@@ -33,7 +33,18 @@ export default function InventoryPage() {
   const [saving, setSaving] = useState(false)
   const [savedMsg, setSavedMsg] = useState('')
 
+  // Time-lock
+  const [locked, setLocked] = useState(false)
+  const [opensAt, setOpensAt] = useState('18:00')
+  const [now, setNow] = useState(new Date())
+
   useEffect(() => { loadData() }, [])
+  // Live countdown clock
+  useEffect(() => {
+    if (!locked) return
+    const t = setInterval(() => setNow(new Date()), 1000)
+    return () => clearInterval(t)
+  }, [locked])
 
   async function loadData() {
     const { data: { user } } = await supabase.auth.getUser()
@@ -43,6 +54,27 @@ export default function InventoryPage() {
     const { data: profile } = await supabase.from('users').select('store_id').eq('id', user.id).single()
     if (!profile?.store_id) return
     setStoreId(profile.store_id)
+
+    // Check time-lock: fetch store inventory config
+    const { data: storeConfig } = await supabase.from('stores').select('inventory_count_opens_at, inventory_manually_opened').eq('id', profile.store_id).single()
+    const opensTime = storeConfig?.inventory_count_opens_at || '18:00'
+    const manuallyOpened = storeConfig?.inventory_manually_opened ?? false
+    setOpensAt(opensTime)
+
+    if (!manuallyOpened) {
+      // Parse time and check
+      const [h, m] = opensTime.split(':').map(Number)
+      const nowDate = new Date()
+      const opensDate = new Date()
+      opensDate.setHours(h, m, 0, 0)
+      if (nowDate < opensDate) {
+        setLocked(true)
+        setLoading(false)
+        return
+      }
+    }
+    // If manually opened or time passed, proceed
+    setLocked(false)
 
     const { data: shift } = await supabase.from('shifts').select('id').eq('store_id', profile.store_id).eq('status', 'open').order('created_at',{ascending:false}).limit(1).single()
     if (!shift) { router.push('/employee/shift/open'); return }
@@ -211,6 +243,44 @@ export default function InventoryPage() {
   const canFinalize = counted.length > 0
 
   if (loading) return <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100vh' }}>Caricamento...</div>
+
+  // Time-lock screen
+  if (locked) {
+    const [h, m] = opensAt.split(':').map(Number)
+    const opensDate = new Date()
+    opensDate.setHours(h, m, 0, 0)
+    const diffMs = Math.max(0, opensDate.getTime() - now.getTime())
+    const diffH = Math.floor(diffMs / 3600000)
+    const diffM = Math.floor((diffMs % 3600000) / 60000)
+    const diffS = Math.floor((diffMs % 60000) / 1000)
+
+    // Auto-unlock when time arrives
+    if (diffMs === 0) {
+      setLocked(false)
+      setLoading(true)
+      loadData()
+    }
+
+    return (
+      <div className="page" style={{ paddingBottom: 80 }}>
+        <div style={{ background: 'var(--bg-primary)', borderBottom: '1px solid var(--border-subtle)', padding: 'var(--space-lg)', display: 'flex', alignItems: 'center', gap: 'var(--space-md)' }}>
+          <Link href="/employee/dashboard" style={{ textDecoration: 'none', color: 'var(--text-primary)', fontSize: 20 }}>←</Link>
+          <h3>Conteggio Inventario</h3>
+        </div>
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: 'var(--space-2xl)', minHeight: '60vh', gap: 'var(--space-lg)' }}>
+          <span style={{ fontSize: 64 }}>🔒</span>
+          <h3 style={{ textAlign: 'center' }}>Il conteggio inventario si aprirà alle {opensAt}</h3>
+          <div style={{ fontSize: 32, fontWeight: 800, fontFamily: 'var(--font-heading)', color: 'var(--brand-primary)', letterSpacing: '-0.02em' }}>
+            ⏳ {diffH > 0 ? `${diffH}h ` : ''}{diffM.toString().padStart(2, '0')}m {diffS.toString().padStart(2, '0')}s
+          </div>
+          <p style={{ color: 'var(--text-tertiary)', fontSize: 14, textAlign: 'center', maxWidth: 300 }}>
+            Puoi preparare i prodotti nel frattempo. La pagina si sbloccherà automaticamente.
+          </p>
+        </div>
+        <BottomNav />
+      </div>
+    )
+  }
 
   if (finalized) return (
     <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 'var(--space-lg)', padding: 'var(--space-lg)' }}>
