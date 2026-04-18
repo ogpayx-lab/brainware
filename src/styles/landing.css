@@ -169,10 +169,13 @@
 .l-ai { padding: 100px 40px; background: var(--dark); color: white; position: relative; overflow: hidden; }
 .l-ai::before { content: ''; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 900px; height: 600px; border-radius: 50%; background: radial-gradient(ellipse, rgba(34,197,94,0.06), transparent 60%); pointer-events: none; }
 .l-ai-inner { max-width: 1280px; margin: 0 auto; position: relative; z-index: 1; }
+.l-ai .l-section-header h2 { color: #fff; font-weight: 800; }
+.l-ai .l-section-header p { color: rgba(255,255,255,0.85); font-weight: 500; font-size: 19px; max-width: 680px; }
+.l-ai .l-section-badge { background: rgba(34,197,94,0.12); border-color: rgba(34,197,94,0.25); color: #4ADE80; }
 
 /* Prompt bubbles */
 .l-ai-prompts { display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; margin-bottom: 56px; }
-.l-ai-prompt-bubble { display: inline-flex; align-items: center; gap: 10px; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.08); border-radius: 100px; padding: 10px 20px; font-size: 14px; color: rgba(255,255,255,0.7); font-style: italic; transition: all 0.3s; cursor: default; }
+.l-ai-prompt-bubble { display: inline-flex; align-items: center; gap: 10px; background: rgba(255,255,255,0.07); border: 1px solid rgba(255,255,255,0.12); border-radius: 100px; padding: 10px 20px; font-size: 14px; color: rgba(255,255,255,0.8); font-style: italic; transition: all 0.3s; cursor: default; }
 .l-ai-prompt-bubble:hover { background: rgba(255,255,255,0.08); border-color: rgba(255,255,255,0.15); color: white; transform: translateY(-2px); }
 .l-ai-prompt-avatar { font-size: 16px; }
 .l-ai-prompt-feature { border-color: rgba(34,197,94,0.25); background: rgba(34,197,94,0.06); }
