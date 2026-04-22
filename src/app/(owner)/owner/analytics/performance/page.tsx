@@ -207,7 +207,7 @@ export default function TeamPerformancePage() {
                   <div style={{ flex: 1 }}>
                     <div style={{ fontWeight: 700, fontSize: 14 }}>{c.users?.full_name || 'Dipendente'}</div>
                     <div style={{ fontSize: 11, color: isLong ? 'var(--danger)' : 'var(--text-secondary)' }}>
-                      {c.stores?.name} · {c.period === 'morning' ? '☀️' : '🌙'} Apertura: {new Date(c.opened_at).toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' })} ·
+                      {c.stores?.name} · {c.period === 'morning' ? '☀️' : '🌙'} Apertura: {new Date(c.opened_at).toLocaleDateString('it-IT', { day: '2-digit', month: '2-digit' })} {new Date(c.opened_at).toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' })} ·
                       {isLong ? ` ⚠️ ${h}h ${m}m` : ` ${h}h ${m}m`}
                     </div>
                   </div>
