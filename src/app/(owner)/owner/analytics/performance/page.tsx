@@ -66,17 +66,23 @@ export default function TeamPerformancePage() {
     setEmployees(emps ?? [])
     if (emps && emps.length > 0) setSelected(emps[0])
 
-    // Load live check-ins
+    // Load live check-ins — deduplicate by user_id (keep latest per user)
+    const allOpenCheckins: any[] = []
     for (const sid of storeIds) {
       const { data: openCheckins } = await supabase
         .from('shift_checkins')
         .select('id, user_id, checked_in_at, store_id, users(full_name), stores(name)')
         .eq('store_id', sid)
         .is('checked_out_at', null)
-      if (openCheckins && openCheckins.length > 0) {
-        setLiveCheckins(prev => [...prev, ...openCheckins])
-      }
+        .order('checked_in_at', { ascending: false })
+      if (openCheckins) allOpenCheckins.push(...openCheckins)
     }
+    // Keep only the latest check-in per user
+    const checkinMap = new Map<string, any>()
+    for (const c of allOpenCheckins) {
+      if (!checkinMap.has(c.user_id)) checkinMap.set(c.user_id, c)
+    }
+    setLiveCheckins(Array.from(checkinMap.values()))
 
     setLoading(false)
   }

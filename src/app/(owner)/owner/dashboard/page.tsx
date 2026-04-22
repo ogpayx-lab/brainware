@@ -138,19 +138,24 @@ export default function OwnerDashboard() {
       hourlyRevenue[h] += s.total
     })
 
-    // People who worked that day
-    const workers: { name: string; store: string; period: string; hours: string }[] = []
-    for (const shift of mergedShifts) {
+    // People who worked that day — deduplicate by user_id (keep latest shift per user)
+    const workerMap = new Map<string, { name: string; store: string; period: string; hours: string }>()
+    // Sort shifts by created_at descending so newest first
+    const sortedShifts = [...mergedShifts].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+    for (const shift of sortedShifts) {
+      const uid = shift.user_id
+      if (workerMap.has(uid)) continue // already got the latest shift for this user
       const shiftStart = new Date(shift.opened_at || shift.created_at)
       const shiftEnd = shift.closed_at ? new Date(shift.closed_at) : now
       const hours = Math.max(0.5, (shiftEnd.getTime() - shiftStart.getTime()) / 3600000)
-      workers.push({
+      workerMap.set(uid, {
         name: shift.users?.full_name ?? '?',
         store: shift.stores?.name ?? '',
         period: shift.period === 'morning' ? '☀️ Mattina' : '🌙 Sera',
         hours: hours.toFixed(1),
       })
     }
+    const workers = Array.from(workerMap.values())
 
     // Per-store breakdown
     const storeBreakdown: any[] = []
