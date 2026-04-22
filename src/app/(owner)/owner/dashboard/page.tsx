@@ -20,7 +20,8 @@ export default function OwnerDashboard() {
   const [loading, setLoading] = useState(true)
   const [storeId, setStoreId] = useState<string | null>(null)
   const [storeName, setStoreName] = useState('')
-  const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0])
+  const [dateFrom, setDateFrom] = useState(new Date().toISOString().split('T')[0])
+  const [dateTo, setDateTo] = useState(new Date().toISOString().split('T')[0])
 
   // Notifications
   const [notifications, setNotifications] = useState<any[]>([])
@@ -35,7 +36,7 @@ export default function OwnerDashboard() {
     loadData()
     const t = setInterval(loadData, 60000)
     return () => clearInterval(t)
-  }, [selectedStore, selectedDate])
+  }, [selectedStore, dateFrom, dateTo])
 
   const loadNotifications = useCallback(async (sid: string) => {
     const { data: notifs } = await supabase
@@ -67,9 +68,9 @@ export default function OwnerDashboard() {
 
     loadNotifications(profile.store_id)
 
-    // Date range for selected day
-    const dayStart = `${selectedDate}T00:00:00`
-    const dayEnd = `${selectedDate}T23:59:59`
+    // Date range
+    const dayStart = `${dateFrom}T00:00:00`
+    const dayEnd = `${dateTo}T23:59:59`
 
     const isAll = selectedStore === 'all'
     const allStores = storesData ?? []
@@ -196,7 +197,8 @@ export default function OwnerDashboard() {
   const unreadCount = notifications.filter(n => !n.read).length
   const maxHourly = Math.max(...data.hourlyCustomers, 1)
   const CHANNEL_LABELS: Record<string, string> = { 'walk-in': '🚶 Walk-in', social: '📱 Social', google: '🔍 Google', referral: '🤝 Referral', shopify: '🛍️ Shopify', other: '📋 Altro' }
-  const isToday = selectedDate === new Date().toISOString().split('T')[0]
+  const isTodayRange = dateTo === new Date().toISOString().split('T')[0]
+  const isSingleDay = dateFrom === dateTo
 
   return (
     <div>
@@ -205,18 +207,29 @@ export default function OwnerDashboard() {
         <div>
           <h2>📊 Dashboard</h2>
           <p style={{ color:'var(--text-secondary)', fontSize:14, marginTop:4 }}>
-            {storeName} — {new Date(selectedDate + 'T12:00:00').toLocaleDateString('it-IT', { weekday:'long', day:'numeric', month:'long', year:'numeric' })}
+            {storeName} — {isSingleDay
+              ? new Date(dateFrom + 'T12:00:00').toLocaleDateString('it-IT', { weekday:'long', day:'numeric', month:'long', year:'numeric' })
+              : `${new Date(dateFrom + 'T12:00:00').toLocaleDateString('it-IT', { day:'numeric', month:'short' })} → ${new Date(dateTo + 'T12:00:00').toLocaleDateString('it-IT', { day:'numeric', month:'short', year:'numeric' })}`
+            }
           </p>
         </div>
-        <div style={{ display:'flex', alignItems:'center', gap:'var(--space-md)' }}>
-          <input type="date" className="input" value={selectedDate} onChange={e => setSelectedDate(e.target.value)}
-            style={{ fontSize:14, fontWeight:600, padding:'6px 12px' }} />
-          {isToday && (
-            <div style={{ textAlign:'right' }}>
-              <div style={{ fontFamily:'var(--font-heading)', fontSize:24, fontWeight:700, color:'var(--text-primary)', letterSpacing:'-0.02em' }}>
+        <div style={{ display:'flex', alignItems:'center', gap:8 }}>
+          <div style={{ display:'flex', alignItems:'center', gap:4 }}>
+            <label style={{ fontSize:11, color:'var(--text-tertiary)', fontWeight:600 }}>Da</label>
+            <input type="date" className="input" value={dateFrom} onChange={e => setDateFrom(e.target.value)}
+              style={{ fontSize:13, fontWeight:600, padding:'5px 8px' }} />
+          </div>
+          <div style={{ display:'flex', alignItems:'center', gap:4 }}>
+            <label style={{ fontSize:11, color:'var(--text-tertiary)', fontWeight:600 }}>A</label>
+            <input type="date" className="input" value={dateTo} onChange={e => setDateTo(e.target.value)}
+              style={{ fontSize:13, fontWeight:600, padding:'5px 8px' }} />
+          </div>
+          {isTodayRange && (
+            <div style={{ textAlign:'right', marginLeft:8 }}>
+              <div style={{ fontFamily:'var(--font-heading)', fontSize:22, fontWeight:700, color:'var(--text-primary)', letterSpacing:'-0.02em' }}>
                 {now.toLocaleTimeString('it-IT', { hour:'2-digit', minute:'2-digit' })}
               </div>
-              <div style={{ fontSize:11, color:'var(--text-tertiary)' }}>🟢 Live</div>
+              <div style={{ fontSize:10, color:'var(--text-tertiary)' }}>🟢 Live</div>
             </div>
           )}
         </div>
