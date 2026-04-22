@@ -66,21 +66,18 @@ export default function TeamPerformancePage() {
     setEmployees(emps ?? [])
     if (emps && emps.length > 0) setSelected(emps[0])
 
-    // Load live check-ins — deduplicate by user_id (keep latest per user)
-    const allOpenCheckins: any[] = []
-    for (const sid of storeIds) {
-      const { data: openCheckins } = await supabase
-        .from('shift_checkins')
-        .select('id, user_id, checked_in_at, store_id, users(full_name), stores(name)')
-        .eq('store_id', sid)
-        .is('checked_out_at', null)
-        .order('checked_in_at', { ascending: false })
-      if (openCheckins) allOpenCheckins.push(...openCheckins)
-    }
-    // Keep only the latest check-in per user
+    // Load open shifts (turni in corso) — deduplicate by user_id
+    const { data: openShifts } = await supabase
+      .from('shifts')
+      .select('id, user_id, opened_at, store_id, period, users(full_name), stores(name)')
+      .in('store_id', storeIds)
+      .eq('status', 'open')
+      .is('closed_at', null)
+      .order('opened_at', { ascending: false })
+    // Keep only the latest open shift per user
     const checkinMap = new Map<string, any>()
-    for (const c of allOpenCheckins) {
-      if (!checkinMap.has(c.user_id)) checkinMap.set(c.user_id, c)
+    for (const s of (openShifts ?? [])) {
+      if (!checkinMap.has(s.user_id)) checkinMap.set(s.user_id, s)
     }
     setLiveCheckins(Array.from(checkinMap.values()))
 
@@ -160,11 +157,12 @@ export default function TeamPerformancePage() {
     })
   }
 
-  async function forceCheckout(checkinId: string) {
+  async function forceCheckout(shiftId: string) {
     if (!forceCheckoutTime) return
     setForcingCheckout(true)
-    await supabase.from('shift_checkins').update({ checked_out_at: new Date(forceCheckoutTime).toISOString() }).eq('id', checkinId)
-    setLiveCheckins(prev => prev.filter(c => c.id !== checkinId))
+    const closedAt = new Date(forceCheckoutTime).toISOString()
+    await supabase.from('shifts').update({ closed_at: closedAt, status: 'closed' }).eq('id', shiftId)
+    setLiveCheckins(prev => prev.filter(c => c.id !== shiftId))
     setForceCheckoutId(null)
     setForceCheckoutTime('')
     setForcingCheckout(false)
@@ -197,7 +195,7 @@ export default function TeamPerformancePage() {
           </div>
           <div style={{ padding: '0 18px 14px' }}>
             {liveCheckins.map((c: any) => {
-              const mins = Math.round((Date.now() - new Date(c.checked_in_at).getTime()) / 60000)
+              const mins = Math.round((Date.now() - new Date(c.opened_at).getTime()) / 60000)
               const h = Math.floor(mins / 60)
               const m = mins % 60
               const isLong = mins > 600
@@ -209,7 +207,7 @@ export default function TeamPerformancePage() {
                   <div style={{ flex: 1 }}>
                     <div style={{ fontWeight: 700, fontSize: 14 }}>{c.users?.full_name || 'Dipendente'}</div>
                     <div style={{ fontSize: 11, color: isLong ? 'var(--danger)' : 'var(--text-secondary)' }}>
-                      {c.stores?.name} · Check-in: {new Date(c.checked_in_at).toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' })} ·
+                      {c.stores?.name} · {c.period === 'morning' ? '☀️' : '🌙'} Apertura: {new Date(c.opened_at).toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' })} ·
                       {isLong ? ` ⚠️ ${h}h ${m}m` : ` ${h}h ${m}m`}
                     </div>
                   </div>
