@@ -3,14 +3,25 @@ import { useState, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 
-const TYPE_CONFIG: Record<string, { icon: string; color: string }> = {
-  day_off_request:  { icon: '📅', color: '#F59E0B' },
-  sale:             { icon: '💰', color: '#22C55E' },
-  task_completed:   { icon: '✅', color: '#22C55E' },
-  low_stock:        { icon: '⚠️', color: '#EF4444' },
-  shift_open:       { icon: '🟢', color: '#22C55E' },
-  shift_close:      { icon: '🔴', color: '#6B7280' },
-  maintenance:      { icon: '🔧', color: '#3B82F6' },
+const TYPE_CONFIG: Record<string, { icon: string; color: string; route?: string }> = {
+  day_off_request:  { icon: '📅', color: '#F59E0B', route: '/owner/notifications' },
+  sale:             { icon: '💰', color: '#22C55E', route: '/owner/sales-log' },
+  task_completed:   { icon: '✅', color: '#22C55E', route: '/owner/tasks' },
+  task_assigned:    { icon: '📋', color: '#3B82F6', route: '/owner/tasks' },
+  low_stock:        { icon: '⚠️', color: '#EF4444', route: '/owner/products' },
+  shift_open:       { icon: '🟢', color: '#22C55E', route: '/owner/analytics/team' },
+  shift_close:      { icon: '🔴', color: '#6B7280', route: '/owner/analytics/team' },
+  shift_checkin:    { icon: '👤', color: '#22C55E', route: '/owner/analytics/team' },
+  maintenance:      { icon: '🔧', color: '#3B82F6', route: '/owner/maintenance' },
+  expense:          { icon: '💸', color: '#EF4444', route: '/owner/reports' },
+  fidelity:         { icon: '💳', color: '#7C3AED', route: '/owner/analytics/products' },
+  inventory_count:  { icon: '📦', color: '#F59E0B', route: '/owner/inventory-audit' },
+  restock_request:  { icon: '📥', color: '#3B82F6', route: '/owner/warehouse/stock-movements' },
+  stock_approved:   { icon: '✅', color: '#22C55E', route: '/owner/warehouse/stock-movements' },
+  stock_rejected:   { icon: '❌', color: '#EF4444', route: '/owner/warehouse/stock-movements' },
+  stock_transfer:   { icon: '🔄', color: '#3B82F6', route: '/owner/warehouse/stock-movements' },
+  stock_counted:    { icon: '📊', color: '#22C55E', route: '/owner/warehouse/stock-movements' },
+  photo:            { icon: '📸', color: '#7C3AED' },
   default:          { icon: '🔔', color: '#6B7280' },
 }
 
@@ -175,6 +186,11 @@ export default function NotificationsPage() {
                   await supabase.from('notifications').update({ read: true }).eq('id', notif.id)
                   setNotifications(prev => prev.map(n => n.id === notif.id ? { ...n, read: true } : n))
                 }
+                // Navigate to relevant page
+                const route = cfg.route
+                if (route && route !== '/owner/notifications') {
+                  router.push(route)
+                }
               }}
               style={{
                 display:'flex', alignItems:'flex-start', gap:'var(--space-md)',
@@ -200,6 +216,9 @@ export default function NotificationsPage() {
                   {notif.users?.full_name && ` · ${notif.users.full_name}`}
                 </div>
               </div>
+              {cfg.route && cfg.route !== '/owner/notifications' && (
+                <div style={{ fontSize: 16, color: 'var(--text-tertiary)', flexShrink: 0, alignSelf: 'center' }}>›</div>
+              )}
             </div>
           )
         })}

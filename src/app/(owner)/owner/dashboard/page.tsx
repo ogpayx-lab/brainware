@@ -7,8 +7,19 @@ import { fmt, formatTime } from '@/lib/utils'
 import { playNotificationSound } from '@/lib/useNotificationSound'
 
 const TYPE_ICON: Record<string, string> = {
-  day_off_request: '📅', sale: '💰', task_completed: '✅', low_stock: '⚠️',
-  shift_open: '🟢', shift_close: '🔴', maintenance: '🔧', checkout_alert: '⚠️', default: '🔔',
+  day_off_request: '📅', sale: '💰', task_completed: '✅', task_assigned: '📋', low_stock: '⚠️',
+  shift_open: '🟢', shift_close: '🔴', shift_checkin: '👤', maintenance: '🔧', checkout_alert: '⚠️',
+  expense: '💸', fidelity: '💳', inventory_count: '📦', restock_request: '📥',
+  stock_approved: '✅', stock_rejected: '❌', stock_transfer: '🔄', stock_counted: '📊', photo: '📸', default: '🔔',
+}
+const TYPE_ROUTE: Record<string, string> = {
+  sale: '/owner/sales-log', task_completed: '/owner/tasks', task_assigned: '/owner/tasks',
+  low_stock: '/owner/products', shift_open: '/owner/analytics/team', shift_close: '/owner/analytics/team',
+  shift_checkin: '/owner/analytics/team', maintenance: '/owner/maintenance', expense: '/owner/reports',
+  fidelity: '/owner/analytics/products', inventory_count: '/owner/inventory-audit',
+  restock_request: '/owner/warehouse/stock-movements', stock_approved: '/owner/warehouse/stock-movements',
+  stock_rejected: '/owner/warehouse/stock-movements', stock_transfer: '/owner/warehouse/stock-movements',
+  stock_counted: '/owner/warehouse/stock-movements', day_off_request: '/owner/notifications',
 }
 
 export default function OwnerDashboard() {
@@ -266,7 +277,11 @@ export default function OwnerDashboard() {
           <div style={{ maxHeight:300, overflowY:'auto' }}>
             {notifications.length === 0 && <div style={{ padding:'var(--space-lg)', textAlign:'center', color:'var(--text-tertiary)', fontSize:13 }}>Nessuna notifica</div>}
             {notifications.map((n, i) => (
-              <div key={n.id} onClick={() => markNotifRead(n.id)} style={{
+              <div key={n.id} onClick={() => {
+                markNotifRead(n.id)
+                const route = TYPE_ROUTE[n.type]
+                if (route) router.push(route)
+              }} style={{
                 display:'flex', alignItems:'flex-start', gap:10, padding:'10px 18px',
                 borderBottom: i < notifications.length - 1 ? '1px solid var(--border-subtle)' : 'none',
                 background: n.read ? 'transparent' : 'var(--brand-primary-light)', cursor:'pointer',
@@ -276,9 +291,12 @@ export default function OwnerDashboard() {
                   <div style={{ fontWeight: n.read ? 500 : 700, fontSize:13 }}>{n.title}</div>
                   {n.message && <div style={{ fontSize:12, color:'var(--text-secondary)', marginTop:1 }}>{n.message}</div>}
                 </div>
-                <span style={{ fontSize:10, color:'var(--text-tertiary)', flexShrink:0 }}>
-                  {new Date(n.created_at).toLocaleTimeString('it-IT', { hour:'2-digit', minute:'2-digit' })}
-                </span>
+                <div style={{ display:'flex', alignItems:'center', gap:6, flexShrink:0 }}>
+                  <span style={{ fontSize:10, color:'var(--text-tertiary)' }}>
+                    {new Date(n.created_at).toLocaleTimeString('it-IT', { hour:'2-digit', minute:'2-digit' })}
+                  </span>
+                  {TYPE_ROUTE[n.type] && <span style={{ fontSize:12, color:'var(--text-tertiary)' }}>›</span>}
+                </div>
               </div>
             ))}
           </div>
