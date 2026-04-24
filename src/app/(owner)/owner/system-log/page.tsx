@@ -17,13 +17,13 @@ interface TabDef {
 const TABS: TabDef[] = [
   {
     key: 'sales', label: 'Vendite', icon: '💰', table: 'sales',
-    select: 'id, created_at, store_id, user_id, total, payment_method, customer_name, customer_nationality, acquisition_channel, movement_type, invoice_number, stores(name), users(full_name)',
+    select: 'id, created_at, store_id, user_id, total, payment_method, customer_name, customer_nationality, acquisition_channel, movement_type, invoice_number',
     orderBy: 'created_at',
     columns: [
       { key: '_date', label: 'Data', width: 90, render: (_, r) => new Date(r.created_at).toLocaleDateString('it-IT') },
       { key: '_time', label: 'Ora', width: 60, render: (_, r) => new Date(r.created_at).toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' }) },
-      { key: '_store', label: 'Negozio', width: 140, render: (_, r) => r.stores?.name || '' },
-      { key: '_employee', label: 'Dipendente', width: 120, render: (_, r) => r.users?.full_name || '' },
+      { key: '_store', label: 'Negozio', width: 140, render: (_, r) => r._storeName || '' },
+      { key: '_employee', label: 'Dipendente', width: 120, render: (_, r) => r._userName || '' },
       { key: 'total', label: 'Totale', width: 80, editable: true, type: 'number' },
       { key: 'payment_method', label: 'Pagamento', width: 80, editable: true },
       { key: 'customer_name', label: 'Cliente', width: 120, editable: true },
@@ -35,28 +35,26 @@ const TABS: TabDef[] = [
   },
   {
     key: 'sale_items', label: 'Prodotti Venduti', icon: '🛒', table: 'sale_items',
-    select: 'id, sale_id, product_id, product_name, qty, unit_price, line_total, created_at, sales(created_at, stores(name), users(full_name))',
-    orderBy: 'created_at',
+    select: 'id, sale_id, product_id, product_name, qty, unit_price, line_total',
+    orderBy: 'id', // sale_items has NO created_at
     columns: [
-      { key: '_date', label: 'Data', width: 90, render: (_, r) => r.sales ? new Date(r.sales.created_at).toLocaleDateString('it-IT') : '' },
-      { key: '_store', label: 'Negozio', width: 140, render: (_, r) => r.sales?.stores?.name || '' },
-      { key: 'product_name', label: 'Prodotto', width: 160, editable: true },
-      { key: 'qty', label: 'Qty', width: 50, editable: true, type: 'number' },
-      { key: 'unit_price', label: 'Prezzo', width: 70, editable: true, type: 'number' },
-      { key: 'line_total', label: 'Totale', width: 70, editable: true, type: 'number' },
-      { key: 'sale_id', label: 'Sale ID', width: 80, render: (v) => v?.slice(0, 8) || '' },
+      { key: 'product_name', label: 'Prodotto', width: 180, editable: true },
+      { key: 'qty', label: 'Qty', width: 60, editable: true, type: 'number' },
+      { key: 'unit_price', label: 'Prezzo', width: 80, editable: true, type: 'number' },
+      { key: 'line_total', label: 'Totale', width: 80, editable: true, type: 'number' },
+      { key: 'sale_id', label: 'Sale ID', width: 100, render: (v) => v?.slice(0, 8) || '' },
     ],
   },
   {
     key: 'shifts', label: 'Turni', icon: '⏰', table: 'shifts',
-    select: 'id, opened_at, closed_at, period, status, deposit_actual, user_id, store_id, created_at, users(full_name), stores(name)',
+    select: 'id, opened_at, closed_at, period, status, deposit_actual, user_id, store_id, created_at',
     orderBy: 'created_at',
     columns: [
       { key: '_date', label: 'Data', width: 90, render: (_, r) => new Date(r.opened_at || r.created_at).toLocaleDateString('it-IT') },
       { key: '_open', label: 'Apertura', width: 60, render: (_, r) => r.opened_at ? new Date(r.opened_at).toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' }) : '' },
       { key: '_close', label: 'Chiusura', width: 60, render: (_, r) => r.closed_at ? new Date(r.closed_at).toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' }) : '—' },
-      { key: '_store', label: 'Negozio', width: 140, render: (_, r) => r.stores?.name || '' },
-      { key: '_employee', label: 'Dipendente', width: 120, render: (_, r) => r.users?.full_name || '' },
+      { key: '_store', label: 'Negozio', width: 140, render: (_, r) => r._storeName || '' },
+      { key: '_employee', label: 'Dipendente', width: 120, render: (_, r) => r._userName || '' },
       { key: 'period', label: 'Periodo', width: 70, editable: true },
       { key: 'status', label: 'Status', width: 70, editable: true },
       { key: 'deposit_actual', label: 'Deposit', width: 70, editable: true, type: 'number' },
@@ -64,39 +62,39 @@ const TABS: TabDef[] = [
   },
   {
     key: 'expenses', label: 'Spese', icon: '💸', table: 'expenses',
-    select: 'id, amount, description, created_at, store_id, user_id, users(full_name), stores(name)',
+    select: 'id, amount, description, created_at, store_id, user_id',
     orderBy: 'created_at',
     columns: [
       { key: '_date', label: 'Data', width: 90, render: (_, r) => new Date(r.created_at).toLocaleDateString('it-IT') },
       { key: '_time', label: 'Ora', width: 60, render: (_, r) => new Date(r.created_at).toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' }) },
-      { key: '_store', label: 'Negozio', width: 140, render: (_, r) => r.stores?.name || '' },
-      { key: '_employee', label: 'Dipendente', width: 120, render: (_, r) => r.users?.full_name || '' },
+      { key: '_store', label: 'Negozio', width: 140, render: (_, r) => r._storeName || '' },
+      { key: '_employee', label: 'Dipendente', width: 120, render: (_, r) => r._userName || '' },
       { key: 'amount', label: 'Importo', width: 80, editable: true, type: 'number' },
       { key: 'description', label: 'Descrizione', width: 200, editable: true },
     ],
   },
   {
     key: 'fidelity', label: 'Fidelity', icon: '💳', table: 'fidelity_cards',
-    select: 'id, customer_name, customer_email, customer_phone, code, created_at, store_id, created_by, users(full_name), stores(name)',
+    select: 'id, customer_name, customer_email, customer_phone, card_number, created_at, store_id, created_by',
     orderBy: 'created_at',
     columns: [
       { key: '_date', label: 'Data', width: 90, render: (_, r) => new Date(r.created_at).toLocaleDateString('it-IT') },
-      { key: '_store', label: 'Negozio', width: 140, render: (_, r) => r.stores?.name || '' },
+      { key: '_store', label: 'Negozio', width: 140, render: (_, r) => r._storeName || '' },
       { key: 'customer_name', label: 'Cliente', width: 140, editable: true },
       { key: 'customer_email', label: 'Email', width: 160, editable: true },
       { key: 'customer_phone', label: 'Telefono', width: 110, editable: true },
-      { key: 'code', label: 'Codice', width: 100 },
-      { key: '_created_by', label: 'Creata da', width: 120, render: (_, r) => r.users?.full_name || '' },
+      { key: 'card_number', label: 'N° Card', width: 120 },
+      { key: '_created_by', label: 'Creata da', width: 120, render: (_, r) => r._userName || '' },
     ],
   },
   {
     key: 'day_off', label: 'Giorni Liberi', icon: '📅', table: 'day_off_requests',
-    select: 'id, date, notes, status, created_at, user_id, store_id, users(full_name), stores(name)',
+    select: 'id, date, notes, status, created_at, user_id, store_id',
     orderBy: 'created_at',
     columns: [
       { key: 'date', label: 'Data Richiesta', width: 100, editable: true },
-      { key: '_store', label: 'Negozio', width: 140, render: (_, r) => r.stores?.name || '' },
-      { key: '_employee', label: 'Dipendente', width: 120, render: (_, r) => r.users?.full_name || '' },
+      { key: '_store', label: 'Negozio', width: 140, render: (_, r) => r._storeName || '' },
+      { key: '_employee', label: 'Dipendente', width: 120, render: (_, r) => r._userName || '' },
       { key: 'status', label: 'Status', width: 80, editable: true },
       { key: 'notes', label: 'Note', width: 200, editable: true },
     ],
@@ -118,12 +116,12 @@ const TABS: TabDef[] = [
   },
   {
     key: 'tasks', label: 'Task', icon: '📋', table: 'tasks',
-    select: 'id, description, status, priority, due_date, created_at, store_id, assigned_to, users(full_name), stores(name)',
+    select: 'id, description, status, priority, due_date, created_at, store_id, assigned_to',
     orderBy: 'created_at',
     columns: [
       { key: '_date', label: 'Creato', width: 90, render: (_, r) => new Date(r.created_at).toLocaleDateString('it-IT') },
-      { key: '_store', label: 'Negozio', width: 140, render: (_, r) => r.stores?.name || '' },
-      { key: '_assigned', label: 'Assegnato a', width: 120, render: (_, r) => r.users?.full_name || '' },
+      { key: '_store', label: 'Negozio', width: 140, render: (_, r) => r._storeName || '' },
+      { key: '_assigned', label: 'Assegnato a', width: 120, render: (_, r) => r._userName || '' },
       { key: 'description', label: 'Descrizione', width: 200, editable: true },
       { key: 'status', label: 'Status', width: 80, editable: true },
       { key: 'priority', label: 'Priorità', width: 70, editable: true },
@@ -131,26 +129,26 @@ const TABS: TabDef[] = [
     ],
   },
   {
-    key: 'maintenance', label: 'Manutenzione', icon: '🔧', table: 'maintenance_tasks',
-    select: 'id, title, description, status, completed_at, created_at, store_id, user_id, users(full_name), stores(name)',
+    key: 'maintenance', label: 'Manutenzione', icon: '🔧', table: 'maintenance_logs',
+    select: 'id, title, notes, completed, completed_at, created_at, store_id, user_id',
     orderBy: 'created_at',
     columns: [
       { key: '_date', label: 'Data', width: 90, render: (_, r) => new Date(r.created_at).toLocaleDateString('it-IT') },
-      { key: '_store', label: 'Negozio', width: 140, render: (_, r) => r.stores?.name || '' },
-      { key: '_employee', label: 'Dipendente', width: 120, render: (_, r) => r.users?.full_name || '' },
+      { key: '_store', label: 'Negozio', width: 140, render: (_, r) => r._storeName || '' },
+      { key: '_employee', label: 'Dipendente', width: 120, render: (_, r) => r._userName || '' },
       { key: 'title', label: 'Titolo', width: 140, editable: true },
-      { key: 'description', label: 'Descrizione', width: 200, editable: true },
-      { key: 'status', label: 'Status', width: 80, editable: true },
+      { key: 'notes', label: 'Note', width: 200, editable: true },
+      { key: 'completed', label: 'Fatto', width: 50, render: (v) => v ? '✓' : '✗' },
     ],
   },
   {
     key: 'notifications', label: 'Notifiche', icon: '🔔', table: 'notifications',
-    select: 'id, type, title, message, read, created_at, store_id, user_id, stores(name), users(full_name)',
+    select: 'id, type, title, message, read, created_at, store_id, user_id',
     orderBy: 'created_at',
     columns: [
       { key: '_date', label: 'Data', width: 90, render: (_, r) => new Date(r.created_at).toLocaleDateString('it-IT') },
       { key: '_time', label: 'Ora', width: 60, render: (_, r) => new Date(r.created_at).toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' }) },
-      { key: '_store', label: 'Negozio', width: 130, render: (_, r) => r.stores?.name || '' },
+      { key: '_store', label: 'Negozio', width: 130, render: (_, r) => r._storeName || '' },
       { key: 'type', label: 'Tipo', width: 80 },
       { key: 'title', label: 'Titolo', width: 160 },
       { key: 'message', label: 'Messaggio', width: 250 },
@@ -218,89 +216,83 @@ export default function SystemLogPage() {
     const toDate = `${dateTo}T23:59:59`
     const storeIds = selectedStore === 'all' ? orgStoreIds : [selectedStore]
 
-    // Build a simple select without FK joins (those can fail)
-    const simpleSelect = tab.select
-      .replace(/,\s*users\([^)]*\)/g, '')
-      .replace(/,\s*stores\([^)]*\)/g, '')
-      .replace(/,\s*sales\([^)]*\)/g, '')
-      .trim()
-      .replace(/,\s*$/, '')
+    let data: any[] = []
 
-    // Try with full joins first
-    let query = supabase
-      .from(tab.table)
-      .select(tab.select)
-      .order(tab.orderBy, { ascending: false })
-      .gte(tab.orderBy, fromDate)
-      .lte(tab.orderBy, toDate)
-      .limit(500)
-
-    if (tab.table === 'warehouse_movements') {
-      if (warehouseIds.length > 0) query = query.in('warehouse_id', warehouseIds)
-    } else if (tab.table === 'sale_items') {
-      // no store_id on sale_items
+    if (tab.key === 'sale_items') {
+      // sale_items: no created_at, no store_id — load via sale_ids from sales in date range
+      const { data: salesInRange } = await supabase
+        .from('sales')
+        .select('id')
+        .in('store_id', storeIds)
+        .gte('created_at', fromDate)
+        .lte('created_at', toDate)
+        .limit(500)
+      const saleIds = (salesInRange ?? []).map(s => s.id)
+      if (saleIds.length > 0) {
+        const { data: items } = await supabase
+          .from('sale_items')
+          .select(tab.select)
+          .in('sale_id', saleIds)
+          .limit(1000)
+        data = items ?? []
+      }
     } else {
-      query = query.in('store_id', storeIds)
-    }
-
-    let { data, error } = await query
-
-    // If join fails, retry without joins
-    if (error || !data) {
-      console.warn(`Join query failed for ${tab.table}, retrying without joins:`, error?.message)
-      let fallbackQuery = supabase
+      // Normal tables with created_at and store_id
+      let query = supabase
         .from(tab.table)
-        .select(simpleSelect)
+        .select(tab.select)
         .order(tab.orderBy, { ascending: false })
-        .gte(tab.orderBy, fromDate)
-        .lte(tab.orderBy, toDate)
         .limit(500)
 
+      // Date filter (skip for tables without created_at)
+      query = query.gte(tab.orderBy, fromDate).lte(tab.orderBy, toDate)
+
+      // Store filter
       if (tab.table === 'warehouse_movements') {
-        if (warehouseIds.length > 0) fallbackQuery = fallbackQuery.in('warehouse_id', warehouseIds)
-      } else if (tab.table !== 'sale_items') {
-        fallbackQuery = fallbackQuery.in('store_id', storeIds)
-      }
-
-      const { data: fb, error: fbErr } = await fallbackQuery
-      if (fbErr) {
-        console.error(`Fallback also failed for ${tab.table}:`, fbErr.message)
-        // Last resort: no date filter, no store filter
-        const { data: last } = await supabase
-          .from(tab.table)
-          .select(simpleSelect)
-          .order('created_at', { ascending: false })
-          .limit(200)
-        data = last ?? []
+        if (warehouseIds.length > 0) query = query.in('warehouse_id', warehouseIds)
       } else {
+        query = query.in('store_id', storeIds)
+      }
+
+      const { data: result, error } = await query
+      if (error) {
+        console.error(`Error loading ${tab.table}:`, error.message)
+        // Retry without date filter
+        const { data: fb } = await supabase
+          .from(tab.table)
+          .select(tab.select)
+          .order('id', { ascending: false })
+          .limit(200)
         data = fb ?? []
+      } else {
+        data = result ?? []
       }
-
-      // Manually resolve user_id + store_id names
-      const userIds = [...new Set((data as any[]).map(r => r.user_id || r.created_by).filter(Boolean))]
-      const storeIdsInData = [...new Set((data as any[]).map(r => r.store_id).filter(Boolean))]
-
-      let userMap = new Map<string, string>()
-      let storeMap = new Map<string, string>()
-
-      if (userIds.length > 0) {
-        const { data: usersData } = await supabase.from('users').select('id, full_name').in('id', userIds)
-        userMap = new Map((usersData ?? []).map(u => [u.id, u.full_name]))
-      }
-      if (storeIdsInData.length > 0) {
-        const { data: storesData } = await supabase.from('stores').select('id, name').in('id', storeIdsInData)
-        storeMap = new Map((storesData ?? []).map(s => [s.id, s.name]))
-      }
-
-      // Attach resolved names
-      data = (data as any[]).map(r => ({
-        ...r,
-        users: r.users || (r.user_id ? { full_name: userMap.get(r.user_id) || '' } : r.created_by ? { full_name: userMap.get(r.created_by) || '' } : null),
-        stores: r.stores || (r.store_id ? { name: storeMap.get(r.store_id) || '' } : null),
-      }))
     }
 
-    setRows(data ?? [])
+    // Resolve user names and store names
+    const userIds = [...new Set(data.map(r => r.user_id || r.created_by || r.assigned_to).filter(Boolean))]
+    const storeIdsInData = [...new Set(data.map(r => r.store_id).filter(Boolean))]
+
+    let userMap = new Map<string, string>()
+    let storeMap = new Map<string, string>()
+
+    if (userIds.length > 0) {
+      const { data: usersData } = await supabase.from('users').select('id, full_name').in('id', userIds)
+      userMap = new Map((usersData ?? []).map(u => [u.id, u.full_name]))
+    }
+    if (storeIdsInData.length > 0) {
+      const { data: storesData } = await supabase.from('stores').select('id, name').in('id', storeIdsInData)
+      storeMap = new Map((storesData ?? []).map(s => [s.id, s.name]))
+    }
+
+    // Attach resolved names as _userName and _storeName
+    data = data.map(r => ({
+      ...r,
+      _userName: userMap.get(r.user_id || r.created_by || r.assigned_to || '') || '',
+      _storeName: storeMap.get(r.store_id || '') || '',
+    }))
+
+    setRows(data)
     setLoading(false)
   }
 
