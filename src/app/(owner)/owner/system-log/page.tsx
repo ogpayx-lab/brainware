@@ -218,6 +218,15 @@ export default function SystemLogPage() {
     const toDate = `${dateTo}T23:59:59`
     const storeIds = selectedStore === 'all' ? orgStoreIds : [selectedStore]
 
+    // Build a simple select without FK joins (those can fail)
+    const simpleSelect = tab.select
+      .replace(/,\s*users\([^)]*\)/g, '')
+      .replace(/,\s*stores\([^)]*\)/g, '')
+      .replace(/,\s*sales\([^)]*\)/g, '')
+      .trim()
+      .replace(/,\s*$/, '')
+
+    // Try with full joins first
     let query = supabase
       .from(tab.table)
       .select(tab.select)
@@ -226,29 +235,72 @@ export default function SystemLogPage() {
       .lte(tab.orderBy, toDate)
       .limit(500)
 
-    // Handle store filtering
     if (tab.table === 'warehouse_movements') {
       if (warehouseIds.length > 0) query = query.in('warehouse_id', warehouseIds)
     } else if (tab.table === 'sale_items') {
-      // sale_items don't have store_id directly, filter by sales.store_id won't work in simple query
-      // Load all and filter later or skip store filter
+      // no store_id on sale_items
     } else {
       query = query.in('store_id', storeIds)
     }
 
-    const { data, error } = await query
-    if (error) {
-      console.error(`Error loading ${tab.table}:`, error)
-      // Retry without date filter in case column doesn't exist
-      const { data: fallback } = await supabase
+    let { data, error } = await query
+
+    // If join fails, retry without joins
+    if (error || !data) {
+      console.warn(`Join query failed for ${tab.table}, retrying without joins:`, error?.message)
+      let fallbackQuery = supabase
         .from(tab.table)
-        .select(tab.select)
-        .order('created_at', { ascending: false })
-        .limit(200)
-      setRows(fallback ?? [])
-    } else {
-      setRows(data ?? [])
+        .select(simpleSelect)
+        .order(tab.orderBy, { ascending: false })
+        .gte(tab.orderBy, fromDate)
+        .lte(tab.orderBy, toDate)
+        .limit(500)
+
+      if (tab.table === 'warehouse_movements') {
+        if (warehouseIds.length > 0) fallbackQuery = fallbackQuery.in('warehouse_id', warehouseIds)
+      } else if (tab.table !== 'sale_items') {
+        fallbackQuery = fallbackQuery.in('store_id', storeIds)
+      }
+
+      const { data: fb, error: fbErr } = await fallbackQuery
+      if (fbErr) {
+        console.error(`Fallback also failed for ${tab.table}:`, fbErr.message)
+        // Last resort: no date filter, no store filter
+        const { data: last } = await supabase
+          .from(tab.table)
+          .select(simpleSelect)
+          .order('created_at', { ascending: false })
+          .limit(200)
+        data = last ?? []
+      } else {
+        data = fb ?? []
+      }
+
+      // Manually resolve user_id + store_id names
+      const userIds = [...new Set((data as any[]).map(r => r.user_id || r.created_by).filter(Boolean))]
+      const storeIdsInData = [...new Set((data as any[]).map(r => r.store_id).filter(Boolean))]
+
+      let userMap = new Map<string, string>()
+      let storeMap = new Map<string, string>()
+
+      if (userIds.length > 0) {
+        const { data: usersData } = await supabase.from('users').select('id, full_name').in('id', userIds)
+        userMap = new Map((usersData ?? []).map(u => [u.id, u.full_name]))
+      }
+      if (storeIdsInData.length > 0) {
+        const { data: storesData } = await supabase.from('stores').select('id, name').in('id', storeIdsInData)
+        storeMap = new Map((storesData ?? []).map(s => [s.id, s.name]))
+      }
+
+      // Attach resolved names
+      data = (data as any[]).map(r => ({
+        ...r,
+        users: r.users || (r.user_id ? { full_name: userMap.get(r.user_id) || '' } : r.created_by ? { full_name: userMap.get(r.created_by) || '' } : null),
+        stores: r.stores || (r.store_id ? { name: storeMap.get(r.store_id) || '' } : null),
+      }))
     }
+
+    setRows(data ?? [])
     setLoading(false)
   }
 
