@@ -7,6 +7,7 @@ import { createClient } from '@/lib/supabase/client'
 const NAV_MAIN = [
   { href: '/owner/dashboard',             icon: '📊',  label: 'Dashboard' },
   { href: '/owner/sales-log',             icon: '🧾', label: 'Registro Vendite' },
+  { href: '/owner/photos',                icon: '📸', label: 'Foto Registro' },
   { href: '/owner/products',              icon: '📦', label: 'Prodotti' },
   { href: '/owner/analytics/products',    icon: '📈', label: 'Prodotti Analytics' },
   { href: '/owner/analytics/team',        icon: '👥', label: 'Team Performance' },

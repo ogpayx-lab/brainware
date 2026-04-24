@@ -21,7 +21,7 @@ const TYPE_CONFIG: Record<string, { icon: string; color: string; route?: string 
   stock_rejected:   { icon: '❌', color: '#EF4444', route: '/owner/warehouse/stock-movements' },
   stock_transfer:   { icon: '🔄', color: '#3B82F6', route: '/owner/warehouse/stock-movements' },
   stock_counted:    { icon: '📊', color: '#22C55E', route: '/owner/warehouse/stock-movements' },
-  photo:            { icon: '📸', color: '#7C3AED' },
+  photo:            { icon: '📸', color: '#7C3AED', route: '/owner/photos' },
   default:          { icon: '🔔', color: '#6B7280' },
 }
 
