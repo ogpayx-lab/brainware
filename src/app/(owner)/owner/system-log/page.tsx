@@ -309,18 +309,31 @@ export default function SystemLogPage() {
     let value: any = editValue
     if (col?.type === 'number') value = parseFloat(editValue) || 0
 
-    const { error } = await supabase
-      .from(tab.table)
-      .update({ [editCell.colKey]: value })
-      .eq('id', editCell.rowId)
+    // Try RPC that bypasses RLS for owner edits
+    const { error: rpcError } = await supabase.rpc('owner_update_row', {
+      p_table: tab.table,
+      p_id: editCell.rowId,
+      p_column: editCell.colKey,
+      p_value: value?.toString() ?? '',
+    })
 
-    if (!error) {
+    if (!rpcError) {
       setRows(prev => prev.map(r => r.id === editCell.rowId ? { ...r, [editCell.colKey]: value } : r))
       setSavedMsg('✓ Salvato')
       setTimeout(() => setSavedMsg(''), 2000)
     } else {
-      setSavedMsg('✗ Errore')
-      setTimeout(() => setSavedMsg(''), 3000)
+      // Fallback: direct update + verify
+      await supabase.from(tab.table).update({ [editCell.colKey]: value }).eq('id', editCell.rowId)
+      // Verify it actually persisted
+      const { data: check } = await supabase.from(tab.table).select(editCell.colKey).eq('id', editCell.rowId).single()
+      if (check && String(check[editCell.colKey]) === String(value)) {
+        setRows(prev => prev.map(r => r.id === editCell.rowId ? { ...r, [editCell.colKey]: value } : r))
+        setSavedMsg('✓ Salvato')
+        setTimeout(() => setSavedMsg(''), 2000)
+      } else {
+        setSavedMsg('✗ RLS blocca la modifica — serve la migration')
+        setTimeout(() => setSavedMsg(''), 4000)
+      }
     }
     setEditCell(null)
     setSaving(false)
@@ -353,11 +366,23 @@ export default function SystemLogPage() {
 
   async function deleteRow(rowId: string) {
     if (!confirm('Sei sicuro di voler eliminare questa riga? Azione irreversibile.')) return
+    // Try RPC first
+    const { error: rpcErr } = await supabase.rpc('owner_delete_row', { p_table: tab.table, p_id: rowId })
+    if (!rpcErr) {
+      setRows(prev => prev.filter(r => r.id !== rowId))
+      setSavedMsg('🗑 Eliminato')
+      setTimeout(() => setSavedMsg(''), 2000)
+      return
+    }
+    // Fallback
     const { error } = await supabase.from(tab.table).delete().eq('id', rowId)
     if (!error) {
       setRows(prev => prev.filter(r => r.id !== rowId))
       setSavedMsg('🗑 Eliminato')
       setTimeout(() => setSavedMsg(''), 2000)
+    } else {
+      setSavedMsg('✗ Impossibile eliminare')
+      setTimeout(() => setSavedMsg(''), 3000)
     }
   }
 
