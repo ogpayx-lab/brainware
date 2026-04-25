@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 
 // Demo credentials (stored server-side only)
-const DEMO_EMAIL = 'demo@brainware.app'
+const DEMO_EMAIL = 'demo@brain-ware.ai'
 const DEMO_PASSWORD = 'BrainWareDemo2026!'
 
 export async function POST(req: NextRequest) {

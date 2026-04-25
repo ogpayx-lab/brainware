@@ -3,7 +3,7 @@ import { usePathname } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { useEffect, useState } from 'react'
 
-const DEMO_EMAIL = 'demo@brainware.app'
+const DEMO_EMAIL = 'demo@brain-ware.ai'
 
 export function DemoBanner() {
   const pathname = usePathname()
