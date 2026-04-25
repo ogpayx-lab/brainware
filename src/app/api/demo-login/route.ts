@@ -27,11 +27,19 @@ export async function POST(req: NextRequest) {
       }, { status: 500 })
     }
 
+    // Switch role based on view selection
+    const targetRole = view === 'employee' ? 'employee' : 'owner'
+    const authClient = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      data.session.access_token
+    )
+    await authClient.from('users').update({ role: targetRole }).eq('id', data.user.id)
+
     // Return session tokens — the client will set them
     return NextResponse.json({
       access_token: data.session.access_token,
       refresh_token: data.session.refresh_token,
-      redirect: view === 'employee' ? '/employee/dashboard' : '/owner/dashboard',
+      redirect: view === 'employee' ? '/employee/shift/open' : '/owner/dashboard',
     })
 
   } catch (err: any) {
