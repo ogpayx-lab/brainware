@@ -3,7 +3,7 @@ import { createClient } from '@supabase/supabase-js'
 
 // Demo credentials (stored server-side only)
 const DEMO_EMAIL = 'demo@brain-ware.ai'
-const DEMO_PASSWORD = 'BrainWareDemo2026!'
+const DEMO_PASSWORD = 'Demo2026!'
 
 export async function POST(req: NextRequest) {
   try {
