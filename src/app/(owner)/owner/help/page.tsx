@@ -7,8 +7,8 @@ export default function OwnerHelpPage() {
   const [selectedCategory, setSelectedCategory] = useState('all')
   const [expandedArticle, setExpandedArticle] = useState<string | null>(null)
 
-  // Filter articles for owner
-  const articles = HELP_ARTICLES.filter(a => a.role === 'owner' || a.role === 'both')
+  // Show ALL articles - owner sees everything (employee guides too, to help onboard team)
+  const articles = HELP_ARTICLES
 
   // Apply search + category filter
   const filtered = articles.filter(a => {
@@ -119,9 +119,22 @@ export default function OwnerHelpPage() {
                           display: 'flex', justifyContent: 'space-between', alignItems: 'center',
                         }}
                       >
-                        <div>
-                          <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--text-primary)', marginBottom: 2 }}>
-                            {article.title}
+                        <div style={{ flex: 1 }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 2 }}>
+                            <span style={{ fontSize: 14, fontWeight: 600, color: 'var(--text-primary)' }}>
+                              {article.title}
+                            </span>
+                            <span style={{
+                              fontSize: 9, fontWeight: 700, padding: '2px 8px', borderRadius: 10,
+                              textTransform: 'uppercase', letterSpacing: '0.03em', flexShrink: 0,
+                              ...(article.role === 'employee'
+                                ? { background: '#DBEAFE', color: '#1E40AF', border: '1px solid #93C5FD' }
+                                : article.role === 'owner'
+                                ? { background: '#EDE9FE', color: '#5B21B6', border: '1px solid #C4B5FD' }
+                                : { background: '#D1FAE5', color: '#065F46', border: '1px solid #6EE7B7' }),
+                            }}>
+                              {article.role === 'employee' ? '👤 Dipendente' : article.role === 'owner' ? '👑 Owner' : '👥 Tutti'}
+                            </span>
                           </div>
                           <div style={{ fontSize: 12, color: 'var(--text-tertiary)' }}>{article.summary}</div>
                         </div>
@@ -138,6 +151,17 @@ export default function OwnerHelpPage() {
                           padding: '0 16px 16px', borderTop: '1px solid var(--border-subtle)',
                           background: 'var(--bg-surface)',
                         }}>
+                          {/* Role context banner */}
+                          {article.role === 'employee' && (
+                            <div style={{ marginTop: 14, padding: '8px 12px', background: '#DBEAFE', borderRadius: 8, border: '1px solid #93C5FD', fontSize: 12, color: '#1E40AF', lineHeight: 1.5 }}>
+                              ℹ️ <strong>Guida per dipendenti</strong> — Puoi usare questa procedura per formare il tuo team o inviarla come riferimento.
+                            </div>
+                          )}
+                          {article.role === 'both' && (
+                            <div style={{ marginTop: 14, padding: '8px 12px', background: '#D1FAE5', borderRadius: 8, border: '1px solid #6EE7B7', fontSize: 12, color: '#065F46', lineHeight: 1.5 }}>
+                              👥 <strong>Guida universale</strong> — Questa procedura è valida sia per te che per i tuoi dipendenti.
+                            </div>
+                          )}
                           {/* Steps */}
                           <div style={{ padding: '14px 0 0' }}>
                             <div style={{ fontSize: 12, fontWeight: 700, color: '#6366F1', marginBottom: 10, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
