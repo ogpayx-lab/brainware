@@ -39,6 +39,7 @@ export async function middleware(request: NextRequest) {
     path === '/onboarding' ||
     path === '/privacy' ||
     path === '/terms' ||
+    path === '/demo' ||
     path === '/demo-showcase' ||
     path.startsWith('/auth/') ||
     path.startsWith('/superadmin/login') ||

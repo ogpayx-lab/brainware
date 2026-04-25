@@ -107,7 +107,7 @@ export default function LandingPage() {
             <p className="l-hero-sub l-animate l-animate-d2">{t('hero_subtitle')}</p>
             <div className="l-hero-buttons l-animate l-animate-d3">
               <Link href="/signup" className="l-btn l-btn-primary l-btn-lg">{t('hero_cta')}</Link>
-              <a href="#features" className="l-btn l-btn-secondary l-btn-lg">{t('hero_cta_secondary')}</a>
+              <Link href="/demo" className="l-btn l-btn-secondary l-btn-lg" style={{ background: 'rgba(99,102,241,0.15)', borderColor: '#6366F1', color: '#A5B4FC' }}>🚀 {lang === 'it' ? 'Prova la Demo' : lang === 'de' ? 'Demo testen' : lang === 'fr' ? 'Essayer la démo' : lang === 'es' ? 'Probar demo' : 'Try the Demo'}</Link>
             </div>
             <div className="l-hero-note l-animate l-animate-d4">{t('hero_no_cc')}</div>
           </div>
