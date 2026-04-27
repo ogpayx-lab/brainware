@@ -24,6 +24,11 @@ export default function SettingsPage() {
   const [shopify, setShopify] = useState({ shopify_domain: '', access_token: '', sync_enabled: false })
   const [shopifyId, setShopifyId] = useState<string | null>(null)
 
+  // Tablet account
+  const [tabletAccount, setTabletAccount] = useState<any>(null)
+  const [tabletPw, setTabletPw] = useState('')
+  const [tabletSaving, setTabletSaving] = useState(false)
+
   // Multistore
   const [stores, setStores] = useState<any[]>([])
   const [showAddStore, setShowAddStore] = useState(false)
@@ -90,6 +95,33 @@ export default function SettingsPage() {
       if (empFeat.config) {
         setEmpCfg(prev => ({ ...prev, ...empFeat.config }))
       }
+    }
+
+    // Tablet account (store account linked to this store)
+    const { data: tabletUser } = await supabase
+      .from('users')
+      .select('id, full_name, email')
+      .eq('store_id', profile.store_id)
+      .like('full_name', '[STORE]%')
+      .limit(1)
+      .single()
+    if (tabletUser) {
+      // If email is stored on users table, use it. Otherwise try fetching via API.
+      let email = tabletUser.email
+      if (!email) {
+        try {
+          const { data: { session } } = await supabase.auth.getSession()
+          const res = await fetch('/api/get-user-email', {
+            method: 'POST',
+            headers: { 'Authorization': `Bearer ${session?.access_token}`, 'Content-Type': 'application/json' },
+            body: JSON.stringify({ userId: tabletUser.id }),
+          })
+          if (res.ok) { const json = await res.json(); email = json.email }
+        } catch {}
+      }
+      setTabletAccount({ id: tabletUser.id, full_name: tabletUser.full_name, email })
+    } else {
+      setTabletAccount(null)
     }
 
     setLoading(false)
@@ -318,6 +350,64 @@ export default function SettingsPage() {
               <div className="input-group"><label className="input-label">Città</label><input className="input" value={store.city} onChange={e => setStore(s => ({ ...s, city: e.target.value }))} /></div>
             </div>
             <button onClick={saveStore} disabled={saving} className="btn btn-primary" style={{ alignSelf: 'flex-start' }}>Salva Negozio</button>
+          </div>
+
+          {/* Tablet Account */}
+          <div className="card" style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-lg)' }}>
+            <div style={{ display: 'flex', alignItems: 'center' }}>
+              <h3>📱 Account Tablet</h3>
+              <SavedBadge section="tablet" />
+            </div>
+            <div style={{ background: 'var(--bg-surface)', borderRadius: 'var(--radius-sm)', padding: 'var(--space-md)', fontSize: 13, color: 'var(--text-secondary)' }}>
+              💡 L'account tablet è quello usato dall'iPad del negozio per accedere. I dipendenti si identificheranno con il loro PIN dopo il login.
+            </div>
+            {tabletAccount ? (
+              <>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--space-md)' }}>
+                  <div className="input-group">
+                    <label className="input-label">Email Tablet</label>
+                    <div style={{ padding: '10px 14px', background: 'var(--bg-surface)', borderRadius: 'var(--radius-sm)', fontSize: 14, fontWeight: 600, border: '1px solid var(--border-subtle)' }}>
+                      {tabletAccount.email || tabletAccount.full_name}
+                    </div>
+                  </div>
+                  <div className="input-group">
+                    <label className="input-label">Nuova Password (opzionale)</label>
+                    <input className="input" type="password" placeholder="Lascia vuoto per non cambiare" value={tabletPw} onChange={e => setTabletPw(e.target.value)} />
+                  </div>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                  <div style={{ width: 8, height: 8, borderRadius: '50%', background: 'var(--success)' }} />
+                  <span style={{ fontSize: 13, color: 'var(--text-secondary)' }}>Account configurato — il tablet può loggarsi</span>
+                </div>
+                {tabletPw.length > 0 && (
+                  <button
+                    className="btn btn-primary"
+                    style={{ alignSelf: 'flex-start' }}
+                    disabled={tabletSaving || tabletPw.length < 6}
+                    onClick={async () => {
+                      setTabletSaving(true)
+                      try {
+                        const headers = await getAuthHeader()
+                        const res = await fetch('/api/update-password', {
+                          method: 'POST', headers,
+                          body: JSON.stringify({ userId: tabletAccount.id, password: tabletPw }),
+                        })
+                        if (res.ok) { showSaved('tablet'); setTabletPw('') }
+                      } catch {}
+                      setTabletSaving(false)
+                    }}
+                  >
+                    {tabletSaving ? 'Aggiornamento...' : '🔑 Aggiorna Password'}
+                  </button>
+                )}
+              </>
+            ) : (
+              <div style={{ textAlign: 'center', padding: 'var(--space-lg)', color: 'var(--text-tertiary)' }}>
+                <div style={{ fontSize: 32, marginBottom: 8 }}>📱</div>
+                <div style={{ fontSize: 14, fontWeight: 600, marginBottom: 4 }}>Nessun account tablet configurato</div>
+                <div style={{ fontSize: 12 }}>Vai su <strong>Gestione Dipendenti → Account Store</strong> per crearne uno</div>
+              </div>
+            )}
           </div>
 
           {/* Bonus */}

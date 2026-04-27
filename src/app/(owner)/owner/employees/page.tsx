@@ -7,21 +7,22 @@ export default function EmployeesPage() {
   const router = useRouter()
   const supabase = createClient()
   const [employees, setEmployees] = useState<any[]>([])
-  const [storeId, setStoreId] = useState<string|null>(null)
-  const [storeName, setStoreName] = useState('')
+  const [allStores, setAllStores] = useState<any[]>([])
+  const [selectedStoreId, setSelectedStoreId] = useState<string>('all')
+  const [orgId, setOrgId] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
-  const [totalClients, setTotalClients] = useState(0)
+  const [totalSales, setTotalSales] = useState(0)
   const [feedback, setFeedback] = useState<{type:'success'|'error';msg:string}|null>(null)
 
   // Add employee form
   const [showForm, setShowForm] = useState(false)
   const [form, setForm] = useState({ full_name:'', pin:'' })
+  const [formStoreIds, setFormStoreIds] = useState<string[]>([])
 
   // Store account form
   const [showStoreForm, setShowStoreForm] = useState(false)
-  const [storeForm, setStoreForm] = useState({ email:'', password:'' })
-  const [storeAccounts, setStoreAccounts] = useState<any[]>([])
+  const [storeForm, setStoreForm] = useState({ email:'', password:'', storeId:'' })
 
   // PIN
   const [pinSaving, setPinSaving] = useState<string|null>(null)
@@ -32,112 +33,119 @@ export default function EmployeesPage() {
   async function loadData() {
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) { router.push('/login'); return }
-    const { data: profile } = await supabase.from('users').select('store_id,role,stores(name)').eq('id', user.id).single()
+    const { data: profile } = await supabase.from('users').select('store_id,role,stores(name,organization_id)').eq('id', user.id).single()
     if (profile?.role !== 'owner') { router.push('/login'); return }
-    setStoreId(profile.store_id)
-    setStoreName((profile.stores as any)?.name || 'Store')
 
-    // Load all users of this store  
+    const oid = (profile.stores as any)?.organization_id
+    setOrgId(oid)
+
+    // Load all stores in org
+    const { data: storesData } = await supabase.from('stores').select('id, name').eq('organization_id', oid).order('name')
+    setAllStores(storesData ?? [])
+
+    // Load ALL employees across all org stores
+    const storeIds = (storesData ?? []).map(s => s.id)
     const { data: emps } = await supabase
       .from('users')
-      .select('*')
-      .eq('store_id', profile.store_id)
-      .order('role', { ascending: true })
+      .select('*, stores(name)')
+      .in('store_id', storeIds)
+      .eq('is_active', true)
       .order('full_name')
-    
-    // Separate referenti (employees without auth) from store accounts
+
     const allUsers = emps ?? []
     const referenti = allUsers.filter(u => u.role !== 'owner' && !u.full_name?.startsWith('[STORE]'))
-    const storeAccs = allUsers.filter(u => u.role === 'employee' && u.email)
     setEmployees(referenti)
-    setStoreAccounts(storeAccs)
 
-    const { count } = await supabase.from('sales').select('id', { count: 'exact' }).eq('store_id', profile.store_id).eq('movement_type', 'sale')
-    setTotalClients(count ?? 0)
+    // Sales count for selected/all stores
+    let salesQuery = supabase.from('sales').select('id', { count: 'exact', head: true }).eq('movement_type', 'sale')
+    if (selectedStoreId !== 'all') salesQuery = salesQuery.eq('store_id', selectedStoreId)
+    else salesQuery = salesQuery.in('store_id', storeIds)
+    const { count } = await salesQuery
+    setTotalSales(count ?? 0)
+
     setLoading(false)
   }
+
+  // Reload when store filter changes
+  useEffect(() => {
+    if (!loading) loadData()
+  }, [selectedStoreId])
 
   async function getAuthHeader() {
     const { data: { session } } = await supabase.auth.getSession()
     return { 'Authorization': `Bearer ${session?.access_token}`, 'Content-Type': 'application/json' }
   }
 
-  // ── Add employee (profile only, no auth) ──
+  // ── Add employee to one or multiple stores ──
   async function addEmployee() {
-    if (!storeId || !form.full_name.trim()) return
+    if (formStoreIds.length === 0 || !form.full_name.trim()) return
     setSaving(true)
 
-    const newId = crypto.randomUUID()
-    const { error } = await supabase.from('users').insert({
-      id: newId,
-      full_name: form.full_name.trim(),
-      role: 'employee',
-      store_id: storeId,
-      pin: form.pin || null,
-      is_active: true,
-    })
+    let errors: string[] = []
+    for (const sid of formStoreIds) {
+      const newId = crypto.randomUUID()
+      const { error } = await supabase.from('users').insert({
+        id: newId,
+        full_name: form.full_name.trim(),
+        role: 'employee',
+        store_id: sid,
+        pin: form.pin || null,
+        is_active: true,
+      })
+      if (error) errors.push(error.message)
+    }
 
-    if (error) {
-      setFeedback({ type:'error', msg: 'Errore: ' + error.message })
+    if (errors.length > 0) {
+      setFeedback({ type: 'error', msg: 'Errori: ' + errors.join(', ') })
     } else {
-      setFeedback({ type:'success', msg: `✅ ${form.full_name} aggiunto come referente!` })
+      const storeNames = allStores.filter(s => formStoreIds.includes(s.id)).map(s => s.name).join(', ')
+      setFeedback({ type: 'success', msg: `✅ ${form.full_name} aggiunto a: ${storeNames}` })
     }
 
     setShowForm(false)
-    setForm({ full_name:'', pin:'' })
+    setForm({ full_name: '', pin: '' })
+    setFormStoreIds([])
     setSaving(false)
     loadData()
-    setTimeout(() => setFeedback(null), 3000)
+    setTimeout(() => setFeedback(null), 4000)
   }
 
   // ── Create store account (auth account for tablet) ──
   async function createStoreAccount() {
-    if (!storeId || !storeForm.email || !storeForm.password) return
+    if (!storeForm.storeId || !storeForm.email || !storeForm.password) return
     setSaving(true)
-
     try {
       const headers = await getAuthHeader()
+      const storeName = allStores.find(s => s.id === storeForm.storeId)?.name || 'Store'
       const res = await fetch('/api/create-store-account', {
-        method: 'POST',
-        headers,
-        body: JSON.stringify({
-          email: storeForm.email,
-          password: storeForm.password,
-          storeId,
-          storeName,
-        }),
+        method: 'POST', headers,
+        body: JSON.stringify({ email: storeForm.email, password: storeForm.password, storeId: storeForm.storeId, storeName }),
       })
       const json = await res.json()
       if (res.ok) {
-        setFeedback({ type:'success', msg: `✅ Account store creato! Il tablet può loggarsi con ${storeForm.email}` })
+        setFeedback({ type: 'success', msg: `✅ Account creato! Il tablet può loggarsi con ${storeForm.email}` })
       } else {
-        setFeedback({ type:'error', msg: json.error || 'Errore nella creazione' })
+        setFeedback({ type: 'error', msg: json.error || 'Errore' })
       }
-    } catch (e: any) {
-      setFeedback({ type:'error', msg: e.message })
-    }
-
+    } catch (e: any) { setFeedback({ type: 'error', msg: e.message }) }
     setShowStoreForm(false)
-    setStoreForm({ email:'', password:'' })
+    setStoreForm({ email: '', password: '', storeId: '' })
     setSaving(false)
     loadData()
     setTimeout(() => setFeedback(null), 5000)
   }
 
-  // ── Toggle employee active ──
   async function toggleActive(emp: any) {
     await supabase.from('users').update({ is_active: !emp.is_active }).eq('id', emp.id)
     loadData()
   }
 
-  // ── Delete employee profile ──
   async function deleteEmployee(emp: any) {
     if (!confirm(`Eliminare ${emp.full_name}? Questa azione è irreversibile.`)) return
     await supabase.from('users').delete().eq('id', emp.id)
     loadData()
   }
 
-  // ── Save PIN ──
   async function savePin(empId: string, pin: string | null) {
     setPinSaving(empId)
     await supabase.from('users').update({ pin: pin || null }).eq('id', empId)
@@ -146,7 +154,15 @@ export default function EmployeesPage() {
     setTimeout(() => setPinSaved(null), 2000)
   }
 
+  // Toggle store in multi-select
+  function toggleFormStore(sid: string) {
+    setFormStoreIds(prev => prev.includes(sid) ? prev.filter(id => id !== sid) : [...prev, sid])
+  }
+
   if (loading) return <div style={{ display:'flex', alignItems:'center', justifyContent:'center', height:'60vh' }}>Caricamento...</div>
+
+  // Filter employees by selected store
+  const displayed = selectedStoreId === 'all' ? employees : employees.filter(e => e.store_id === selectedStoreId)
 
   return (
     <div>
@@ -155,7 +171,7 @@ export default function EmployeesPage() {
       {/* Add Employee Modal */}
       {showForm && (
         <div className="modal-overlay">
-          <div className="modal" style={{ maxWidth: 420 }}>
+          <div className="modal" style={{ maxWidth: 480 }}>
             <h3 style={{ marginBottom: 'var(--space-lg)' }}>👤 Nuovo Referente</h3>
             <div style={{ display:'flex', flexDirection:'column', gap:'var(--space-md)' }}>
               <div className="input-group">
@@ -169,14 +185,56 @@ export default function EmployeesPage() {
                   style={{ fontSize:20, letterSpacing:8, textAlign:'center', fontWeight:700 }}
                 />
               </div>
+
+              {/* Multi-store selector */}
+              <div className="input-group">
+                <label className="input-label">Assegna a negozi *</label>
+                <div style={{ display:'flex', flexDirection:'column', gap:6, maxHeight:200, overflowY:'auto' }}>
+                  {allStores.map(s => {
+                    const selected = formStoreIds.includes(s.id)
+                    return (
+                      <div
+                        key={s.id}
+                        onClick={() => toggleFormStore(s.id)}
+                        style={{
+                          display:'flex', alignItems:'center', gap:10,
+                          padding:'10px 14px', borderRadius:10,
+                          background: selected ? 'var(--brand-primary-light)' : 'var(--bg-surface)',
+                          border: selected ? '2px solid var(--brand-primary)' : '1.5px solid var(--border-subtle)',
+                          cursor:'pointer', transition:'all 0.15s',
+                        }}
+                      >
+                        <div style={{
+                          width:20, height:20, borderRadius:6, flexShrink:0,
+                          border: selected ? 'none' : '2px solid var(--border-default)',
+                          background: selected ? 'var(--brand-primary)' : 'transparent',
+                          display:'flex', alignItems:'center', justifyContent:'center',
+                          color:'white', fontSize:12, fontWeight:700,
+                        }}>
+                          {selected && '✓'}
+                        </div>
+                        <span style={{ fontSize:14, fontWeight: selected ? 600 : 400, color: selected ? 'var(--brand-primary-dark)' : 'var(--text-primary)' }}>
+                          {s.name}
+                        </span>
+                      </div>
+                    )
+                  })}
+                </div>
+                {formStoreIds.length > 1 && (
+                  <div style={{ fontSize:11, color:'var(--text-tertiary)', marginTop:4 }}>
+                    ℹ️ Verrà creato un profilo per ogni negozio selezionato ({formStoreIds.length} negozi)
+                  </div>
+                )}
+              </div>
+
               <div style={{ background:'#F0FDF4', border:'1px solid #22C55E', borderRadius:8, padding:'10px 14px', fontSize:13, color:'#15803D' }}>
                 ℹ️ Il referente NON avrà un account login. Si identificherà con il PIN sul tablet del negozio.
               </div>
             </div>
             <div style={{ display:'flex', gap:'var(--space-sm)', marginTop:'var(--space-xl)' }}>
-              <button className="btn btn-secondary" style={{ flex:1 }} onClick={() => setShowForm(false)}>Annulla</button>
-              <button className="btn btn-primary" style={{ flex:2 }} onClick={addEmployee} disabled={saving || !form.full_name.trim()}>
-                {saving ? 'Salvataggio...' : '✅ Aggiungi Referente'}
+              <button className="btn btn-secondary" style={{ flex:1 }} onClick={() => { setShowForm(false); setFormStoreIds([]) }}>Annulla</button>
+              <button className="btn btn-primary" style={{ flex:2 }} onClick={addEmployee} disabled={saving || !form.full_name.trim() || formStoreIds.length === 0}>
+                {saving ? 'Salvataggio...' : `✅ Aggiungi${formStoreIds.length > 1 ? ` (${formStoreIds.length} negozi)` : ''}`}
               </button>
             </div>
           </div>
@@ -188,13 +246,17 @@ export default function EmployeesPage() {
         <div className="modal-overlay">
           <div className="modal" style={{ maxWidth: 420 }}>
             <h3 style={{ marginBottom: 'var(--space-lg)' }}>🏪 Account Tablet Store</h3>
-            <p style={{ fontSize:13, color:'var(--text-secondary)', marginBottom:16 }}>
-              Crea le credenziali per il tablet di <strong>{storeName}</strong>. I dipendenti useranno questo account per accedere.
-            </p>
             <div style={{ display:'flex', flexDirection:'column', gap:'var(--space-md)' }}>
               <div className="input-group">
+                <label className="input-label">Negozio *</label>
+                <select className="input" value={storeForm.storeId} onChange={e => setStoreForm(f=>({...f,storeId:e.target.value}))}>
+                  <option value="">— Seleziona negozio —</option>
+                  {allStores.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+                </select>
+              </div>
+              <div className="input-group">
                 <label className="input-label">Email store *</label>
-                <input className="input" type="email" placeholder={`${storeName.toLowerCase().replace(/\s/g,'')}@store.com`}
+                <input className="input" type="email" placeholder="negozio@azienda.com"
                   value={storeForm.email} onChange={e => setStoreForm(f=>({...f,email:e.target.value}))}/>
               </div>
               <div className="input-group">
@@ -209,7 +271,7 @@ export default function EmployeesPage() {
             <div style={{ display:'flex', gap:'var(--space-sm)', marginTop:'var(--space-xl)' }}>
               <button className="btn btn-secondary" style={{ flex:1 }} onClick={() => setShowStoreForm(false)}>Annulla</button>
               <button className="btn btn-primary" style={{ flex:2 }} onClick={createStoreAccount}
-                disabled={saving || !storeForm.email || storeForm.password.length < 6}>
+                disabled={saving || !storeForm.email || !storeForm.storeId || storeForm.password.length < 6}>
                 {saving ? 'Creazione...' : '🏪 Crea Account Store'}
               </button>
             </div>
@@ -218,15 +280,47 @@ export default function EmployeesPage() {
       )}
 
       {/* ═══ PAGE HEADER ═══ */}
-      <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', marginBottom:'var(--space-xl)', flexWrap:'wrap', gap:12 }}>
+      <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', marginBottom:'var(--space-lg)', flexWrap:'wrap', gap:12 }}>
         <div>
           <h2>Gestione Dipendenti</h2>
-          <p style={{ color:'var(--text-secondary)', fontSize:14, marginTop:4 }}>{employees.length} referenti nel negozio</p>
+          <p style={{ color:'var(--text-secondary)', fontSize:14, marginTop:4 }}>{displayed.length} referenti{selectedStoreId !== 'all' ? ` in ${allStores.find(s => s.id === selectedStoreId)?.name}` : ' totali'}</p>
         </div>
         <div style={{ display:'flex', gap:8, flexWrap:'wrap' }}>
           <button className="btn btn-secondary" onClick={() => setShowStoreForm(true)}>🏪 Account Store</button>
           <button className="btn btn-primary" onClick={() => setShowForm(true)}>+ Nuovo Referente</button>
         </div>
+      </div>
+
+      {/* Store Filter */}
+      <div style={{ display:'flex', gap:6, marginBottom:'var(--space-lg)', flexWrap:'wrap' }}>
+        <button
+          onClick={() => setSelectedStoreId('all')}
+          style={{
+            padding:'6px 14px', borderRadius:20, border:'none', cursor:'pointer', fontSize:12, fontWeight:600,
+            background: selectedStoreId === 'all' ? 'var(--brand-primary)' : 'var(--bg-surface)',
+            color: selectedStoreId === 'all' ? 'white' : 'var(--text-secondary)',
+            transition:'all 0.15s',
+          }}
+        >
+          🏢 Tutti ({employees.length})
+        </button>
+        {allStores.map(s => {
+          const count = employees.filter(e => e.store_id === s.id).length
+          return (
+            <button
+              key={s.id}
+              onClick={() => setSelectedStoreId(s.id)}
+              style={{
+                padding:'6px 14px', borderRadius:20, border:'none', cursor:'pointer', fontSize:12, fontWeight:600,
+                background: selectedStoreId === s.id ? 'var(--brand-primary)' : 'var(--bg-surface)',
+                color: selectedStoreId === s.id ? 'white' : 'var(--text-secondary)',
+                transition:'all 0.15s',
+              }}
+            >
+              {s.name.replace('MamaMary ', '')} ({count})
+            </button>
+          )
+        })}
       </div>
 
       {/* Feedback */}
@@ -245,7 +339,7 @@ export default function EmployeesPage() {
 
       {/* Stats */}
       <div style={{ background:'var(--brand-primary-light)', border:'1px solid var(--brand-primary)', borderRadius:'var(--radius-md)', padding:'var(--space-md)', marginBottom:'var(--space-xl)', display:'flex', alignItems:'center', gap:16 }}>
-        <div style={{ fontSize:28, fontWeight:700, fontFamily:'var(--font-heading)', color:'var(--brand-primary-dark)' }}>{totalClients.toLocaleString('it-IT')}</div>
+        <div style={{ fontSize:28, fontWeight:700, fontFamily:'var(--font-heading)', color:'var(--brand-primary-dark)' }}>{totalSales.toLocaleString('it-IT')}</div>
         <div style={{ fontSize:14, color:'var(--brand-primary-dark)' }}>Vendite totali</div>
       </div>
 
@@ -256,12 +350,12 @@ export default function EmployeesPage() {
 
       {/* ═══ EMPLOYEE CARDS ═══ */}
       <div style={{ display:'flex', flexDirection:'column', gap:12 }}>
-        {employees.length === 0 && (
+        {displayed.length === 0 && (
           <div style={{ textAlign:'center', padding:'var(--space-2xl)', color:'var(--text-tertiary)' }}>
-            Nessun referente. Aggiungine uno con il pulsante "+ Nuovo Referente".
+            Nessun referente{selectedStoreId !== 'all' ? ' in questo negozio' : ''}. Aggiungine uno con il pulsante &quot;+ Nuovo Referente&quot;.
           </div>
         )}
-        {employees.map(emp => (
+        {displayed.map(emp => (
           <div key={emp.id} className="card" style={{
             padding:'16px 20px', display:'flex', alignItems:'center', gap:14,
             flexWrap:'wrap',
@@ -278,17 +372,21 @@ export default function EmployeesPage() {
               {emp.full_name?.split(' ').map((n:string)=>n[0]).join('').slice(0,2)||'?'}
             </div>
 
-            {/* Name */}
+            {/* Name + store */}
             <div style={{ flex:'1 1 150px', minWidth:120 }}>
               <div style={{ fontWeight:700, fontSize:15 }}>{emp.full_name}</div>
-              <div style={{ fontSize:11, color: emp.pin ? 'var(--success)' : 'var(--text-tertiary)' }}>
-                {emp.pin ? '🔑 PIN impostato' : '⚠️ Nessun PIN'}
+              <div style={{ fontSize:11, color:'var(--text-tertiary)', display:'flex', alignItems:'center', gap:6 }}>
+                <span>🏪 {(emp.stores as any)?.name?.replace('MamaMary ', '') || '—'}</span>
+                <span>·</span>
+                <span style={{ color: emp.pin ? 'var(--success)' : 'var(--warning)' }}>
+                  {emp.pin ? '🔑 PIN ok' : '⚠️ No PIN'}
+                </span>
               </div>
             </div>
 
             {/* Status */}
             <span className={`badge ${emp.is_active?'badge-success':'badge-gray'}`} style={{ fontSize:11 }}>
-              {emp.is_active ? 'Attivo' : 'Disabilitato'}
+              {emp.is_active ? 'Attivo' : 'Off'}
             </span>
 
             {/* PIN input */}
