@@ -112,12 +112,20 @@ export default function ShiftClosePage() {
     setClosing(true)
     setError(null)
 
+    const now = new Date().toISOString()
+
     const { error: closeError } = await supabase.from('shifts').update({
       status: 'closed', fcu: fcuValue, deposit_actual: depositValue,
-      variance_reason: hasVariance ? varianceReason : null, closed_at: new Date().toISOString(),
+      variance_reason: hasVariance ? varianceReason : null, closed_at: now,
     }).eq('id', summary.shift_id)
 
     if (closeError) { setError('Errore nella chiusura del turno.'); setClosing(false); return }
+
+    // Auto-checkout ALL employees still checked in on this shift
+    await supabase.from('shift_checkins')
+      .update({ checked_out_at: now })
+      .eq('shift_id', summary.shift_id)
+      .is('checked_out_at', null)
 
     const report = {
       store_name: storeName, brand_name: brandName, employee_name: employeeName,
