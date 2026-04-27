@@ -7,12 +7,11 @@ import { createClient } from '@/lib/supabase/client'
 import { playNotificationSound } from '@/lib/useNotificationSound'
 
 const TABS = [
-  { href: '/employee/stock',           icon: '📦', label: 'Ricarica' },
-  { href: '/employee/pos',             icon: '🛒', label: 'Vendita' },
-  { href: '/employee/expenses',        icon: '💸', label: 'Spese' },
   { href: '/employee/dashboard',       icon: '🏠', label: 'Home' },
+  { href: '/employee/pos',             icon: '🛒', label: 'Vendita' },
   { href: '/employee/inventory',       icon: '📊', label: 'Inventario' },
   { href: '/employee/maintenance',     icon: '🔧', label: 'Manutenz.' },
+  { href: '/employee/reorder',         icon: '📢', label: 'Ricarica' },
 ]
 
 export function BottomNav() {
