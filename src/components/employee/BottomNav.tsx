@@ -7,11 +7,12 @@ import { createClient } from '@/lib/supabase/client'
 import { playNotificationSound } from '@/lib/useNotificationSound'
 
 const TABS = [
-  { href: '/employee/dashboard',       icon: '🏠', label: 'Home' },
+  { href: '/employee/stock',           icon: '📦', label: 'Ricarica' },
   { href: '/employee/pos',             icon: '🛒', label: 'Vendita' },
-  { href: '/employee/notifications',   icon: '🔔', label: 'Notifiche', hasBadge: true },
-  { href: '/employee/fidelity',        icon: '💳', label: 'Fidelity' },
-  { href: '/employee/more',            icon: '⋯',  label: 'Altro' },
+  { href: '/employee/expenses',        icon: '💸', label: 'Spese' },
+  { href: '/employee/dashboard',       icon: '🏠', label: 'Home' },
+  { href: '/employee/inventory',       icon: '📊', label: 'Inventario' },
+  { href: '/employee/maintenance',     icon: '🔧', label: 'Manutenz.' },
 ]
 
 export function BottomNav() {
@@ -42,7 +43,6 @@ export function BottomNav() {
       const unread = count ?? 0
       setUnreadCount(unread)
 
-      // Play sound when new notifications arrive
       if (prevCount.current !== null && unread > prevCount.current) {
         playNotificationSound()
       }
@@ -67,19 +67,8 @@ export function BottomNav() {
             }}>
               <span style={{ fontSize: 20, position: 'relative' }}>
                 {tab.icon}
-                {tab.hasBadge && unreadCount > 0 && (
-                  <span style={{
-                    position: 'absolute', top: -4, right: -8,
-                    background: 'var(--danger)', color: 'white',
-                    fontSize: 9, fontWeight: 700, lineHeight: 1,
-                    padding: '2px 4px', borderRadius: 10, minWidth: 14,
-                    textAlign: 'center',
-                  }}>
-                    {unreadCount > 9 ? '9+' : unreadCount}
-                  </span>
-                )}
               </span>
-              <span style={{ fontSize: 10, fontWeight: active ? 600 : 400 }}>{tab.label}</span>
+              <span style={{ fontSize: 9, fontWeight: active ? 600 : 400 }}>{tab.label}</span>
             </div>
           </Link>
         )
