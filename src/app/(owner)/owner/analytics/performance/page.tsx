@@ -63,8 +63,9 @@ export default function TeamPerformancePage() {
     setOrgStoreIds(storeIds)
 
     const { data: emps } = await supabase.from('users').select('*,stores(name)').in('store_id', storeIds).eq('role', 'employee').eq('is_active', true)
-    setEmployees(emps ?? [])
-    if (emps && emps.length > 0) setSelected(emps[0])
+    const realEmps = (emps ?? []).filter(e => !e.full_name?.startsWith('[STORE]'))
+    setEmployees(realEmps)
+    if (realEmps.length > 0) setSelected(realEmps[0])
 
     // Load open shifts (turni in corso) — deduplicate by user_id
     const { data: openShifts } = await supabase

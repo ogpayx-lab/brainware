@@ -45,7 +45,7 @@ export default function TasksPage() {
       supabase.from('users').select('id,full_name,role').eq('store_id', profile.store_id).eq('role', 'employee').order('full_name'),
     ])
     setTasks(tasksData ?? [])
-    setEmployees(empsData ?? [])
+    setEmployees((empsData ?? []).filter(e => !e.full_name?.startsWith('[STORE]')))
     setLoading(false)
   }, [])
 

@@ -66,13 +66,14 @@ export default function ShiftOpenPage() {
 
     if (!sid) { setLoading(false); return }
 
-    // Load employees of this store
+    // Load employees of this store (exclude logged-in store account)
     const { data: emps } = await supabase
       .from('users')
       .select('id, full_name, pin, is_active')
       .eq('store_id', sid)
       .eq('is_active', true)
       .neq('role', 'owner')
+      .neq('id', user.id)
       .order('full_name')
     setEmployees(emps ?? [])
 

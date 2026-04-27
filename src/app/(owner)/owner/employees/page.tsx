@@ -47,7 +47,7 @@ export default function EmployeesPage() {
     
     // Separate referenti (employees without auth) from store accounts
     const allUsers = emps ?? []
-    const referenti = allUsers.filter(u => u.role !== 'owner')
+    const referenti = allUsers.filter(u => u.role !== 'owner' && !u.full_name?.startsWith('[STORE]'))
     const storeAccs = allUsers.filter(u => u.role === 'employee' && u.email)
     setEmployees(referenti)
     setStoreAccounts(storeAccs)
