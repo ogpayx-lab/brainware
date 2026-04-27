@@ -133,8 +133,10 @@ export default function ShiftClosePage() {
     }
 
     printShiftReport(report)
-    await supabase.auth.signOut()
-    router.push('/login')
+    // Don't sign out — keep tablet logged in. Just clear active employee and go to check-in.
+    localStorage.removeItem('activeEmployeeId')
+    localStorage.removeItem('activeEmployeeName')
+    router.push('/employee/shift/open')
   }
 
   if (loading) return <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100vh' }}><div style={{ color: 'var(--text-secondary)' }}>Caricamento riepilogo...</div></div>

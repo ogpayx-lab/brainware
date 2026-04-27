@@ -20,9 +20,10 @@ export default function MorePage() {
   const router = useRouter()
   const supabase = createClient()
 
-  async function logout() {
-    await supabase.auth.signOut()
-    router.push('/login')
+  function switchEmployee() {
+    localStorage.removeItem('activeEmployeeId')
+    localStorage.removeItem('activeEmployeeName')
+    router.push('/employee/shift/open')
   }
 
   return (
@@ -45,8 +46,8 @@ export default function MorePage() {
           </Link>
         ))}
         <div style={{ marginTop: 'var(--space-lg)' }}>
-          <button onClick={logout} style={{ width: '100%', padding: 'var(--space-md)', background: 'var(--bg-surface)', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-md)', color: 'var(--danger)', fontWeight: 600, fontSize: 14, cursor: 'pointer' }}>
-            Logout
+          <button onClick={switchEmployee} style={{ width: '100%', padding: 'var(--space-md)', background: 'linear-gradient(135deg, #F59E0B, #D97706)', border: 'none', borderRadius: 'var(--radius-md)', color: 'white', fontWeight: 600, fontSize: 14, cursor: 'pointer' }}>
+            🔄 Cambio Dipendente
           </button>
         </div>
       </div>

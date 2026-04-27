@@ -497,8 +497,9 @@ export default function EmployeeDashboard() {
                 disabled={checkingOut}
                 onClick={async () => {
                   setCheckingOut(true)
-                  await supabase.auth.signOut()
-                  router.push('/login')
+                  localStorage.removeItem('activeEmployeeId')
+                  localStorage.removeItem('activeEmployeeName')
+                  router.push('/employee/shift/open')
                 }}
               >
                 {checkingOut ? '⏳ Uscita...' : '🚪 Check Out'}
