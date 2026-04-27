@@ -174,25 +174,6 @@ export default function EmployeeDashboard() {
 
       <div style={{ padding:'16px', display:'flex', flexDirection:'column', gap:'12px' }}>
 
-        {/* ═══ METRICHE TURNO ═══ */}
-        <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:8 }}>
-          {[
-            { label:'Vendite Turno', value:fmt(summary.total_sales), sub:`${summary.total_transactions} transazioni`, icon:'📈' },
-            { label:'Contanti', value:fmt(summary.total_cash), sub:'cash raccolto', icon:'💵' },
-            { label:'POS', value:fmt(summary.total_pos || 0), sub:'elettronico', icon:'💳' },
-            { label:'Spese', value:fmt(summary.total_expenses), sub:'uscite turno', icon:'📤', danger:summary.total_expenses > 0 },
-          ].map(k => (
-            <div key={k.label} style={{ background:'var(--bg-primary)', borderRadius:12, padding:'12px 14px', border:'1px solid var(--border-subtle)' }}>
-              <div style={{ display:'flex', alignItems:'center', gap:6, marginBottom:6 }}>
-                <span style={{ fontSize:16 }}>{k.icon}</span>
-                <span style={{ fontSize:12, color:'var(--text-secondary)', fontWeight:600 }}>{k.label}</span>
-              </div>
-              <div style={{ fontSize:20, fontWeight:700, color: k.danger ? 'var(--danger)' : 'var(--text-primary)' }}>{k.value}</div>
-              <div style={{ fontSize:11, color:'var(--text-tertiary)', marginTop:2 }}>{k.sub}</div>
-            </div>
-          ))}
-        </div>
-
         {/* ═══ STATS GIORNALIERE (come screenshot) ═══ */}
         <div style={{ background:'var(--bg-primary)', borderRadius:16, padding:'16px', border:'1px solid var(--border-subtle)' }}>
           <h4 style={{ margin:'0 0 4px', fontSize:15 }}>📅 Statistiche Giornata</h4>

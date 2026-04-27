@@ -45,6 +45,10 @@ const MENU_SECTIONS = [
 
 export function EmployeeSidebar() {
   const [open, setOpen] = useState(false)
+  const [showCheckout, setShowCheckout] = useState(false)
+  const [checkingOut, setCheckingOut] = useState(false)
+  const [checks, setChecks] = useState({ cassa: false, pulizia: false, prodotti: false })
+  const [now, setNow] = useState(new Date())
   const [name, setName] = useState('')
   const [storeName, setStoreName] = useState('')
   const pathname = usePathname()
@@ -55,10 +59,17 @@ export function EmployeeSidebar() {
 
   // Close on escape key
   useEffect(() => {
-    const handleEsc = (e: KeyboardEvent) => { if (e.key === 'Escape') setOpen(false) }
+    const handleEsc = (e: KeyboardEvent) => { if (e.key === 'Escape') { setOpen(false); setShowCheckout(false) } }
     window.addEventListener('keydown', handleEsc)
     return () => window.removeEventListener('keydown', handleEsc)
   }, [])
+
+  // Update clock every second when checkout modal is open
+  useEffect(() => {
+    if (!showCheckout) return
+    const t = setInterval(() => setNow(new Date()), 1000)
+    return () => clearInterval(t)
+  }, [showCheckout])
 
   // Load user info
   useEffect(() => {
@@ -78,14 +89,24 @@ export function EmployeeSidebar() {
 
   // Prevent scroll when open
   useEffect(() => {
-    if (open) document.body.style.overflow = 'hidden'
+    if (open || showCheckout) document.body.style.overflow = 'hidden'
     else document.body.style.overflow = ''
     return () => { document.body.style.overflow = '' }
-  }, [open])
+  }, [open, showCheckout])
+
+  function openCheckoutModal() {
+    setNow(new Date())
+    setChecks({ cassa: false, pulizia: false, prodotti: false })
+    setShowCheckout(true)
+    setOpen(false)
+  }
+
+  const allChecked = checks.cassa && checks.pulizia && checks.prodotti
 
   async function handleCheckout() {
+    if (!allChecked) return
+    setCheckingOut(true)
     const supabase = createClient()
-    // Check-out from shift
     const activeEmpId = localStorage.getItem('activeEmployeeId')
     if (activeEmpId) {
       const { data: { user } } = await supabase.auth.getUser()
@@ -101,8 +122,9 @@ export function EmployeeSidebar() {
     }
     localStorage.removeItem('activeEmployeeId')
     localStorage.removeItem('activeEmployeeName')
+    setShowCheckout(false)
+    setCheckingOut(false)
     router.push('/employee/shift/open')
-    setOpen(false)
   }
 
   return (
@@ -266,7 +288,7 @@ export function EmployeeSidebar() {
           padding: '12px',
         }}>
           <button
-            onClick={handleCheckout}
+            onClick={openCheckoutModal}
             style={{
               width: '100%', padding: '12px',
               background: 'linear-gradient(135deg, #F59E0B, #D97706)',
@@ -284,6 +306,110 @@ export function EmployeeSidebar() {
         </div>
       </div>
 
+      {/* ═══ CHECK OUT CONFIRMATION MODAL ═══ */}
+      {showCheckout && (
+        <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.7)', display:'flex', alignItems:'center', justifyContent:'center', zIndex:1100, padding:20 }}>
+          <div style={{ background:'var(--bg-primary)', borderRadius:24, padding:0, width:'100%', maxWidth:400, overflow:'hidden', boxShadow:'0 24px 48px rgba(0,0,0,0.2)' }}>
+            {/* Header */}
+            <div style={{ background:'linear-gradient(135deg, #F59E0B, #D97706)', padding:'24px 24px 20px', textAlign:'center' }}>
+              <div style={{ fontSize:40, marginBottom:8 }}>🚪</div>
+              <div style={{ color:'white', fontWeight:800, fontSize:20 }}>Check Out</div>
+              <div style={{ color:'rgba(255,255,255,0.85)', fontSize:13, marginTop:4 }}>Conferma uscita dal turno</div>
+            </div>
+
+            {/* Body */}
+            <div style={{ padding:'20px 24px' }}>
+              {/* Employee & Time Info */}
+              <div style={{ background:'var(--bg-surface)', borderRadius:14, padding:'14px 16px', marginBottom:16, display:'flex', justifyContent:'space-between', alignItems:'center' }}>
+                <div>
+                  <div style={{ fontSize:11, color:'var(--text-tertiary)', fontWeight:600, textTransform:'uppercase', letterSpacing:'0.05em' }}>Dipendente</div>
+                  <div style={{ fontSize:16, fontWeight:700, marginTop:2 }}>{name}</div>
+                  <div style={{ fontSize:12, color:'var(--text-secondary)', marginTop:1 }}>{storeName}</div>
+                </div>
+                <div style={{ textAlign:'right' }}>
+                  <div style={{ fontSize:11, color:'var(--text-tertiary)', fontWeight:600, textTransform:'uppercase', letterSpacing:'0.05em' }}>Orario Uscita</div>
+                  <div style={{ fontSize:22, fontWeight:800, fontFamily:'monospace', color:'var(--brand-primary)', marginTop:2 }}>
+                    {now.toLocaleTimeString('it-IT', { hour:'2-digit', minute:'2-digit', second:'2-digit' })}
+                  </div>
+                  <div style={{ fontSize:11, color:'var(--text-secondary)', marginTop:1 }}>{now.toLocaleDateString('it-IT', { day:'numeric', month:'long', year:'numeric' })}</div>
+                </div>
+              </div>
+
+              {/* Checklist */}
+              <div style={{ marginBottom:16 }}>
+                <div style={{ fontSize:13, fontWeight:700, marginBottom:10, color:'var(--text-primary)' }}>✅ Conferma di aver completato:</div>
+                {[
+                  { key: 'cassa' as const, label: 'Ho verificato la cassa e i contanti sono in ordine', icon: '💰' },
+                  { key: 'pulizia' as const, label: 'Il negozio è pulito e in ordine', icon: '🧹' },
+                  { key: 'prodotti' as const, label: 'I prodotti sono esposti e riforniti correttamente', icon: '📦' },
+                ].map(item => (
+                  <div
+                    key={item.key}
+                    onClick={() => setChecks(prev => ({ ...prev, [item.key]: !prev[item.key] }))}
+                    style={{
+                      display:'flex', alignItems:'center', gap:12,
+                      padding:'12px 14px', marginBottom:6, borderRadius:12,
+                      background: checks[item.key] ? '#F0FDF4' : 'var(--bg-surface)',
+                      border: checks[item.key] ? '2px solid #22C55E' : '1.5px solid var(--border-subtle)',
+                      cursor:'pointer', transition:'all 0.15s',
+                    }}
+                  >
+                    <div style={{
+                      width:24, height:24, borderRadius:8, flexShrink:0,
+                      border: checks[item.key] ? 'none' : '2px solid var(--border-default)',
+                      background: checks[item.key] ? '#22C55E' : 'transparent',
+                      display:'flex', alignItems:'center', justifyContent:'center',
+                      color:'white', fontSize:14, fontWeight:700,
+                      transition:'all 0.15s',
+                    }}>
+                      {checks[item.key] && '✓'}
+                    </div>
+                    <div style={{ flex:1, fontSize:13, fontWeight: checks[item.key] ? 600 : 400, color: checks[item.key] ? '#15803D' : 'var(--text-primary)' }}>
+                      {item.icon} {item.label}
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              {/* Warning */}
+              {!allChecked && (
+                <div style={{ background:'#FFFBEB', border:'1px solid #FCD34D', borderRadius:10, padding:'10px 14px', marginBottom:16, fontSize:12, color:'#92400E' }}>
+                  ⚠️ Completa tutti i controlli prima di effettuare il check out. La responsabilità del negozio passa al prossimo dipendente.
+                </div>
+              )}
+
+              {/* Buttons */}
+              <div style={{ display:'flex', gap:10 }}>
+                <button
+                  onClick={() => setShowCheckout(false)}
+                  style={{
+                    flex:1, padding:'13px', background:'var(--bg-surface)',
+                    border:'1px solid var(--border-default)', borderRadius:12,
+                    fontWeight:600, fontSize:14, cursor:'pointer', color:'var(--text-primary)',
+                  }}
+                >
+                  Annulla
+                </button>
+                <button
+                  onClick={handleCheckout}
+                  disabled={!allChecked || checkingOut}
+                  style={{
+                    flex:1.5, padding:'13px',
+                    background: allChecked ? 'linear-gradient(135deg, #F59E0B, #D97706)' : '#E5E7EB',
+                    border:'none', borderRadius:12,
+                    fontWeight:700, fontSize:14, cursor: allChecked ? 'pointer' : 'not-allowed',
+                    color: allChecked ? 'white' : '#9CA3AF',
+                    transition:'all 0.2s',
+                  }}
+                >
+                  {checkingOut ? '⏳ Uscita...' : '🚪 Conferma Check Out'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Global animation */}
       <style>{`
         @keyframes fadeIn { from { opacity: 0 } to { opacity: 1 } }
@@ -291,3 +417,4 @@ export function EmployeeSidebar() {
     </>
   )
 }
+
