@@ -6,7 +6,7 @@ import { fmt, calcCart, categoryLabel } from '@/lib/utils'
 import type { Product, ProductCategory } from '@/types/database'
 import { BottomNav } from '@/components/employee/BottomNav'
 
-type Mode = 'negozio' | 'online' | 'trasferimento'
+type Mode = 'negozio' | 'online' | 'trasferimento' | 'autoconsumo'
 const CATEGORIES: ProductCategory[] = ['flowers', 'hashish', 'oils', 'edibles', 'accessories', 'cosmetics', 'clothes', 'seeds', 'vape', 'food']
 
 interface RecentSale {
@@ -58,7 +58,7 @@ export default function POSContent() {
   const streamRef = useRef<MediaStream | null>(null)
   // Promo codes
   const [promoError, setPromoError] = useState('')
-  const [verifyingPromo, setVerifyingPromo] = useState(false)
+  const [promoList, setPromoList] = useState<any[]>([])
   // Mobile cart
   const [mobileCartOpen, setMobileCartOpen] = useState(false)
   // Referente vendita
@@ -119,6 +119,14 @@ export default function POSContent() {
       .limit(10)
     setRecentSales(salesData ?? [])
     if (salesData && salesData.length > 0) setLastSale(salesData[0])
+    // Load active promo codes
+    const { data: promos } = await supabase
+      .from('promo_codes')
+      .select('*')
+      .eq('store_id', profile.store_id)
+      .eq('is_active', true)
+      .order('code')
+    setPromoList((promos ?? []).filter(p => !p.expires_at || new Date(p.expires_at) >= new Date()))
     setLoading(false)
   }
 
@@ -143,30 +151,15 @@ export default function POSContent() {
   const change = Math.max(0, cashNum - total)
 
   // ---- Promo code verification ----
-  async function verifyPromo() {
-    if (!discount.promoCode || !storeId) return
-    setVerifyingPromo(true)
-    setPromoError('')
-    const { data: promo } = await supabase
-      .from('promo_codes')
-      .select('*')
-      .eq('store_id', storeId)
-      .eq('code', discount.promoCode.toUpperCase())
-      .eq('is_active', true)
-      .single()
-    if (!promo) {
-      setPromoError('Codice non valido o scaduto')
-      setVerifyingPromo(false)
+  function applyPromo(promoId: string) {
+    if (!promoId) {
+      setDiscount(d => ({ ...d, applied: false, promoId: '', promoDiscount: 0 }))
       return
     }
-    if (promo.expires_at && new Date(promo.expires_at) < new Date()) {
-      setPromoError('Codice scaduto')
-      setVerifyingPromo(false)
-      return
-    }
+    const promo = promoList.find(p => p.id === promoId)
+    if (!promo) return
     const promoAmt = promo.type === 'pct' ? subtotal * (promo.value / 100) : promo.value
-    setDiscount(d => ({ ...d, applied: true, promoId: promo.id, promoDiscount: promoAmt }))
-    setVerifyingPromo(false)
+    setDiscount(d => ({ ...d, type: 'promo', applied: true, promoId: promo.id, promoCode: promo.code, promoDiscount: promoAmt }))
   }
 
   // ---- QR Scanner ----
@@ -251,14 +244,15 @@ export default function POSContent() {
     const rawChannel = customer.channel.toLowerCase().replace(/\s+/g, '-')
     const channel = channelMap[rawChannel] || 'walk-in'
 
-    const mvType = mode === 'trasferimento' ? 'trasferimento' : 'sale'
+    const mvType = mode === 'trasferimento' ? 'trasferimento' : mode === 'autoconsumo' ? 'autoconsumo' : 'sale'
     const saleUserId = referente || userId
+    const autoconsumoTotal = mode === 'autoconsumo' ? 0 : (mode === 'online' ? finalTotal : total)
     const { data: sale, error: saleError } = await supabase.from('sales').insert({
       shift_id: shiftId, store_id: storeId, user_id: saleUserId, created_by: saleUserId,
-      movement_type: mvType, payment_method: method,
-      subtotal, discount_amount: discAmt, discount_pct: discPct,
-      total: mode === 'online' ? finalTotal : total,
-      cash_received: method === 'cash' ? cashNum : null, cash_change: method === 'cash' ? change : null,
+      movement_type: mvType, payment_method: mode === 'autoconsumo' ? 'other' : method,
+      subtotal: mode === 'autoconsumo' ? 0 : subtotal, discount_amount: mode === 'autoconsumo' ? 0 : discAmt, discount_pct: mode === 'autoconsumo' ? 0 : discPct,
+      total: autoconsumoTotal,
+      cash_received: null, cash_change: null,
       pos_reference: method === 'pos' ? posRef : null,
       customer_name: customer.name || null, customer_nationality: customer.nationality || null,
       acquisition_channel: channel as any,
@@ -293,11 +287,13 @@ export default function POSContent() {
 
     // Notifica store (non blocca se fallisce)
     try {
+      const msgTotal = mode === 'autoconsumo' ? '' : ` — ${fmt(mode === 'online' ? finalTotal : total)}`
+      const msgType = mode === 'autoconsumo' ? '🍽 Autoconsumo' : (method === 'cash' ? 'Contanti' : 'POS')
       await supabase.from('notifications').insert({
         store_id: storeId,
-        type: 'sale',
-        title: '💰 Nuova vendita',
-        message: `${method === 'cash' ? 'Contanti' : 'POS'} — ${fmt(mode === 'online' ? finalTotal : total)} — Cliente: ${customer.name || 'Anonimo'}`,
+        type: mode === 'autoconsumo' ? 'autoconsumo' : 'sale',
+        title: mode === 'autoconsumo' ? '🍽 Autoconsumo registrato' : '💰 Nuova vendita',
+        message: `${msgType}${msgTotal} — ${mode === 'autoconsumo' ? `Prodotti: ${cart.map(i => `${i.product.name} ×${i.qty}`).join(', ')}` : `Cliente: ${customer.name || 'Anonimo'}`}`,
         user_id: userId,
       })
     } catch { }
@@ -365,7 +361,7 @@ export default function POSContent() {
     loadData()
   }
 
-  const canCheckout = cart.length > 0 && (mode !== 'negozio' || customer.name.trim() !== '')
+  const canCheckout = cart.length > 0 && (mode === 'autoconsumo' || mode !== 'negozio' || customer.name.trim() !== '')
 
   // ---- Shared render functions (used by both desktop panel and mobile bottom sheet) ----
   function renderCartItems() {
@@ -427,7 +423,7 @@ export default function POSContent() {
           </div>
         )}
         {/* Sconto */}
-        {mode !== 'trasferimento' && (
+        {mode !== 'trasferimento' && mode !== 'autoconsumo' && (
           <div style={{ marginTop: 12, padding: 12, background: 'var(--bg-surface)', borderRadius: 10 }}>
             <div style={{ fontSize: 12, fontWeight: 600, marginBottom: 8 }}>🏷️ Sconto & Promo</div>
             <div style={{ display: 'flex', gap: 6, marginBottom: 8 }}>
@@ -443,11 +439,23 @@ export default function POSContent() {
                 <button onClick={() => setDiscount(d => ({ ...d, applied: !!d.value }))} className={`btn ${discount.applied ? 'btn-danger' : 'btn-secondary'}`} style={{ padding: '0 12px', fontSize: 12 }}>{discount.applied ? 'Rimuovi' : 'Applica'}</button>
               </div>
             ) : (
-              <div style={{ display: 'flex', gap: 8 }}>
-                <input className="input" placeholder="Codice promo..." value={discount.promoCode} onChange={e => setDiscount(d => ({ ...d, promoCode: e.target.value }))} style={{ flex: 1, height: 34, fontSize: 13 }} />
-                <button className="btn btn-secondary" style={{ padding: '0 12px', fontSize: 12 }} onClick={verifyPromo} disabled={verifyingPromo}>
-                  {verifyingPromo ? '...' : 'Verifica'}
-                </button>
+              <div>
+                <select
+                  className="input"
+                  value={discount.promoId}
+                  onChange={e => applyPromo(e.target.value)}
+                  style={{ height: 36, fontSize: 13 }}
+                >
+                  <option value="">Seleziona promo...</option>
+                  {promoList.map(p => (
+                    <option key={p.id} value={p.id}>
+                      {p.code} — {p.type === 'pct' ? `${p.value}%` : `€${p.value}`}{p.description ? ` (${p.description})` : ''}
+                    </option>
+                  ))}
+                </select>
+                {promoList.length === 0 && (
+                  <div style={{ fontSize: 12, color: 'var(--text-tertiary)', marginTop: 6 }}>Nessuna promo attiva disponibile</div>
+                )}
               </div>
             )}
             {promoError && <div style={{ fontSize: 12, color: 'var(--danger)', marginTop: 4 }}>⚠️ {promoError}</div>}
@@ -459,7 +467,7 @@ export default function POSContent() {
           </div>
         )}
         {/* Dati cliente */}
-        {mode === 'negozio' && (
+        {(mode === 'negozio' || mode === 'autoconsumo') && mode !== 'autoconsumo' && (
           <div style={{ marginTop: 12 }}>
             <div style={{ fontSize: 12, fontWeight: 600, marginBottom: 8 }}>👤 Dati Cliente <span style={{ color: 'var(--danger)' }}>*</span></div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
@@ -536,7 +544,19 @@ export default function POSContent() {
   function renderCartFooter() {
     return (
       <div style={{ padding: 'var(--space-md) var(--space-lg)', borderTop: '1px solid var(--border-subtle)', background: 'var(--bg-surface)' }}>
-        {mode !== 'trasferimento' ? (
+        {mode === 'autoconsumo' ? (
+          <>
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
+              <span style={{ fontSize: 13, color: 'var(--text-secondary)' }}>Prodotti</span><span style={{ fontWeight: 700 }}>{cart.reduce((s, i) => s + i.qty, 0)}</span>
+            </div>
+            <div style={{ background: '#FEF3C7', border: '1px solid #F59E0B', borderRadius: 8, padding: 10, marginBottom: 12, fontSize: 12, color: '#92400E', textAlign: 'center' }}>
+              🍽 Questi prodotti verranno scalati dall'inventario come autoconsumo (€0)
+            </div>
+            <button className="btn btn-primary btn-full btn-lg" disabled={saving || cart.length === 0} onClick={() => completeSale('other')} style={{ background: '#F59E0B' }}>
+              {saving ? 'Conferma...' : '🍽 CONFERMA AUTOCONSUMO'}
+            </button>
+          </>
+        ) : mode !== 'trasferimento' ? (
           <>
             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
               <span style={{ fontSize: 13, color: 'var(--text-secondary)' }}>Subtotale</span><span style={{ fontSize: 13 }}>{fmt(subtotal)}</span>
@@ -623,22 +643,10 @@ export default function POSContent() {
                 <span className="badge badge-success">Contanti</span>
               </div>
             </div>
-            <div className="input-group" style={{ marginBottom: 12 }}>
-              <label className="input-label">Importo ricevuto</label>
-              <div className="input-with-prefix"><span className="input-prefix">€</span><input className="input" type="number" placeholder="0.00" value={cashReceived} onChange={e => setCashReceived(e.target.value)} autoFocus /></div>
-            </div>
-            <div style={{ display: 'flex', gap: 6, marginBottom: 12, flexWrap: 'wrap' }}>
-              {[10, 20, 50, 100, 200].map(a => <button key={a} onClick={() => setCashReceived(a.toString())} className="btn btn-secondary" style={{ flex: 1, minWidth: 50, padding: '8px 4px', fontSize: 13 }}>{a}</button>)}
-              <button onClick={() => setCashReceived(total.toFixed(2))} className="btn btn-secondary" style={{ flex: 1, minWidth: 50, padding: '8px 4px', fontSize: 13 }}>Esatto</button>
-            </div>
-            {cashReceived && (
-              <div style={{ background: cashNum >= total ? 'var(--success-light)' : 'var(--danger-light)', borderRadius: 8, padding: 12, marginBottom: 16, textAlign: 'center', fontWeight: 700, fontSize: 18, color: cashNum >= total ? 'var(--brand-primary-dark)' : 'var(--danger)' }}>
-                {cashNum >= total ? `Resto: ${fmt(change)}` : `Mancano: ${fmt(total - cashNum)}`}
-              </div>
-            )}
+            <div style={{ background: 'var(--bg-surface)', borderRadius: 8, padding: 12, marginBottom: 16, fontSize: 14, color: 'var(--text-secondary)', textAlign: 'center' }}>Conferma il pagamento in contanti</div>
             <div style={{ display: 'flex', gap: 8 }}>
               <button className="btn btn-secondary" style={{ flex: 1 }} onClick={() => setShowCash(false)}>Annulla</button>
-              <button className="btn btn-primary" style={{ flex: 2 }} disabled={cashNum < total || saving} onClick={() => completeSale('cash')}>Conferma Vendita</button>
+              <button className="btn btn-primary" style={{ flex: 2 }} disabled={saving} onClick={() => completeSale('cash')}>💵 Conferma Vendita</button>
             </div>
           </div>
         </div>
@@ -732,9 +740,9 @@ export default function POSContent() {
       <div style={{ background: 'var(--bg-primary)', borderBottom: '1px solid var(--border-subtle)', padding: 'var(--space-sm) var(--space-lg)' }}>
         <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
           <div style={{ display: 'flex', gap: 6 }}>
-            {(['negozio', 'online', 'trasferimento'] as Mode[]).map(m => (
+            {(['negozio', 'online', 'trasferimento', 'autoconsumo'] as Mode[]).map(m => (
               <button key={m} onClick={() => setMode(m)} style={{ padding: '5px 12px', borderRadius: 20, fontSize: 12, fontWeight: 600, border: `1.5px solid ${mode === m ? 'var(--brand-primary)' : 'var(--border-default)'}`, background: mode === m ? 'var(--brand-primary-light)' : 'transparent', color: mode === m ? 'var(--brand-primary)' : 'var(--text-secondary)', cursor: 'pointer' }}>
-                {m === 'negozio' ? '🏪 Negozio' : m === 'online' ? '🌐 Online' : '📦 Transfer'}
+                {m === 'negozio' ? '🏪 Negozio' : m === 'online' ? '🌐 Online' : m === 'trasferimento' ? '📦 Transfer' : '🍽 Autoconsumo'}
               </button>
             ))}
           </div>

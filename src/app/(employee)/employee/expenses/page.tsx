@@ -24,6 +24,8 @@ export default function ExpensesPage() {
   const [saving, setSaving] = useState(false)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [receiptFile, setReceiptFile] = useState<File | null>(null)
+  const [receiptPreview, setReceiptPreview] = useState<string | null>(null)
 
   useEffect(() => { loadData() }, [])
 
@@ -60,12 +62,24 @@ export default function ExpensesPage() {
     setSaving(true)
     setError(null)
 
+    let receiptPhotoUrl: string | null = null
+    if (receiptFile && storeId) {
+      const ext = receiptFile.name.split('.').pop() || 'jpg'
+      const path = `expenses/${storeId}/${Date.now()}.${ext}`
+      const { error: uploadErr } = await supabase.storage.from('photos').upload(path, receiptFile)
+      if (!uploadErr) {
+        const { data: urlData } = supabase.storage.from('photos').getPublicUrl(path)
+        receiptPhotoUrl = urlData?.publicUrl || null
+      }
+    }
+
     const { error: err } = await supabase.from('expenses').insert({
       shift_id: shiftId,
       store_id: storeId,
       user_id: userId,
       amount: amt,
       description: description.trim(),
+      receipt_photo_url: receiptPhotoUrl,
     })
 
     if (err) { setError('Errore nel salvataggio.'); setSaving(false); return }
@@ -79,6 +93,8 @@ export default function ExpensesPage() {
 
     setAmount('')
     setDescription('')
+    setReceiptFile(null)
+    setReceiptPreview(null)
     await loadData()
     setSaving(false)
   }
@@ -126,7 +142,14 @@ export default function ExpensesPage() {
                     {formatTime(exp.created_at)}  {employeeName}
                   </div>
                 </div>
-                <span style={{ fontWeight: 700, fontSize: 15, color: 'var(--danger)' }}>{fmt(exp.amount)}</span>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  {(exp as any).receipt_photo_url && (
+                    <a href={(exp as any).receipt_photo_url} target="_blank" rel="noopener noreferrer" style={{ width: 36, height: 36, borderRadius: 6, overflow: 'hidden', flexShrink: 0 }}>
+                      <img src={(exp as any).receipt_photo_url} alt="Scontrino" style={{ width: 36, height: 36, objectFit: 'cover' }} />
+                    </a>
+                  )}
+                  <span style={{ fontWeight: 700, fontSize: 15, color: 'var(--danger)' }}>{fmt(exp.amount)}</span>
+                </div>
               </div>
             ))}
           </div>
@@ -167,6 +190,34 @@ export default function ExpensesPage() {
               value={description}
               onChange={e => setDescription(e.target.value)}
             />
+          </div>
+
+          <div className="input-group">
+            <label className="input-label">📷 Foto Scontrino (opzionale)</label>
+            <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+              <label style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '8px 14px', background: 'var(--bg-surface)', border: '1px solid var(--border-default)', borderRadius: 8, cursor: 'pointer', fontSize: 13, fontWeight: 600, color: 'var(--text-secondary)' }}>
+                📷 {receiptFile ? 'Cambia foto' : 'Scatta / Scegli'}
+                <input
+                  type="file"
+                  accept="image/*"
+                  capture="environment"
+                  style={{ display: 'none' }}
+                  onChange={e => {
+                    const file = e.target.files?.[0]
+                    if (file) {
+                      setReceiptFile(file)
+                      setReceiptPreview(URL.createObjectURL(file))
+                    }
+                  }}
+                />
+              </label>
+              {receiptPreview && (
+                <div style={{ position: 'relative' }}>
+                  <img src={receiptPreview} alt="Preview" style={{ width: 48, height: 48, objectFit: 'cover', borderRadius: 8, border: '1px solid var(--border-subtle)' }} />
+                  <button onClick={() => { setReceiptFile(null); setReceiptPreview(null) }} style={{ position: 'absolute', top: -6, right: -6, width: 18, height: 18, borderRadius: '50%', background: 'var(--danger)', color: 'white', border: 'none', fontSize: 10, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>×</button>
+                </div>
+              )}
+            </div>
           </div>
 
           <div style={{ display: 'flex', gap: 'var(--space-sm)', fontSize: 13, color: 'var(--text-tertiary)' }}>

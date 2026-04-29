@@ -13,6 +13,8 @@ export default function EmployeeSalesLog() {
   const [loading, setLoading] = useState(true)
   const [filter, setFilter] = useState<'all' | 'cash' | 'pos'>('all')
   const [shiftId, setShiftId] = useState<string | null>(null)
+  const [storeId, setStoreId] = useState<string | null>(null)
+  const [userId, setUserId] = useState<string | null>(null)
   const [summary, setSummary] = useState({ total: 0, cash: 0, pos: 0, count: 0, discounts: 0 })
 
   useEffect(() => { loadSales() }, [])
@@ -23,6 +25,8 @@ export default function EmployeeSalesLog() {
 
     const { data: profile } = await supabase.from('users').select('store_id').eq('id', user.id).single()
     if (!profile?.store_id) { setLoading(false); return }
+    setStoreId(profile.store_id)
+    setUserId(user.id)
 
     // Find open shift
     const { data: openShift } = await supabase
@@ -140,7 +144,7 @@ export default function EmployeeSalesLog() {
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
             {filtered.map((sale) => (
-              <SaleCard key={sale.id} sale={sale} />
+              <SaleCard key={sale.id} sale={sale} storeId={storeId} userId={userId} supabase={supabase} onVoided={loadSales} />
             ))}
           </div>
         )}
@@ -151,9 +155,39 @@ export default function EmployeeSalesLog() {
   )
 }
 
-function SaleCard({ sale }: { sale: any }) {
+function SaleCard({ sale, storeId, userId, supabase, onVoided }: { sale: any; storeId: string | null; userId: string | null; supabase: any; onVoided: () => void }) {
   const [expanded, setExpanded] = useState(false)
+  const [confirmVoid, setConfirmVoid] = useState(false)
+  const [voiding, setVoiding] = useState(false)
   const items = sale.sale_items ?? []
+
+  async function voidSale() {
+    if (!storeId || !userId) return
+    setVoiding(true)
+    // Restore stock
+    for (const item of items) {
+      if (item.product_id) {
+        const { data: prod } = await supabase.from('products').select('stock').eq('id', item.product_id).single()
+        if (prod) {
+          await supabase.from('products').update({ stock: prod.stock + item.qty }).eq('id', item.product_id)
+        }
+      }
+    }
+    await supabase.from('sale_items').delete().eq('sale_id', sale.id)
+    await supabase.from('sales').delete().eq('id', sale.id)
+    try {
+      await supabase.from('notifications').insert({
+        store_id: storeId,
+        type: 'sale',
+        title: '⚠️ Vendita annullata',
+        message: `Vendita di ${fmt(sale.total)} annullata — Cliente: ${sale.customer_name || 'Anonimo'}`,
+        user_id: userId,
+      })
+    } catch {}
+    setVoiding(false)
+    setConfirmVoid(false)
+    onVoided()
+  }
 
   return (
     <div
@@ -244,6 +278,25 @@ function SaleCard({ sale }: { sale: any }) {
             <span style={{ fontWeight: 700, fontSize: 14 }}>Totale</span>
             <span style={{ fontWeight: 700, fontSize: 14, color: 'var(--brand-primary)' }}>{fmt(sale.total)}</span>
           </div>
+
+          {/* Void button */}
+          {sale.movement_type === 'sale' && (
+            <div style={{ marginTop: 8, paddingTop: 8, borderTop: '1px dashed var(--border-subtle)' }}>
+              {confirmVoid ? (
+                <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                  <span style={{ fontSize: 12, color: 'var(--danger)', fontWeight: 600, flex: 1 }}>Confermi l'annullamento?</span>
+                  <button onClick={voidSale} disabled={voiding} className="btn btn-danger" style={{ padding: '4px 12px', fontSize: 11 }}>
+                    {voiding ? 'Annullamento...' : '✅ Sì, annulla'}
+                  </button>
+                  <button onClick={() => setConfirmVoid(false)} className="btn btn-secondary" style={{ padding: '4px 10px', fontSize: 11 }}>No</button>
+                </div>
+              ) : (
+                <button onClick={() => setConfirmVoid(true)} style={{ background: 'none', border: '1px solid var(--danger)', borderRadius: 6, padding: '4px 12px', fontSize: 11, color: 'var(--danger)', cursor: 'pointer', fontWeight: 600 }}>
+                  ❌ Annulla vendita
+                </button>
+              )}
+            </div>
+          )}
         </div>
       )}
 

@@ -21,6 +21,8 @@ export default function RichiediRicaricaPage() {
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [done, setDone] = useState(false)
+  const [tab, setTab] = useState<'request' | 'history'>('request')
+  const [history, setHistory] = useState<any[]>([])
 
   useEffect(() => { loadData() }, [])
 
@@ -40,6 +42,15 @@ export default function RichiediRicaricaPage() {
       .eq('store_id', profile.store_id).eq('is_active', true)
       .order('name')
     setProducts(prods ?? [])
+    // Load history
+    const { data: histData } = await supabase
+      .from('stock_requests')
+      .select('*, stock_request_items(*)')
+      .eq('store_id', profile.store_id)
+      .in('status', ['approved', 'owner_review', 'pending', 'restock_requested'])
+      .order('created_at', { ascending: false })
+      .limit(30)
+    setHistory(histData ?? [])
     setLoading(false)
   }
 
@@ -77,7 +88,7 @@ export default function RichiediRicaricaPage() {
       )
     }
 
-    const productList = selectedProducts.map(p => `${p.name} (stock: ${p.stock})`).join(', ')
+    const productList = selectedProducts.map(p => p.name).join(', ')
     await supabase.from('notifications').insert({
       store_id: storeId,
       type: 'restock_request',
@@ -118,6 +129,10 @@ export default function RichiediRicaricaPage() {
         <div style={{ flex: 1 }}>
           <h3 style={{ fontSize: 16 }}>🔔 Richiedi Ricarica</h3>
         </div>
+        <div style={{ display: 'flex', gap: 6 }}>
+          <button onClick={() => setTab('request')} style={{ padding: '5px 12px', borderRadius: 20, fontSize: 12, fontWeight: 600, border: `1.5px solid ${tab === 'request' ? 'var(--brand-primary)' : 'var(--border-default)'}`, background: tab === 'request' ? 'var(--brand-primary-light)' : 'transparent', color: tab === 'request' ? 'var(--brand-primary)' : 'var(--text-secondary)', cursor: 'pointer' }}>🔔 Richiedi</button>
+          <button onClick={() => setTab('history')} style={{ padding: '5px 12px', borderRadius: 20, fontSize: 12, fontWeight: 600, border: `1.5px solid ${tab === 'history' ? 'var(--brand-primary)' : 'var(--border-default)'}`, background: tab === 'history' ? 'var(--brand-primary-light)' : 'transparent', color: tab === 'history' ? 'var(--brand-primary)' : 'var(--text-secondary)', cursor: 'pointer' }}>📋 Storico</button>
+        </div>
         {selectedIds.size > 0 && (
           <span style={{
             background: 'var(--danger)', color: 'white', borderRadius: 20,
@@ -128,99 +143,106 @@ export default function RichiediRicaricaPage() {
         )}
       </div>
 
-      {/* Search + Categories — same as POS */}
-      <div style={{ padding: 'var(--space-lg)', paddingBottom: 0 }}>
-        <div style={{ position: 'relative', marginBottom: 'var(--space-md)' }}>
-          <input
-            className="input"
-            placeholder="Cerca prodotto..."
-            value={search}
-            onChange={e => setSearch(e.target.value)}
-            style={{ paddingLeft: 36 }}
-          />
-          <span style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', fontSize: 16 }}>🔍</span>
-        </div>
-
-        <div style={{ display: 'flex', gap: 6, overflowX: 'auto', marginBottom: 'var(--space-lg)', paddingBottom: 4 }}>
-          {(['all', ...CATEGORIES] as (ProductCategory | 'all')[]).map(c => (
-            <button
-              key={c}
-              onClick={() => setActiveCat(c)}
-              className={`badge ${activeCat === c ? 'badge-brand' : 'badge-gray'}`}
-              style={{ cursor: 'pointer', border: 'none', padding: '6px 14px', whiteSpace: 'nowrap' }}
-            >
-              {c === 'all' ? 'Tutto' : categoryLabel[c]}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {/* Product Grid — same as POS */}
-      <div style={{ flex: 1, overflowY: 'auto', padding: '0 var(--space-lg)', paddingBottom: selectedIds.size > 0 ? 80 : 'var(--space-lg)' }}>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))', gap: 'var(--space-md)' }}>
-          {filtered.map(p => {
-            const isSelected = selectedIds.has(p.id)
-            const isLow = p.stock <= p.stock_alert
-            return (
-              <div
-                key={p.id}
-                onClick={() => toggle(p.id)}
-                className="card card-sm"
-                style={{
-                  cursor: 'pointer', display: 'flex', flexDirection: 'column', gap: 8,
-                  border: isSelected ? '2px solid var(--brand-primary)' : undefined,
-                  background: isSelected ? 'var(--brand-primary-light)' : undefined,
-                  position: 'relative',
-                }}
-              >
-                {/* Selection indicator */}
-                {isSelected && (
-                  <div style={{
-                    position: 'absolute', top: 8, right: 8, width: 22, height: 22,
-                    borderRadius: '50%', background: 'var(--brand-primary)',
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    color: 'white', fontSize: 12, fontWeight: 700,
-                  }}>✓</div>
-                )}
-                <div>
-                  <div style={{ fontWeight: 600, fontSize: 13 }}>{p.name}</div>
-                  <span className="badge badge-indigo" style={{ fontSize: 10, marginTop: 4 }}>
-                    {categoryLabel[p.category as ProductCategory] || p.category}
-                  </span>
-                </div>
-                <div style={{
-                  fontSize: 11, fontWeight: 600,
-                  color: p.stock === 0 ? 'var(--danger)' : isLow ? 'var(--warning)' : 'var(--success)',
-                }}>
-                  Stock: {p.stock}
-                  {isLow && p.stock > 0 && ' ⚠️'}
-                  {p.stock === 0 && ' 🚫'}
-                </div>
-              </div>
-            )
-          })}
-        </div>
-
-        {filtered.length === 0 && (
-          <div style={{ textAlign: 'center', padding: 'var(--space-2xl)', color: 'var(--text-tertiary)' }}>
-            Nessun prodotto trovato
+      {tab === 'request' && (
+        <>
+          {/* Search + Categories */}
+          <div style={{ padding: 'var(--space-lg)', paddingBottom: 0 }}>
+            <div style={{ position: 'relative', marginBottom: 'var(--space-md)' }}>
+              <input className="input" placeholder="Cerca prodotto..." value={search} onChange={e => setSearch(e.target.value)} style={{ paddingLeft: 36 }} />
+              <span style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', fontSize: 16 }}>🔍</span>
+            </div>
+            <div style={{ display: 'flex', gap: 6, overflowX: 'auto', marginBottom: 'var(--space-lg)', paddingBottom: 4 }}>
+              {(['all', ...CATEGORIES] as (ProductCategory | 'all')[]).map(c => (
+                <button key={c} onClick={() => setActiveCat(c)} className={`badge ${activeCat === c ? 'badge-brand' : 'badge-gray'}`} style={{ cursor: 'pointer', border: 'none', padding: '6px 14px', whiteSpace: 'nowrap' }}>
+                  {c === 'all' ? 'Tutto' : categoryLabel[c]}
+                </button>
+              ))}
+            </div>
           </div>
-        )}
-      </div>
 
-      {/* Floating bottom bar when items selected */}
-      {selectedIds.size > 0 && (
-        <div style={{
-          position: 'fixed', bottom: 60, left: 0, right: 0,
-          padding: '12px var(--space-lg)',
-          background: 'var(--bg-primary)',
-          borderTop: '1px solid var(--border-subtle)',
-          boxShadow: '0 -4px 20px rgba(0,0,0,0.1)',
-          zIndex: 50,
-        }}>
-          <button onClick={sendRequest} disabled={saving} className="btn btn-primary btn-full btn-lg">
-            {saving ? 'Invio...' : `🔔 Invia Richiesta (${selectedIds.size} prodotti)`}
-          </button>
+          {/* Product Grid */}
+          <div style={{ flex: 1, overflowY: 'auto', padding: '0 var(--space-lg)', paddingBottom: selectedIds.size > 0 ? 80 : 'var(--space-lg)' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))', gap: 'var(--space-md)' }}>
+              {filtered.map(p => {
+                const isSelected = selectedIds.has(p.id)
+                return (
+                  <div key={p.id} onClick={() => toggle(p.id)} className="card card-sm" style={{
+                    cursor: 'pointer', display: 'flex', flexDirection: 'column', gap: 8,
+                    border: isSelected ? '2px solid var(--brand-primary)' : undefined,
+                    background: isSelected ? 'var(--brand-primary-light)' : undefined,
+                    position: 'relative',
+                  }}>
+                    {isSelected && (
+                      <div style={{ position: 'absolute', top: 8, right: 8, width: 22, height: 22, borderRadius: '50%', background: 'var(--brand-primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', fontSize: 12, fontWeight: 700 }}>✓</div>
+                    )}
+                    <div style={{ fontWeight: 600, fontSize: 13 }}>{p.name}</div>
+                    <span className="badge badge-indigo" style={{ fontSize: 10 }}>
+                      {categoryLabel[p.category as ProductCategory] || p.category}
+                    </span>
+                  </div>
+                )
+              })}
+            </div>
+            {filtered.length === 0 && (
+              <div style={{ textAlign: 'center', padding: 'var(--space-2xl)', color: 'var(--text-tertiary)' }}>Nessun prodotto trovato</div>
+            )}
+          </div>
+
+          {/* Floating bottom bar */}
+          {selectedIds.size > 0 && (
+            <div style={{ position: 'fixed', bottom: 60, left: 0, right: 0, padding: '12px var(--space-lg)', background: 'var(--bg-primary)', borderTop: '1px solid var(--border-subtle)', boxShadow: '0 -4px 20px rgba(0,0,0,0.1)', zIndex: 50 }}>
+              <button onClick={sendRequest} disabled={saving} className="btn btn-primary btn-full btn-lg">
+                {saving ? 'Invio...' : `🔔 Invia Richiesta (${selectedIds.size} prodotti)`}
+              </button>
+            </div>
+          )}
+        </>
+      )}
+
+      {tab === 'history' && (
+        <div style={{ flex: 1, overflowY: 'auto', padding: 'var(--space-lg)' }}>
+          {history.length === 0 ? (
+            <div style={{ textAlign: 'center', padding: 'var(--space-2xl)', color: 'var(--text-tertiary)' }}>
+              <div style={{ fontSize: 48, marginBottom: 12 }}>📋</div>
+              <div style={{ fontWeight: 600, marginBottom: 8 }}>Nessuna ricarica ancora</div>
+              <div style={{ fontSize: 13 }}>Le ricariche completate appariranno qui</div>
+            </div>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+              {history.map(req => {
+                const items = req.stock_request_items || []
+                const statusMap: Record<string, { label: string; badge: string }> = {
+                  approved: { label: '✅ Approvata', badge: 'badge-success' },
+                  owner_review: { label: '⚠️ In revisione', badge: 'badge-warning' },
+                  pending: { label: '⏳ In attesa', badge: 'badge-gray' },
+                  restock_requested: { label: '🔔 Richiesta', badge: 'badge-brand' },
+                }
+                const st = statusMap[req.status] || { label: req.status, badge: 'badge-gray' }
+                return (
+                  <div key={req.id} className="card" style={{ padding: 14 }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+                      <div>
+                        <div style={{ fontWeight: 700, fontSize: 14 }}>{items.length} prodotti</div>
+                        <div style={{ fontSize: 12, color: 'var(--text-tertiary)', marginTop: 2 }}>
+                          {new Date(req.created_at).toLocaleDateString('it-IT', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                        </div>
+                      </div>
+                      <span className={`badge ${st.badge}`}>{st.label}</span>
+                    </div>
+                    {req.notes && <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginBottom: 8 }}>{req.notes}</div>}
+                    <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                      {items.slice(0, 8).map((item: any) => (
+                        <span key={item.id} className="badge badge-gray" style={{ fontSize: 11 }}>
+                          {item.product_name}{item.qty_delivered ? ` ×${item.qty_delivered}` : ''}
+                        </span>
+                      ))}
+                      {items.length > 8 && <span style={{ fontSize: 11, color: 'var(--text-tertiary)' }}>+{items.length - 8} altri</span>}
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          )}
         </div>
       )}
 

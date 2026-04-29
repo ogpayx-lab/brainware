@@ -29,6 +29,9 @@ export default function FidelityPage() {
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [created, setCreated] = useState<CardCreated | null>(null)
+  const [editingCard, setEditingCard] = useState<any | null>(null)
+  const [editForm, setEditForm] = useState({ customer_name: '', customer_email: '', customer_phone: '' })
+  const [editSaving, setEditSaving] = useState(false)
 
   const [form, setForm] = useState({
     first_name: '', last_name: '', email: '', phone: '',
@@ -123,6 +126,24 @@ export default function FidelityPage() {
       await loadData()
     }
     setSaving(false)
+  }
+
+  function openEdit(card: any) {
+    setEditForm({ customer_name: card.customer_name, customer_email: card.customer_email || '', customer_phone: card.customer_phone || '' })
+    setEditingCard(card)
+  }
+
+  async function saveEdit() {
+    if (!editingCard) return
+    setEditSaving(true)
+    await supabase.from('fidelity_cards').update({
+      customer_name: editForm.customer_name,
+      customer_email: editForm.customer_email || null,
+      customer_phone: editForm.customer_phone,
+    }).eq('id', editingCard.id)
+    setEditSaving(false)
+    setEditingCard(null)
+    await loadData()
   }
 
   if (loading) return <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100vh' }}>Caricamento...</div>
@@ -376,7 +397,7 @@ export default function FidelityPage() {
             </div>
             <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
               {cards.slice(0, 5).map((card, i) => (
-                <div key={card.id} style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-md)', padding: 'var(--space-md) var(--space-lg)', borderBottom: i < Math.min(cards.length, 5) - 1 ? '1px solid var(--border-subtle)' : 'none' }}>
+                <div key={card.id} onClick={() => openEdit(card)} style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-md)', padding: 'var(--space-md) var(--space-lg)', borderBottom: i < Math.min(cards.length, 5) - 1 ? '1px solid var(--border-subtle)' : 'none', cursor: 'pointer' }}>
                   <div style={{ width: 38, height: 38, borderRadius: '50%', background: 'var(--brand-primary-light)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: 14, color: 'var(--brand-primary-dark)' }}>
                     {card.customer_name.split(' ').map((n: string) => n[0]).join('').slice(0, 2)}
                   </div>
@@ -395,6 +416,54 @@ export default function FidelityPage() {
         )}
 
       </div>
+
+      {/* Edit Card Modal */}
+      {editingCard && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: 'var(--space-lg)' }}>
+          <div style={{ background: 'var(--bg-primary)', borderRadius: 'var(--radius-lg)', padding: 'var(--space-xl)', width: '100%', maxWidth: 420 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--space-lg)' }}>
+              <h3>✏️ Modifica Card</h3>
+              <button onClick={() => setEditingCard(null)} style={{ background: 'none', border: 'none', fontSize: 22, cursor: 'pointer' }}>×</button>
+            </div>
+            <div style={{ fontSize: 12, color: 'var(--text-tertiary)', marginBottom: 'var(--space-lg)' }}>Card: {editingCard.card_number}</div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-md)' }}>
+              <div className="input-group">
+                <label className="input-label">Nome Completo</label>
+                <input className="input" value={editForm.customer_name} onChange={e => setEditForm(f => ({ ...f, customer_name: e.target.value }))} />
+              </div>
+              <div className="input-group">
+                <label className="input-label">Telefono</label>
+                <input className="input" type="tel" value={editForm.customer_phone} onChange={e => setEditForm(f => ({ ...f, customer_phone: e.target.value }))} />
+              </div>
+              <div className="input-group">
+                <label className="input-label">Email</label>
+                <input className="input" type="email" value={editForm.customer_email} onChange={e => setEditForm(f => ({ ...f, customer_email: e.target.value }))} />
+              </div>
+            </div>
+            <div style={{ display: 'flex', gap: 8, marginTop: 'var(--space-lg)' }}>
+              <button onClick={saveEdit} disabled={editSaving || !editForm.customer_name} className="btn btn-primary" style={{ flex: 2 }}>
+                {editSaving ? 'Salvataggio...' : '✅ Salva Modifiche'}
+              </button>
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginTop: 'var(--space-md)' }}>
+              <button className="btn btn-secondary" onClick={() => {
+                const msg = encodeURIComponent(`La tua Fidelity e-Card BrainWare.\nNumero Card: ${editingCard.card_number}\nNome: ${editForm.customer_name}\nPunti: ${editingCard.points ?? 0}`)
+                window.open(`sms:${editForm.customer_phone}?body=${msg}`, '_blank')
+              }} disabled={!editForm.customer_phone}>
+                📱 Re-invia SMS
+              </button>
+              <button className="btn btn-secondary" onClick={() => {
+                const subject = encodeURIComponent('La tua Fidelity e-Card BrainWare')
+                const body = encodeURIComponent(`Ciao ${editForm.customer_name},\n\nLa tua Fidelity e-Card:\nNumero Card: ${editingCard.card_number}\nPunti: ${editingCard.points ?? 0}\n\nBrainWare`)
+                window.open(`mailto:${editForm.customer_email}?subject=${subject}&body=${body}`, '_blank')
+              }} disabled={!editForm.customer_email}>
+                📧 Re-invia Email
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <BottomNav />
     </div>
   )

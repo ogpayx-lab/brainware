@@ -30,6 +30,9 @@ export default function EmployeeDashboard() {
   const prevNotifCount = useRef<number | null>(null)
   const [perf, setPerf] = useState({ punctuality: 0, punctualityTotal: 0, invMatch: 0, invTotal: 0, tasksCompleted: 0, tasksTotal: 0 })
   const [todayStats, setTodayStats] = useState({ totalSales: 0, customers: 0, avgPerCustomer: 0, deposits: 0, onlineSales: 0 })
+  const [kpiModal, setKpiModal] = useState<{ type: string; title: string } | null>(null)
+  const [todaySalesData, setTodaySalesData] = useState<any[]>([])
+  const [todayDepositsData, setTodayDepositsData] = useState<any[]>([])
 
   useEffect(() => { loadData(); const t = setInterval(loadData, 30000); return () => clearInterval(t) }, [])
 
@@ -61,13 +64,15 @@ export default function EmployeeDashboard() {
       // Today's store-wide stats
       const todayStr = new Date().toISOString().split('T')[0]
       try {
-        const { data: todaySales } = await supabase.from('sales').select('total, payment_method, customer_name').eq('store_id', profile.store_id).gte('created_at', todayStr).eq('movement_type', 'sale')
+        const { data: todaySales } = await supabase.from('sales').select('id, total, payment_method, customer_name, created_at, invoice_number').eq('store_id', profile.store_id).gte('created_at', todayStr).eq('movement_type', 'sale')
         const allToday = todaySales ?? []
+        setTodaySalesData(allToday)
         const totalSales = allToday.reduce((s, r) => s + (parseFloat(r.total) || 0), 0)
         const customers = allToday.length
         const avgPerCustomer = customers > 0 ? totalSales / customers : 0
 
-        const { data: todayDeposits } = await supabase.from('shifts').select('deposit_actual').eq('store_id', profile.store_id).gte('created_at', todayStr).eq('status', 'closed')
+        const { data: todayDeposits } = await supabase.from('shifts').select('id, deposit_actual, created_at, period').eq('store_id', profile.store_id).gte('created_at', todayStr).eq('status', 'closed')
+        setTodayDepositsData(todayDeposits ?? [])
         const deposits = (todayDeposits ?? []).reduce((s, r) => s + (parseFloat(r.deposit_actual) || 0), 0)
 
         setTodayStats({ totalSales, customers, avgPerCustomer, deposits, onlineSales: 0 })
@@ -181,7 +186,7 @@ export default function EmployeeDashboard() {
 
           {/* Average Sales Card */}
           <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:8, marginBottom:8 }}>
-            <div style={{ background:'var(--bg-surface)', borderRadius:12, padding:'12px' }}>
+            <div style={{ background:'var(--bg-surface)', borderRadius:12, padding:'12px', cursor:'pointer' }} onClick={() => setKpiModal({ type: 'sales', title: 'Vendite Oggi' })}>
               <div style={{ fontSize:11, color:'var(--text-secondary)', fontWeight:600, marginBottom:6 }}>Vendite Oggi</div>
               <div style={{ fontSize:22, fontWeight:700, color:'var(--brand-primary)' }}>{fmt(todayStats.totalSales)}</div>
               <div style={{ fontSize:11, color:'var(--text-tertiary)', marginTop:4 }}>{todayStats.customers} clienti</div>
@@ -196,11 +201,11 @@ export default function EmployeeDashboard() {
           {/* Charts Grid */}
           <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:8 }}>
             {[
-              { label:'Cash', value:summary.total_cash, color:'#3B82F6' },
-              { label:'POS', value:summary.total_pos, color:'#8B5CF6' },
-              { label:'Depositi', value:todayStats.deposits, color:'#22C55E' },
+              { label:'Cash', value:summary.total_cash, color:'#3B82F6', type:'cash' },
+              { label:'POS', value:summary.total_pos, color:'#8B5CF6', type:'pos' },
+              { label:'Depositi', value:todayStats.deposits, color:'#22C55E', type:'deposits' },
             ].map(c => (
-              <div key={c.label} style={{ background:'var(--bg-surface)', borderRadius:12, padding:'10px', textAlign:'center' }}>
+              <div key={c.label} style={{ background:'var(--bg-surface)', borderRadius:12, padding:'10px', textAlign:'center', cursor:'pointer' }} onClick={() => setKpiModal({ type: c.type, title: c.label })}>
                 <div style={{ fontSize:11, color:'var(--text-secondary)', fontWeight:600, marginBottom:4 }}>{c.label}</div>
                 <MiniBar value={c.value} max={todayStats.totalSales || 1} color={c.color} />
                 <div style={{ fontSize:13, fontWeight:700, marginTop:4 }}>{fmt(c.value)}</div>
@@ -335,6 +340,60 @@ export default function EmployeeDashboard() {
         </div>
 
       </div>
+
+      {/* KPI Drill-Down Modal */}
+      {kpiModal && (
+        <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.5)', display:'flex', alignItems:'center', justifyContent:'center', zIndex:200, padding:20 }}>
+          <div style={{ background:'var(--bg-primary)', borderRadius:20, padding:24, width:'100%', maxWidth:420, maxHeight:'80vh', display:'flex', flexDirection:'column' }}>
+            <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:16 }}>
+              <h3 style={{ margin:0, fontSize:16 }}>{kpiModal.title}</h3>
+              <button onClick={() => setKpiModal(null)} style={{ background:'none', border:'none', fontSize:22, cursor:'pointer' }}>×</button>
+            </div>
+            <div style={{ flex:1, overflowY:'auto', display:'flex', flexDirection:'column', gap:8 }}>
+              {kpiModal.type === 'deposits' ? (
+                todayDepositsData.length === 0 ? (
+                  <div style={{ textAlign:'center', padding:30, color:'var(--text-tertiary)', fontSize:13 }}>Nessun deposito oggi</div>
+                ) : todayDepositsData.map(d => (
+                  <div key={d.id} style={{ padding:12, background:'var(--bg-surface)', borderRadius:10, display:'flex', justifyContent:'space-between', alignItems:'center' }}>
+                    <div>
+                      <div style={{ fontSize:13, fontWeight:600 }}>Turno {d.period}</div>
+                      <div style={{ fontSize:11, color:'var(--text-tertiary)' }}>{new Date(d.created_at).toLocaleTimeString('it-IT', { hour:'2-digit', minute:'2-digit' })}</div>
+                    </div>
+                    <span style={{ fontWeight:700, fontSize:15, color:'#22C55E' }}>{fmt(parseFloat(d.deposit_actual) || 0)}</span>
+                  </div>
+                ))
+              ) : (
+                (() => {
+                  const filteredSales = kpiModal.type === 'cash'
+                    ? todaySalesData.filter(s => s.payment_method === 'cash')
+                    : kpiModal.type === 'pos'
+                    ? todaySalesData.filter(s => s.payment_method === 'pos')
+                    : todaySalesData
+                  return filteredSales.length === 0 ? (
+                    <div style={{ textAlign:'center', padding:30, color:'var(--text-tertiary)', fontSize:13 }}>Nessuna vendita</div>
+                  ) : filteredSales.map(s => (
+                    <div key={s.id} style={{ padding:12, background:'var(--bg-surface)', borderRadius:10, display:'flex', justifyContent:'space-between', alignItems:'center' }}>
+                      <div>
+                        <div style={{ fontSize:13, fontWeight:600 }}>{s.customer_name || 'Anonimo'}</div>
+                        <div style={{ fontSize:11, color:'var(--text-tertiary)' }}>{s.invoice_number} · {new Date(s.created_at).toLocaleTimeString('it-IT', { hour:'2-digit', minute:'2-digit' })}</div>
+                      </div>
+                      <div style={{ textAlign:'right' }}>
+                        <span style={{ fontSize:10, padding:'2px 7px', borderRadius:20, background: s.payment_method==='cash'?'rgba(34,197,94,0.1)':'rgba(124,58,237,0.1)', color: s.payment_method==='cash'?'#22C55E':'#7C3AED', fontWeight:600, display:'block', marginBottom:4 }}>
+                          {s.payment_method === 'cash' ? '💵 Cash' : '💳 POS'}
+                        </span>
+                        <span style={{ fontWeight:700, fontSize:14 }}>{fmt(parseFloat(s.total))}</span>
+                      </div>
+                    </div>
+                  ))
+                })()
+              )}
+            </div>
+            <div style={{ marginTop:16, textAlign:'center' }}>
+              <button onClick={() => setKpiModal(null)} className="btn btn-secondary">Chiudi</button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Check Out Modal */}
       {showCheckout && (
