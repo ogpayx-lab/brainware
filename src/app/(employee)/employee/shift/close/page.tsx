@@ -28,7 +28,7 @@ export default function ShiftClosePage() {
   const [storeName, setStoreName] = useState('')
   const [brandName, setBrandName] = useState('MamaMary')
   const [employeeName, setEmployeeName] = useState('')
-  const [fcuDefault, setFcuDefault] = useState(200)
+  const [fcuDefault, setFcuDefault] = useState(50)
 
   const [banconote, setBanconote] = useState<BanconoteMap>({ 50: 0, 20: 0, 10: 0, 5: 0, 2: 0, 1: 0 })
   const [depositActual, setDepositActual] = useState('')
@@ -92,7 +92,7 @@ export default function ShiftClosePage() {
     setStoreName(store?.name ?? '')
     setEmployeeName(emp?.full_name ?? '')
     setBrandName(brand?.brand_name ?? 'MamaMary')
-    setFcuDefault(cfg?.fcu_default ?? 200)
+    setFcuDefault(cfg?.fcu_default ?? 50)
     setLoading(false)
   }
 

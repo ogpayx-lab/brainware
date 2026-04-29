@@ -21,7 +21,7 @@ export default function EmployeeDashboard() {
   const [sales, setSales] = useState<any[]>([])
   const [name, setName] = useState('')
   const [storeName, setStoreName] = useState('')
-  const [fcuDefault, setFcuDefault] = useState(200)
+  const [fcuDefault, setFcuDefault] = useState(50)
   const [objectives, setObjectives] = useState({ sales_target:1500, fidelity_target:3, streak:5, rank:2 })
   const [loading, setLoading] = useState(true)
   const [tasks, setTasks] = useState<any[]>([])

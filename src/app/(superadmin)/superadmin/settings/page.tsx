@@ -43,7 +43,7 @@ export default function SuperAdminSettingsPage() {
     delivery_radius_km: 15,
     delivery_cost_default: 5.00,
     long_distance_cost_default: 9.90,
-    fcu_default: 200,
+    fcu_default: 50,
     expense_approval_threshold: 50,
   })
   const [activeTab, setActiveTab] = useState<'global' | 'fidelity' | 'online' | 'inventory' | 'objectives'>('global')

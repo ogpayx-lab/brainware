@@ -14,7 +14,7 @@ export default function SettingsPage() {
   const [store, setStore] = useState({ name: '', address: '', city: '' })
   const [brand, setBrand] = useState({ brand_name: '', logo_letter: '', primary_color: '#22C55E', piva: '', receipt_header: '', receipt_footer: 'Grazie per il tuo acquisto!' })
   const [brandId, setBrandId] = useState<string | null>(null)
-  const [cfg, setCfg] = useState({ fcu_default: 200, morning_shift_start: '08:00', morning_shift_end: '14:00', evening_shift_start: '14:00', evening_shift_end: '22:00', stock_alert_threshold: 5, discount_notify_pct: 15, punctuality_tolerance_min: 5 })
+  const [cfg, setCfg] = useState({ fcu_default: 50, morning_shift_start: '08:00', morning_shift_end: '14:00', evening_shift_start: '14:00', evening_shift_end: '22:00', stock_alert_threshold: 5, discount_notify_pct: 15, punctuality_tolerance_min: 5 })
   const [cfgId, setCfgId] = useState<string | null>(null)
   const [bonus, setBonus] = useState({ sales_commission_pct: 0.01, hours_bonus_amount: 5, hours_bonus_threshold: 8, avg_sale_threshold: 40 })
   const [bonusId, setBonusId] = useState<string | null>(null)
