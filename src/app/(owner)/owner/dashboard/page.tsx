@@ -68,16 +68,10 @@ export default function OwnerDashboard() {
   }, [])
 
   async function loadData() {
-    const { data: { user }, error: authError } = await supabase.auth.getUser()
-    if (!user) { 
-      alert('DEBUG DASHBOARD: No user! Error: ' + (authError?.message || 'none'))
-      router.push('/login'); return 
-    }
-    const { data: profile, error: profileError } = await supabase.from('users').select('store_id, role, full_name').eq('id', user.id).single()
-    if (!profile || profile.role !== 'owner') { 
-      alert('DEBUG DASHBOARD: profile=' + JSON.stringify(profile) + ' error=' + (profileError?.message || 'none'))
-      router.push('/login'); return 
-    }
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) { router.push('/login'); return }
+    const { data: profile } = await supabase.from('users').select('store_id, role, full_name').eq('id', user.id).single()
+    if (!profile || profile.role !== 'owner') { router.push('/login'); return }
     setStoreId(profile.store_id)
 
     const { data: storeData } = await supabase.from('stores').select('name, organization_id').eq('id', profile.store_id).single()
