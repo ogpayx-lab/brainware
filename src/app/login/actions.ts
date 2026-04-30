@@ -1,6 +1,7 @@
 'use server'
 import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'
+import { createAdminClient } from '@/lib/supabase/admin'
 
 export async function loginAction(email: string, password: string): Promise<{ error?: string; redirectTo?: string }> {
   const cookieStore = cookies()
@@ -27,8 +28,9 @@ export async function loginAction(email: string, password: string): Promise<{ er
   if (error) return { error: error.message }
   if (!data.user) return { error: 'Errore durante il login. Riprova.' }
 
-  // Recupera il ruolo
-  const { data: profile } = await supabase
+  // Usa admin client (service role) per bypassare RLS
+  const admin = createAdminClient()
+  const { data: profile } = await admin
     .from('users')
     .select('role, store_id')
     .eq('id', data.user.id)
@@ -39,4 +41,27 @@ export async function loginAction(email: string, password: string): Promise<{ er
   if (profile.role === 'superadmin') return { redirectTo: '/superadmin/dashboard' }
   if (profile.role === 'owner') return { redirectTo: '/owner/dashboard' }
   return { redirectTo: '/employee/shift/open' }
+}
+
+// Server action per ottenere il redirect dal profilo utente (bypassa RLS)
+export async function getProfileRedirect(userId: string): Promise<{
+  redirectTo: string;
+  storeId?: string;
+  role?: string;
+  organizationId?: string;
+}> {
+  const admin = createAdminClient()
+  const { data: profile } = await admin
+    .from('users')
+    .select('role, store_id, stores(organization_id)')
+    .eq('id', userId)
+    .single()
+
+  if (!profile || !profile.store_id) return { redirectTo: '/onboarding' }
+
+  const orgId = (profile?.stores as any)?.organization_id
+
+  if (profile.role === 'superadmin') return { redirectTo: '/superadmin/dashboard', storeId: profile.store_id, role: profile.role }
+  if (profile.role === 'owner') return { redirectTo: '/owner/dashboard', storeId: profile.store_id, role: profile.role }
+  return { redirectTo: '/employee/shift/open', storeId: profile.store_id, role: profile.role, organizationId: orgId }
 }

@@ -1,6 +1,7 @@
 'use client'
 import { useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
+import { getProfileRedirect } from './actions'
 
 export default function LoginPage() {
   const supabase = createClient()
@@ -43,44 +44,36 @@ export default function LoginPage() {
       return
     }
 
-    // Recupera profilo per redirect basato sul ruolo
-    const { data: profile } = await supabase
-      .from('users')
-      .select('role, store_id, stores(organization_id)')
-      .eq('id', data.user.id)
-      .single()
+    // Usa server action con service role per bypassare RLS
+    const profileResult = await getProfileRedirect(data.user.id)
 
-    const userRole = profile?.role
-    const storeId = profile?.store_id
-
-    if (!storeId) {
+    if (profileResult.redirectTo === '/onboarding') {
       window.location.href = '/onboarding'
       return
     }
 
-    if (userRole === 'superadmin') {
+    if (profileResult.role === 'superadmin') {
       window.location.href = '/superadmin/dashboard'
       return
     }
 
-    if (userRole === 'owner') {
+    if (profileResult.role === 'owner') {
       window.location.href = '/owner/dashboard'
       return
     }
 
     // Employee: check if organization has multiple stores
-    const orgId = (profile?.stores as any)?.organization_id
-    if (orgId) {
+    if (profileResult.organizationId) {
       const { data: orgStores } = await supabase
         .from('stores')
         .select('id, name')
-        .eq('organization_id', orgId)
+        .eq('organization_id', profileResult.organizationId)
         .order('name')
 
       if (orgStores && orgStores.length > 1) {
         // Show store selector
         setAvailableStores(orgStores)
-        setSelectedStore(storeId)
+        setSelectedStore(profileResult.storeId || '')
         setAuthenticatedUser(data.user)
         setShowStoreSelect(true)
         setLoading(false)
