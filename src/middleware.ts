@@ -48,13 +48,8 @@ export async function middleware(request: NextRequest) {
     return supabaseResponse
   }
 
-  // Owner/employee pages: require session
+  // Owner/employee pages: let the page component handle auth
   if (path.startsWith('/owner/') || path.startsWith('/employee/')) {
-    if (!user) {
-      const url = request.nextUrl.clone()
-      url.pathname = '/login'
-      return NextResponse.redirect(url)
-    }
     return supabaseResponse
   }
 
