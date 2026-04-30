@@ -47,6 +47,11 @@ export default function LoginPage() {
     // Usa server action con service role per bypassare RLS
     const profileResult = await getProfileRedirect(data.user.id)
 
+    // DEBUG TEMPORANEO - rimuovere dopo il fix
+    if (profileResult.debug) {
+      alert('DEBUG LOGIN: ' + profileResult.debug + '\nUser ID: ' + data.user.id)
+    }
+
     if (profileResult.redirectTo === '/onboarding') {
       window.location.href = '/onboarding'
       return
