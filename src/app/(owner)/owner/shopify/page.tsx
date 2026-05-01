@@ -79,7 +79,6 @@ export default function ShopifyOrdersPage() {
     setStoreId(profile.store_id)
 
     // Salva il token e passa direttamente a fetchOrders (evita race condition React state)
-    const { data: { session } } = await supabase.auth.getSession()
     const token = session?.access_token ?? ''
     if (token) setAccessToken(token)
 

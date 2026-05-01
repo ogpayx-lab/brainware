@@ -61,7 +61,6 @@ export default function EmployeeOrdersPage() {
   async function init() {
     const { data: { session } } = await supabase.auth.getSession(); const user = session?.user
     if (!user) { router.push('/login'); return }
-    const { data: { session } } = await supabase.auth.getSession()
     const token = session?.access_token ?? ''
     setAccessToken(token)
 
@@ -143,7 +142,8 @@ export default function EmployeeOrdersPage() {
 
       // Scala inventario usando i prodotti selezionati manualmente + registra movimento
       if (fulfillForm.deductStock && fulfillForm.sourceId) {
-        const { data: { user: currentUser } } = await supabase.auth.getUser()
+        const { data: { session: sess } } = await supabase.auth.getSession()
+        const currentUser = sess?.user
         for (const li of fulfillModal.line_items) {
           const localProductId = productMapping[li.title]
           if (!localProductId) continue
