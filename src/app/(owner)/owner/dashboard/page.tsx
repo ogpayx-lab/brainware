@@ -57,13 +57,13 @@ export default function OwnerDashboard() {
     return () => clearInterval(t)
   }, [selectedStore, dateFrom, dateTo])
 
-  const loadNotifications = useCallback(async (sid: string) => {
+  const loadNotifications = useCallback(async (orgStoreIds: string[]) => {
     const { data: notifs } = await supabase
       .from('notifications')
-      .select('*, users(full_name)')
-      .eq('store_id', sid)
+      .select('*, users(full_name), stores(name)')
+      .in('store_id', orgStoreIds)
       .order('created_at', { ascending: false })
-      .limit(15)
+      .limit(30)
     setNotifications(notifs ?? [])
     const unread = (notifs ?? []).filter((n: any) => !n.read).length
     if (prevNotifCount.current !== null && unread > prevNotifCount.current) {
@@ -85,7 +85,8 @@ export default function OwnerDashboard() {
     const { data: storesData } = await supabase.from('stores').select('id,name').eq('organization_id', oid)
     setStores(storesData ?? [])
 
-    loadNotifications(profile.store_id)
+    const allStoreIds = (storesData ?? []).map((s: any) => s.id)
+    loadNotifications(allStoreIds.length > 0 ? allStoreIds : [profile.store_id])
 
     // Load store config for daily target
     const { data: configData } = await supabase.from('store_config').select('*').eq('store_id', profile.store_id).single()
@@ -579,7 +580,10 @@ export default function OwnerDashboard() {
               }}>
                 <span style={{ fontSize:16 }}>{TYPE_ICON[n.type] ?? '🔔'}</span>
                 <div style={{ flex:1 }}>
-                  <div style={{ fontWeight: n.read ? 500 : 700, fontSize:13 }}>{n.title}</div>
+                  <div style={{ fontWeight: n.read ? 500 : 700, fontSize:13, display:'flex', alignItems:'center', gap:6 }}>
+                    {n.title}
+                    {n.stores?.name && <span style={{ fontSize:10, padding:'1px 6px', borderRadius:4, background:'var(--bg-surface)', color:'var(--text-tertiary)', fontWeight:500 }}>{n.stores.name}</span>}
+                  </div>
                   {n.message && <div style={{ fontSize:12, color:'var(--text-secondary)', marginTop:1 }}>{n.message}</div>}
                 </div>
                 <div style={{ display:'flex', alignItems:'center', gap:6, flexShrink:0 }}>
