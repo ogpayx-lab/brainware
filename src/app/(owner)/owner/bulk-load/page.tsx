@@ -6,7 +6,7 @@ import { createClient } from '@/lib/supabase/client'
 import * as XLSX from 'xlsx'
 
 type ParsedProduct = { name: string; category: string; stock: number; price?: number; barcode?: string }
-type ParsedWarehouseItem = { product_name: string; qty: number; sku?: string }
+type ParsedWarehouseItem = { product_name: string; qty: number; sku?: string; category?: string }
 
 export default function BulkLoadPage() {
   const router = useRouter()
@@ -83,6 +83,7 @@ export default function BulkLoadPage() {
         product_name: r[nameCol],
         qty: parseInt(r[qtyCol || 'qty'] || '0') || 0,
         sku: r['sku'] || r['barcode'] || '',
+        category: r['category'] || r['categoria'] || '',
       })).filter(r => r.product_name)
     }
   }
@@ -190,17 +191,17 @@ export default function BulkLoadPage() {
           if (mode === 'merge') {
             const { data: existing } = await supabase.from('warehouse_stock').select('id').eq('warehouse_id', selectedId).ilike('product_name', item.product_name).single()
             if (existing) {
-              const { error } = await supabase.from('warehouse_stock').update({ qty: item.qty }).eq('id', existing.id)
+              const { error } = await supabase.from('warehouse_stock').update({ qty: item.qty, ...(item.category ? { category: item.category } : {}) }).eq('id', existing.id)
               if (error) errors++; else updated++
             } else {
               const { error } = await supabase.from('warehouse_stock').insert({
-                warehouse_id: selectedId, product_name: item.product_name, qty: item.qty, sku: item.sku || null,
+                warehouse_id: selectedId, product_name: item.product_name, qty: item.qty, sku: item.sku || null, category: item.category || null,
               })
               if (error) errors++; else created++
             }
           } else {
             const { error } = await supabase.from('warehouse_stock').insert({
-              warehouse_id: selectedId, product_name: item.product_name, qty: item.qty, sku: item.sku || null,
+              warehouse_id: selectedId, product_name: item.product_name, qty: item.qty, sku: item.sku || null, category: item.category || null,
             })
             if (error) errors++; else created++
           }
@@ -221,13 +222,13 @@ export default function BulkLoadPage() {
   function downloadTemplate() {
     const headers = tab === 'store'
       ? [['name', 'category', 'stock', 'price', 'barcode'], ['OG Kush 2g', 'flowers', '10', '15.00', ''], ['Grinder MM', 'accessories', '5', '8.00', '123456'], ['CBD Oil 10%', 'oils', '20', '29.90', '']]
-      : [['product_name', 'qty', 'sku'], ['OG Kush Sfuso', '500', 'OGK-S'], ['Amnesia Sfuso', '300', 'AMN-S'], ['Grinder MM', '50', 'GRD-MM']]
+      : [['product_name', 'category', 'qty', 'sku'], ['OG Kush Sfuso', 'flowers', '500', 'OGK-S'], ['Amnesia Sfuso', 'flowers', '300', 'AMN-S'], ['Grinder MM', 'accessories', '50', 'GRD-MM']]
     const ws = XLSX.utils.aoa_to_sheet(headers)
     const wb = XLSX.utils.book_new()
     XLSX.utils.book_append_sheet(wb, ws, tab === 'store' ? 'Prodotti' : 'Magazzino')
     ws['!cols'] = tab === 'store'
       ? [{wch:30},{wch:15},{wch:8},{wch:10},{wch:15}]
-      : [{wch:30},{wch:10},{wch:15}]
+      : [{wch:30},{wch:15},{wch:10},{wch:15}]
     XLSX.writeFile(wb, `template_${tab === 'store' ? 'prodotti_store' : 'stock_magazzino'}.xlsx`)
   }
 
@@ -302,7 +303,7 @@ export default function BulkLoadPage() {
           {tab === 'store' ? (
             <><strong>Colonne richieste:</strong> <code>name</code> (nome prodotto), <code>category</code> (flowers/hashish/accessories/oils/seeds/food/cosmetics/clothes/vape), <code>stock</code> (quantità), <code>price</code> (prezzo €), <code>barcode</code> (opzionale)</>
           ) : (
-            <><strong>Colonne richieste:</strong> <code>product_name</code> (nome prodotto), <code>qty</code> (quantità), <code>sku</code> (opzionale)</>
+            <><strong>Colonne richieste:</strong> <code>product_name</code> (nome prodotto), <code>category</code> (flowers/hashish/accessories/oils/vape...), <code>qty</code> (quantità), <code>sku</code> (opzionale)</>
           )}
         </div>
 
@@ -351,7 +352,7 @@ export default function BulkLoadPage() {
                 {tab === 'store' ? (
                   <tr><th>Nome</th><th>Categoria</th><th>Stock</th><th>Prezzo</th></tr>
                 ) : (
-                  <tr><th>Prodotto</th><th>Qty</th><th>SKU</th></tr>
+                  <tr><th>Prodotto</th><th>Categoria</th><th>Qty</th><th>SKU</th></tr>
                 )}
               </thead>
               <tbody>
@@ -359,7 +360,7 @@ export default function BulkLoadPage() {
                   tab === 'store' ? (
                     <tr key={i}><td style={{ fontWeight: 600 }}>{r.name}</td><td>{r.category}</td><td>{r.stock}</td><td>{r.price ? `€${r.price}` : '-'}</td></tr>
                   ) : (
-                    <tr key={i}><td style={{ fontWeight: 600 }}>{r.product_name}</td><td>{r.qty}</td><td>{r.sku || '-'}</td></tr>
+                    <tr key={i}><td style={{ fontWeight: 600 }}>{r.product_name}</td><td>{r.category || '-'}</td><td>{r.qty}</td><td>{r.sku || '-'}</td></tr>
                   )
                 ))}
               </tbody>
