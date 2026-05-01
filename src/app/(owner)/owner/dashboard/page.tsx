@@ -34,6 +34,11 @@ export default function OwnerDashboard() {
   const [dateFrom, setDateFrom] = useState(new Date().toISOString().split('T')[0])
   const [dateTo, setDateTo] = useState(new Date().toISOString().split('T')[0])
 
+  // Shift time editing
+  const [editingShiftId, setEditingShiftId] = useState<string | null>(null)
+  const [editTime, setEditTime] = useState('')
+  const [savingShift, setSavingShift] = useState(false)
+
   // Notifications
   const [notifications, setNotifications] = useState<any[]>([])
   const [showAllNotifs, setShowAllNotifs] = useState(false)
@@ -261,7 +266,7 @@ export default function OwnerDashboard() {
     const peakHour = hourlyCustomers.indexOf(Math.max(...hourlyCustomers))
 
     // Workers
-    const workerMap = new Map<string, { name: string; store: string; period: string; hours: string }>()
+    const workerMap = new Map<string, { name: string; store: string; period: string; hours: string; shiftId: string; openedAt: string; closedAt: string | null }>()
     const sortedShifts = [...mergedShifts].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
     for (const shift of sortedShifts) {
       const uid = shift.user_id
@@ -274,6 +279,9 @@ export default function OwnerDashboard() {
         store: shift.stores?.name ?? '',
         period: shift.period === 'morning' ? '☀️ Mattina' : '🌙 Sera',
         hours: hours.toFixed(1),
+        shiftId: shift.id,
+        openedAt: shift.opened_at || shift.created_at,
+        closedAt: shift.closed_at || null,
       })
     }
     const workers = Array.from(workerMap.values())
@@ -312,6 +320,24 @@ export default function OwnerDashboard() {
     if (!storeId) return
     await supabase.from('notifications').update({ read: true }).eq('store_id', storeId).eq('read', false)
     setNotifications(prev => prev.map(n => ({ ...n, read: true })))
+  }
+
+  // Modifica orario ingresso turno
+  async function updateShiftTime(shiftId: string) {
+    if (!editTime) return
+    setSavingShift(true)
+    // Combina la data del turno con il nuovo orario
+    const worker = data?.workers?.find((w: any) => w.shiftId === shiftId)
+    if (worker) {
+      const originalDate = new Date(worker.openedAt)
+      const [h, m] = editTime.split(':').map(Number)
+      originalDate.setHours(h, m, 0, 0)
+      await supabase.from('shifts').update({ opened_at: originalDate.toISOString() }).eq('id', shiftId)
+    }
+    setSavingShift(false)
+    setEditingShiftId(null)
+    setEditTime('')
+    loadData()
   }
 
   // ═══════ EXPORT PDF ═══════
@@ -709,18 +735,71 @@ export default function OwnerDashboard() {
           {data.workers.length === 0 ? (
             <p style={{ color:'var(--text-tertiary)', fontSize:14 }}>Nessun turno registrato</p>
           ) : (
-            data.workers.map((w: any, i: number) => (
-              <div key={i} style={{ display:'flex', alignItems:'center', gap:12, padding:'8px 0', borderBottom: i < data.workers.length - 1 ? '1px solid var(--border-subtle)' : 'none' }}>
-                <div style={{ width:32, height:32, borderRadius:'50%', background:'var(--brand-primary)', display:'flex', alignItems:'center', justifyContent:'center', fontSize:12, fontWeight:700, color:'white', flexShrink:0 }}>
-                  {w.name?.split(' ').map((n: string) => n[0]).join('').slice(0,2)}
+            data.workers.map((w: any, i: number) => {
+              const entryTime = new Date(w.openedAt).toLocaleTimeString('it-IT', { hour:'2-digit', minute:'2-digit' })
+              const exitTime = w.closedAt ? new Date(w.closedAt).toLocaleTimeString('it-IT', { hour:'2-digit', minute:'2-digit' }) : 'In corso'
+              const isEditing = editingShiftId === w.shiftId
+              return (
+                <div key={i} style={{ padding:'10px 0', borderBottom: i < data.workers.length - 1 ? '1px solid var(--border-subtle)' : 'none' }}>
+                  <div style={{ display:'flex', alignItems:'center', gap:12 }}>
+                    <div style={{ width:32, height:32, borderRadius:'50%', background:'var(--brand-primary)', display:'flex', alignItems:'center', justifyContent:'center', fontSize:12, fontWeight:700, color:'white', flexShrink:0 }}>
+                      {w.name?.split(' ').map((n: string) => n[0]).join('').slice(0,2)}
+                    </div>
+                    <div style={{ flex:1 }}>
+                      <div style={{ fontSize:13, fontWeight:600 }}>{w.name}</div>
+                      <div style={{ fontSize:11, color:'var(--text-tertiary)' }}>{w.store} · {w.period}</div>
+                    </div>
+                    <span style={{ fontSize:13, fontWeight:600 }}>{w.hours}h</span>
+                  </div>
+                  {/* Orario ingresso/uscita */}
+                  <div style={{ marginLeft:44, marginTop:6, display:'flex', alignItems:'center', gap:8, flexWrap:'wrap' }}>
+                    {isEditing ? (
+                      <div style={{ display:'flex', alignItems:'center', gap:6 }}>
+                        <span style={{ fontSize:11, color:'var(--text-secondary)' }}>Ingresso:</span>
+                        <input
+                          type="time"
+                          className="input"
+                          value={editTime}
+                          onChange={e => setEditTime(e.target.value)}
+                          style={{ fontSize:13, padding:'3px 8px', width:100, fontWeight:600 }}
+                          autoFocus
+                        />
+                        <button
+                          onClick={() => updateShiftTime(w.shiftId)}
+                          disabled={savingShift || !editTime}
+                          style={{ background:'var(--brand-primary)', color:'white', border:'none', borderRadius:6, padding:'4px 10px', fontSize:11, fontWeight:600, cursor:'pointer' }}
+                        >
+                          {savingShift ? '...' : '✓'}
+                        </button>
+                        <button
+                          onClick={() => { setEditingShiftId(null); setEditTime('') }}
+                          style={{ background:'none', border:'1px solid var(--border-default)', borderRadius:6, padding:'4px 10px', fontSize:11, cursor:'pointer', color:'var(--text-secondary)' }}
+                        >
+                          ✕
+                        </button>
+                      </div>
+                    ) : (
+                      <>
+                        <span style={{ fontSize:11, color:'var(--text-secondary)' }}>
+                          🕐 {entryTime} → {exitTime}
+                        </span>
+                        <button
+                          onClick={() => {
+                            setEditingShiftId(w.shiftId)
+                            const d = new Date(w.openedAt)
+                            setEditTime(`${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`)
+                          }}
+                          style={{ background:'none', border:'none', cursor:'pointer', fontSize:11, color:'var(--brand-primary)', fontWeight:600, padding:'2px 6px' }}
+                          title="Modifica orario ingresso"
+                        >
+                          ✏️ Modifica
+                        </button>
+                      </>
+                    )}
+                  </div>
                 </div>
-                <div style={{ flex:1 }}>
-                  <div style={{ fontSize:13, fontWeight:600 }}>{w.name}</div>
-                  <div style={{ fontSize:11, color:'var(--text-tertiary)' }}>{w.store} · {w.period}</div>
-                </div>
-                <span style={{ fontSize:13, fontWeight:600 }}>{w.hours}h</span>
-              </div>
-            ))
+              )
+            })
           )}
         </div>
       </div>
