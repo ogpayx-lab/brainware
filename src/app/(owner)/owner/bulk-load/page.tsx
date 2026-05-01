@@ -194,6 +194,19 @@ export default function BulkLoadPage() {
     ? stores.find(s => s.id === selectedId)?.name || ''
     : warehouses.find(w => w.id === selectedId)?.name || ''
 
+  function downloadTemplate() {
+    const headers = tab === 'store'
+      ? [['name', 'category', 'stock', 'price', 'barcode'], ['OG Kush 2g', 'flowers', '10', '15.00', ''], ['Grinder MM', 'accessories', '5', '8.00', '123456'], ['CBD Oil 10%', 'oils', '20', '29.90', '']]
+      : [['product_name', 'qty', 'sku'], ['OG Kush Sfuso', '500', 'OGK-S'], ['Amnesia Sfuso', '300', 'AMN-S'], ['Grinder MM', '50', 'GRD-MM']]
+    const ws = XLSX.utils.aoa_to_sheet(headers)
+    const wb = XLSX.utils.book_new()
+    XLSX.utils.book_append_sheet(wb, ws, tab === 'store' ? 'Prodotti' : 'Magazzino')
+    ws['!cols'] = tab === 'store'
+      ? [{wch:30},{wch:15},{wch:8},{wch:10},{wch:15}]
+      : [{wch:30},{wch:10},{wch:15}]
+    XLSX.writeFile(wb, `template_${tab === 'store' ? 'prodotti_store' : 'stock_magazzino'}.xlsx`)
+  }
+
   return (
     <div style={{ maxWidth: 800, margin: '0 auto' }}>
       <h2 style={{ marginBottom: 4 }}>📦 Bulk Upload Inventario</h2>
@@ -242,11 +255,24 @@ export default function BulkLoadPage() {
         </div>
       </div>
 
-      {/* CSV Upload */}
+      {/* Template + Upload */}
       <div className="card" style={{ marginBottom: 'var(--space-lg)' }}>
-        <label style={{ fontSize: 13, fontWeight: 700, display: 'block', marginBottom: 8, color: 'var(--text-secondary)' }}>
-          📄 Carica CSV
-        </label>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+          <label style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-secondary)', margin: 0 }}>
+            📄 Carica Excel / CSV
+          </label>
+          <button onClick={downloadTemplate} className="btn btn-secondary" style={{ fontSize: 12, padding: '6px 14px', display: 'flex', alignItems: 'center', gap: 6 }}>
+            📥 Scarica Template Excel
+          </button>
+        </div>
+
+        <div style={{ background: 'var(--bg-surface)', borderRadius: 8, padding: '10px 14px', marginBottom: 12, fontSize: 12, color: 'var(--text-secondary)', lineHeight: 1.6 }}>
+          {tab === 'store' ? (
+            <><strong>Colonne richieste:</strong> <code>name</code> (nome prodotto), <code>category</code> (flowers/hashish/accessories/oils/seeds/food/cosmetics/clothes/vape), <code>stock</code> (quantità), <code>price</code> (prezzo €), <code>barcode</code> (opzionale)</>
+          ) : (
+            <><strong>Colonne richieste:</strong> <code>product_name</code> (nome prodotto), <code>qty</code> (quantità), <code>sku</code> (opzionale)</>
+          )}
+        </div>
 
         <div style={{ background: 'var(--bg-surface)', borderRadius: 10, padding: 16, marginBottom: 12, border: '2px dashed var(--border-default)', textAlign: 'center', cursor: 'pointer' }} onClick={() => fileRef.current?.click()}>
           <div style={{ fontSize: 32, marginBottom: 8 }}>📁</div>
