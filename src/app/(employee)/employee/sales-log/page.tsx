@@ -20,7 +20,7 @@ export default function EmployeeSalesLog() {
   useEffect(() => { loadSales() }, [])
 
   async function loadSales() {
-    const { data: { user } } = await supabase.auth.getUser()
+    const { data: { session } } = await supabase.auth.getSession(); const user = session?.user
     if (!user) { router.push('/login'); return }
 
     const { data: profile } = await supabase.from('users').select('store_id').eq('id', user.id).single()

@@ -75,7 +75,7 @@ export function EmployeeSidebar() {
   useEffect(() => {
     async function loadUser() {
       const supabase = createClient()
-      const { data: { user } } = await supabase.auth.getUser()
+      const { data: { session } } = await supabase.auth.getSession(); const user = session?.user
       if (!user) return
       const { data: profile } = await supabase.from('users').select('full_name, stores(name)').eq('id', user.id).single()
       if (profile) {
@@ -109,7 +109,7 @@ export function EmployeeSidebar() {
     const supabase = createClient()
     const activeEmpId = localStorage.getItem('activeEmployeeId')
     if (activeEmpId) {
-      const { data: { user } } = await supabase.auth.getUser()
+      const { data: { session } } = await supabase.auth.getSession(); const user = session?.user
       if (user) {
         const { data: profile } = await supabase.from('users').select('store_id').eq('id', user.id).single()
         if (profile?.store_id) {

@@ -47,7 +47,7 @@ export function OwnerNotificationListener() {
 
   async function checkNotifications() {
     try {
-      const { data: { user } } = await supabase.auth.getUser()
+      const { data: { session } } = await supabase.auth.getSession(); const user = session?.user
       if (!user) return
       const { data: profile } = await supabase.from('users').select('store_id, stores(organization_id)').eq('id', user.id).single()
       if (!profile?.store_id) return

@@ -11,8 +11,8 @@ export function DemoBanner() {
 
   useEffect(() => {
     const supabase = createClient()
-    supabase.auth.getUser().then(({ data }) => {
-      if (data.user?.email === DEMO_EMAIL) setIsDemo(true)
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session?.user?.email === DEMO_EMAIL) setIsDemo(true)
     })
   }, [])
 
@@ -92,8 +92,8 @@ export function useIsDemo() {
   const [isDemo, setIsDemo] = useState(false)
   useEffect(() => {
     const supabase = createClient()
-    supabase.auth.getUser().then(({ data }) => {
-      if (data.user?.email === DEMO_EMAIL) setIsDemo(true)
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session?.user?.email === DEMO_EMAIL) setIsDemo(true)
     })
   }, [])
   return isDemo

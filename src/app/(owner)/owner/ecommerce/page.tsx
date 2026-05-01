@@ -24,7 +24,7 @@ export default function EcommercePage() {
   useEffect(() => { loadData() }, [])
 
   async function loadData() {
-    const { data: { user } } = await supabase.auth.getUser()
+    const { data: { session } } = await supabase.auth.getSession(); const user = session?.user
     if (!user) { router.push('/login'); return }
 
     const { data: profile } = await supabase.from('users').select('store_id, role').eq('id', user.id).single()
@@ -42,7 +42,7 @@ export default function EcommercePage() {
   }
 
   async function updateStatus(orderId: string, status: string) {
-    const { data: { user } } = await supabase.auth.getUser()
+    const { data: { session } } = await supabase.auth.getSession(); const user = session?.user
     await supabase.from('ecommerce_orders')
       .update({ status, fulfilled_by: user?.id ?? null, updated_at: new Date().toISOString() })
       .eq('id', orderId)

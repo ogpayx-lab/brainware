@@ -72,8 +72,8 @@ export default function ShopifyOrdersPage() {
   }
 
   async function checkAuthAndLoad() {
-    const { data: { user }, error } = await supabase.auth.getUser()
-    if (!user || error) { router.push('/login'); return }
+    const { data: { session } } = await supabase.auth.getSession(); const user = session?.user
+    if (!user) { router.push('/login'); return }
     const { data: profile } = await supabase.from('users').select('store_id,role,stores(organization_id,name)').eq('id', user.id).single()
     if (profile?.role !== 'owner') { router.push('/login'); return }
     setStoreId(profile.store_id)
@@ -200,7 +200,7 @@ export default function ShopifyOrdersPage() {
       // Register sale in BrainWare
       const saleStoreId = fulfillForm.sourceType === 'store' ? fulfillForm.sourceId : (storeId || stores[0]?.id)
       if (saleStoreId) {
-        const { data: { user } } = await supabase.auth.getUser()
+        const { data: { session } } = await supabase.auth.getSession(); const user = session?.user
         const paymentMethod = (fulfillModal.payment_gateway_names?.[0] || fulfillModal.gateway || '').toLowerCase()
         const pmMapped = paymentMethod.includes('cash') || paymentMethod.includes('cod') ? 'cash' : 'pos'
 

@@ -56,7 +56,7 @@ export default function OwnerIntelligencePage() {
   useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: 'smooth' }) }, [messages])
 
   async function loadContext() {
-    const { data: { user } } = await supabase.auth.getUser()
+    const { data: { session } } = await supabase.auth.getSession(); const user = session?.user
     if (!user) { router.push('/login'); return }
 
     const { data: profile } = await supabase

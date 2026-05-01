@@ -33,7 +33,7 @@ export default function TasksPage() {
   const [editingTask, setEditingTask] = useState<any | null>(null)
 
   const loadData = useCallback(async () => {
-    const { data: { user } } = await supabase.auth.getUser()
+    const { data: { session } } = await supabase.auth.getSession(); const user = session?.user
     if (!user) { router.push('/login'); return }
     setUserId(user.id)
     const { data: profile } = await supabase.from('users').select('store_id,role').eq('id', user.id).single()

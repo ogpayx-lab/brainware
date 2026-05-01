@@ -37,7 +37,7 @@ export default function EmployeeDashboard() {
   useEffect(() => { loadData(); const t = setInterval(loadData, 30000); return () => clearInterval(t) }, [])
 
   async function loadData() {
-    const { data:{ user } } = await supabase.auth.getUser()
+    const { data: { session } } = await supabase.auth.getSession(); const user = session?.user
     if (!user) { router.push('/login'); return }
 
     const { data: profile } = await supabase.from('users').select('full_name,store_id,stores(name)').eq('id', user.id).single()

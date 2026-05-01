@@ -43,7 +43,7 @@ export default function StockApprovalsPage() {
   useEffect(() => { loadData() }, [selectedStore])
 
   async function loadData() {
-    const { data: { user } } = await supabase.auth.getUser()
+    const { data: { session } } = await supabase.auth.getSession(); const user = session?.user
     if (!user) { router.push('/login'); return }
     const { data: profile } = await supabase.from('users').select('store_id, role, stores(organization_id)').eq('id', user.id).single()
     if (profile?.role !== 'owner') { router.push('/login'); return }
@@ -121,7 +121,7 @@ export default function StockApprovalsPage() {
 
   async function approveRequest(req: any) {
     setProcessing(true)
-    const { data: { user } } = await supabase.auth.getUser()
+    const { data: { session } } = await supabase.auth.getSession(); const user = session?.user
 
     for (const item of (req.stock_request_items || [])) {
       const approvedQty = editQtys[item.id] ?? item.qty_requested ?? 0
@@ -160,7 +160,7 @@ export default function StockApprovalsPage() {
 
   async function rejectRequest(req: any) {
     setProcessing(true)
-    const { data: { user } } = await supabase.auth.getUser()
+    const { data: { session } } = await supabase.auth.getSession(); const user = session?.user
 
     await supabase.from('stock_requests').update({
       status: 'rejected',
@@ -435,7 +435,7 @@ export default function StockApprovalsPage() {
     }
 
     if (isStoreDestination) {
-      const { data: { user } } = await supabase.auth.getUser()
+      const { data: { session } } = await supabase.auth.getSession(); const user = session?.user
       const { data: openShift } = await supabase.from('shifts').select('id').eq('store_id', destId).eq('status', 'open').limit(1).single()
       const { data: req } = await supabase.from('stock_requests').insert({
         shift_id: openShift?.id || null, store_id: destId, user_id: user?.id, status: 'pending',

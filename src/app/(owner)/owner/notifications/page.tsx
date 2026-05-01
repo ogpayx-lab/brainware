@@ -35,7 +35,7 @@ export default function NotificationsPage() {
   const [dayOffRequests, setDayOffRequests] = useState<any[]>([])
 
   const loadData = useCallback(async () => {
-    const { data: { user } } = await supabase.auth.getUser()
+    const { data: { session } } = await supabase.auth.getSession(); const user = session?.user
     if (!user) { router.push('/login'); return }
     const { data: profile } = await supabase.from('users').select('store_id,role,stores(organization_id)').eq('id', user.id).single()
     if (!profile || profile.role !== 'owner') { router.push('/login'); return }
@@ -84,7 +84,7 @@ export default function NotificationsPage() {
   }
 
   async function handleDayOff(id: string, action: 'approved' | 'rejected') {
-    const { data: { user } } = await supabase.auth.getUser()
+    const { data: { session } } = await supabase.auth.getSession(); const user = session?.user
     await supabase.from('day_off_requests').update({
       status: action,
       reviewed_by: user?.id,

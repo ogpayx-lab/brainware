@@ -14,7 +14,7 @@ export default function PromoCodesPage() {
   const [form, setForm] = useState({ code:'', description:'', type:'pct' as 'pct'|'fixed', value:'', expires_at:'', is_active:true })
 
   const loadData = useCallback(async () => {
-    const { data: { user } } = await supabase.auth.getUser()
+    const { data: { session } } = await supabase.auth.getSession(); const user = session?.user
     if (!user) { router.push('/login'); return }
     const { data: profile } = await supabase.from('users').select('store_id,role').eq('id', user.id).single()
     if (profile?.role !== 'owner') { router.push('/login'); return }

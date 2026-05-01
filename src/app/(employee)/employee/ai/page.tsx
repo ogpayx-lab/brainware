@@ -53,7 +53,7 @@ export default function EmployeeAIPage() {
   useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: 'smooth' }) }, [messages])
 
   async function loadKnowledgeBase() {
-    const { data: { user } } = await supabase.auth.getUser()
+    const { data: { session } } = await supabase.auth.getSession(); const user = session?.user
     if (!user) { router.push('/login'); return }
 
     const { data: profile } = await supabase.from('users').select('store_id, full_name, stores(name)').eq('id', user.id).single()

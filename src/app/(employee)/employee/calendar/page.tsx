@@ -34,7 +34,7 @@ export default function CalendarioTurni() {
   useEffect(() => { loadData() }, [year, month])
 
   async function loadData() {
-    const { data: { user } } = await supabase.auth.getUser()
+    const { data: { session } } = await supabase.auth.getSession(); const user = session?.user
     if (!user) { router.push('/login'); return }
     setUserId(user.id)
     const { data: profile } = await supabase.from('users').select('store_id').eq('id', user.id).single()

@@ -51,7 +51,7 @@ export default function TeamPerformancePage() {
   useEffect(() => { if (selected) loadPerf() }, [selected, period])
 
   async function loadEmployees() {
-    const { data: { user } } = await supabase.auth.getUser()
+    const { data: { session } } = await supabase.auth.getSession(); const user = session?.user
     if (!user) { router.push('/login'); return }
     const { data: profile } = await supabase.from('users').select('store_id,role,stores(organization_id)').eq('id', user.id).single()
     if (profile?.role !== 'owner') { router.push('/login'); return }

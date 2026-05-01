@@ -59,7 +59,7 @@ export default function EmployeeOrdersPage() {
   useEffect(() => { init() }, [])
 
   async function init() {
-    const { data: { user } } = await supabase.auth.getUser()
+    const { data: { session } } = await supabase.auth.getSession(); const user = session?.user
     if (!user) { router.push('/login'); return }
     const { data: { session } } = await supabase.auth.getSession()
     const token = session?.access_token ?? ''
