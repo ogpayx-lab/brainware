@@ -27,7 +27,7 @@ export default function BulkLoadPage() {
   // Upload state
   const [uploading, setUploading] = useState(false)
   const [result, setResult] = useState<any>(null)
-  const [mode, setMode] = useState<'replace' | 'merge'>('merge')
+  const [mode, setMode] = useState<'replace' | 'merge' | 'inventory'>('inventory')
 
   useEffect(() => { loadAuth() }, [])
 
@@ -121,39 +121,63 @@ export default function BulkLoadPage() {
     if (!selectedId || parsedRows.length === 0) return
     setUploading(true)
     setResult(null)
-    let created = 0, updated = 0, errors = 0
+    let created = 0, updated = 0, errors = 0, zeroed = 0
 
     try {
       if (tab === 'store') {
-        // Store products
         if (mode === 'replace') {
+          // Cancella tutto e ricrea
           await supabase.from('products').delete().eq('store_id', selectedId)
-        }
-
-        for (const p of parsedRows as ParsedProduct[]) {
-          if (mode === 'merge') {
-            // Check if product exists
-            const { data: existing } = await supabase.from('products').select('id').eq('store_id', selectedId).ilike('name', p.name).single()
-            if (existing) {
+          for (const p of parsedRows as ParsedProduct[]) {
+            const { error } = await supabase.from('products').insert({
+              store_id: selectedId, name: p.name.trim(), category: p.category || 'other',
+              stock: p.stock, price: p.price || 0, barcode: p.barcode || null, is_active: true,
+            })
+            if (error) errors++; else created++
+          }
+        } else {
+          // MERGE / CONTEGGIO: aggiorna stock esistenti, crea nuovi
+          // 1. Prendi tutti i prodotti attuali dello store
+          const { data: allProducts } = await supabase.from('products').select('id, name').eq('store_id', selectedId)
+          const existingMap = new Map<string, string>() // name_lower -> id
+          for (const prod of (allProducts || [])) {
+            existingMap.set(prod.name.trim().toLowerCase(), prod.id)
+          }
+          
+          const matchedIds = new Set<string>()
+          
+          for (const p of parsedRows as ParsedProduct[]) {
+            const nameKey = p.name.trim().toLowerCase()
+            const existingId = existingMap.get(nameKey)
+            
+            if (existingId) {
+              // Prodotto esiste: aggiorna stock + campi
               const { error } = await supabase.from('products').update({
-                stock: p.stock, category: p.category || 'other',
+                stock: p.stock,
+                ...(p.category ? { category: p.category } : {}),
                 ...(p.price ? { price: p.price } : {}),
                 ...(p.barcode ? { barcode: p.barcode } : {}),
-              }).eq('id', existing.id)
+              }).eq('id', existingId)
               if (error) errors++; else updated++
+              matchedIds.add(existingId)
             } else {
+              // Prodotto nuovo: crea
               const { error } = await supabase.from('products').insert({
-                store_id: selectedId, name: p.name, category: p.category || 'other',
+                store_id: selectedId, name: p.name.trim(), category: p.category || 'other',
                 stock: p.stock, price: p.price || 0, barcode: p.barcode || null, is_active: true,
               })
               if (error) errors++; else created++
             }
-          } else {
-            const { error } = await supabase.from('products').insert({
-              store_id: selectedId, name: p.name, category: p.category || 'other',
-              stock: p.stock, price: p.price || 0, barcode: p.barcode || null, is_active: true,
-            })
-            if (error) errors++; else created++
+          }
+          
+          // Se mode è 'inventory': azzera stock dei prodotti NON nel file
+          if (mode === 'inventory') {
+            for (const [, prodId] of existingMap) {
+              if (!matchedIds.has(prodId)) {
+                await supabase.from('products').update({ stock: 0 }).eq('id', prodId)
+                zeroed++
+              }
+            }
           }
         }
       } else {
@@ -183,7 +207,7 @@ export default function BulkLoadPage() {
         }
       }
 
-      setResult({ created, updated, errors })
+      setResult({ created, updated, errors, zeroed })
     } catch (err: any) {
       setResult({ error: err.message })
     }
@@ -245,13 +269,21 @@ export default function BulkLoadPage() {
         <label style={{ fontSize: 13, fontWeight: 700, display: 'block', marginBottom: 8, color: 'var(--text-secondary)' }}>
           ⚙️ Modalità
         </label>
-        <div style={{ display: 'flex', gap: 6 }}>
-          <button onClick={() => setMode('merge')} style={{ flex: 1, padding: '8px 12px', borderRadius: 8, border: 'none', background: mode === 'merge' ? 'var(--brand-primary)' : 'var(--bg-surface)', color: mode === 'merge' ? 'white' : 'var(--text-secondary)', fontWeight: 600, cursor: 'pointer', fontSize: 13 }}>
-            🔄 Merge (aggiorna esistenti + crea nuovi)
+        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+          <button onClick={() => setMode('inventory')} style={{ flex: 1, minWidth: 140, padding: '8px 12px', borderRadius: 8, border: 'none', background: mode === 'inventory' ? 'var(--brand-primary)' : 'var(--bg-surface)', color: mode === 'inventory' ? 'white' : 'var(--text-secondary)', fontWeight: 600, cursor: 'pointer', fontSize: 13 }}>
+            📋 Conteggio Inventario
           </button>
-          <button onClick={() => setMode('replace')} style={{ flex: 1, padding: '8px 12px', borderRadius: 8, border: 'none', background: mode === 'replace' ? 'var(--danger)' : 'var(--bg-surface)', color: mode === 'replace' ? 'white' : 'var(--text-secondary)', fontWeight: 600, cursor: 'pointer', fontSize: 13 }}>
+          <button onClick={() => setMode('merge')} style={{ flex: 1, minWidth: 140, padding: '8px 12px', borderRadius: 8, border: 'none', background: mode === 'merge' ? 'var(--brand-primary)' : 'var(--bg-surface)', color: mode === 'merge' ? 'white' : 'var(--text-secondary)', fontWeight: 600, cursor: 'pointer', fontSize: 13 }}>
+            🔄 Merge
+          </button>
+          <button onClick={() => setMode('replace')} style={{ flex: 1, minWidth: 140, padding: '8px 12px', borderRadius: 8, border: 'none', background: mode === 'replace' ? 'var(--danger)' : 'var(--bg-surface)', color: mode === 'replace' ? 'white' : 'var(--text-secondary)', fontWeight: 600, cursor: 'pointer', fontSize: 13 }}>
             🗑️ Sostituisci tutto
           </button>
+        </div>
+        <div style={{ fontSize: 11, color: 'var(--text-tertiary)', marginTop: 6 }}>
+          {mode === 'inventory' && '📋 Aggiorna stock in base al conteggio reale. Prodotti non nel file → stock a 0.'}
+          {mode === 'merge' && '🔄 Aggiorna prodotti esistenti e crea quelli nuovi. Non tocca prodotti non nel file.'}
+          {mode === 'replace' && '🗑️ Cancella TUTTI i prodotti e li ricrea dal file. Attenzione: irreversibile!'}
         </div>
       </div>
 
@@ -352,9 +384,10 @@ export default function BulkLoadPage() {
           <div style={{ textAlign: 'center' }}>
             <div style={{ fontSize: 48, marginBottom: 8 }}>✅</div>
             <h3 style={{ color: 'var(--success)', marginBottom: 12 }}>Caricamento completato!</h3>
-            <div style={{ display: 'flex', justifyContent: 'center', gap: 24, fontSize: 14 }}>
+            <div style={{ display: 'flex', justifyContent: 'center', gap: 20, fontSize: 14, flexWrap: 'wrap' }}>
               <div><strong>{result.created}</strong> creati</div>
               <div><strong>{result.updated}</strong> aggiornati</div>
+              {result.zeroed > 0 && <div style={{ color: 'var(--warning)' }}><strong>{result.zeroed}</strong> azzerati</div>}
               <div style={{ color: result.errors > 0 ? 'var(--danger)' : 'var(--text-tertiary)' }}><strong>{result.errors}</strong> errori</div>
             </div>
             <div style={{ display: 'flex', gap: 8, justifyContent: 'center', marginTop: 16 }}>
