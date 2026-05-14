@@ -15,9 +15,13 @@ const TYPE_ROUTES: Record<string, string> = {
   stock_rejected: '/owner/warehouse/stock-movements',
   task_assigned: '/owner/tasks',
   task_completed: '/owner/tasks',
+  shift_open: '/owner/reports',
+  shift_checkin: '/owner/reports',
   shift_alert: '/owner/reports',
   checkout_missed: '/owner/reports',
   sale: '/owner/reports',
+  expense: '/owner/reports',
+  maintenance: '/owner/maintenance',
 }
 
 export function OwnerNotificationListener() {
