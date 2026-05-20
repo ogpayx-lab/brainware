@@ -600,11 +600,13 @@ export default function POSContent() {
             </div>
             {!canCheckout && <div style={{ fontSize: 12, color: 'var(--danger)', marginBottom: 8, textAlign: 'center' }}>⚠️ Inserisci il nome del cliente per procedere</div>}
             {mode === 'negozio' ? (
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-                <button className="btn btn-primary btn-lg" onClick={() => { setMobileCartOpen(false); if (validateCustomer()) setShowCash(true) }} disabled={saving} style={{ background: 'var(--success)' }}>💵 CONTANTI</button>
-                <button className="btn btn-primary btn-lg" onClick={() => { setMobileCartOpen(false); if (validateCustomer()) setShowPOS(true) }} disabled={saving} style={{ background: 'var(--accent-blue)' }}>💳 POS</button>
-              </div>
-              <button className="btn btn-lg" onClick={() => { setMobileCartOpen(false); if (validateCustomer()) { setSplitCash(''); setShowSplit(true) } }} disabled={saving} style={{ background: '#7C3AED', color: 'white', width: '100%', marginTop: 8 }}>💵+💳 SPLIT</button>
+              <>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+                  <button className="btn btn-primary btn-lg" onClick={() => { setMobileCartOpen(false); if (validateCustomer()) setShowCash(true) }} disabled={saving} style={{ background: 'var(--success)' }}>💵 CONTANTI</button>
+                  <button className="btn btn-primary btn-lg" onClick={() => { setMobileCartOpen(false); if (validateCustomer()) setShowPOS(true) }} disabled={saving} style={{ background: 'var(--accent-blue)' }}>💳 POS</button>
+                </div>
+                <button className="btn btn-lg" onClick={() => { setMobileCartOpen(false); if (validateCustomer()) { setSplitCash(''); setShowSplit(true) } }} disabled={saving} style={{ background: '#7C3AED', color: 'white', width: '100%', marginTop: 8 }}>💵+💳 SPLIT</button>
+              </>
             ) : (
               <button className="btn btn-primary btn-full btn-lg" disabled={saving || !shipping.name} onClick={() => completeSale('other')} style={{ opacity: deliverySteps.every(Boolean) ? 1 : 0.7 }}>
                 {saving ? 'Conferma...' : deliverySteps.every(Boolean) ? '✅ CONFERMA ORDINE' : `🚧 ${5 - deliverySteps.filter(Boolean).length} step mancanti`}
