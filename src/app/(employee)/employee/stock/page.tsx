@@ -107,108 +107,125 @@ export default function StockPage() {
     if (!storeId) return
     setSaving(true)
 
-    const activeEmpStr = typeof window !== 'undefined' ? localStorage.getItem('brainware_active_employee') : null
-    const activeEmp = activeEmpStr ? JSON.parse(activeEmpStr) : null
-    const empName = activeEmp?.name || 'Dipendente'
+    try {
+      const activeEmpStr = typeof window !== 'undefined' ? localStorage.getItem('brainware_active_employee') : null
+      const activeEmp = activeEmpStr ? JSON.parse(activeEmpStr) : null
+      const empName = activeEmp?.name || 'Dipendente'
 
-    if (isTransfer) {
-      const reqItems = activeRequest.stock_request_items || []
+      if (isTransfer) {
+        const reqItems = activeRequest.stock_request_items || []
 
-      for (const item of reqItems) {
-        const prod = products.find(p => p.name.toLowerCase() === item.product_name?.toLowerCase() || p.id === item.product_id)
-        const counted = prod ? (countedQtys[prod.id] ?? 0) : 0
-        await supabase.from('stock_request_items').update({ qty_requested: counted }).eq('id', item.id)
-      }
-
-      const allMatch = reqItems.every((item: any) => {
-        const prod = products.find(p => p.name.toLowerCase() === item.product_name?.toLowerCase() || p.id === item.product_id)
-        return (prod ? (countedQtys[prod.id] ?? 0) : 0) === (item.qty_sent ?? 0)
-      })
-
-      if (allMatch) {
         for (const item of reqItems) {
           const prod = products.find(p => p.name.toLowerCase() === item.product_name?.toLowerCase() || p.id === item.product_id)
           const counted = prod ? (countedQtys[prod.id] ?? 0) : 0
-          await supabase.from('stock_request_items').update({ qty_delivered: counted }).eq('id', item.id)
-          if (prod) await supabase.from('products').update({ stock: prod.stock + counted }).eq('id', prod.id)
+          await supabase.from('stock_request_items').update({ qty_requested: counted }).eq('id', item.id)
         }
-        await supabase.from('stock_requests').update({
-          status: 'approved', approved_at: new Date().toISOString(),
-          notes: `✅ Auto-approvato — conteggio ${empName} corrisponde`,
-        }).eq('id', activeRequest.id)
 
-        const detailList = reqItems.map((item: any) => {
+        const allMatch = reqItems.every((item: any) => {
           const prod = products.find(p => p.name.toLowerCase() === item.product_name?.toLowerCase() || p.id === item.product_id)
-          return `${item.product_name} ×${prod ? (countedQtys[prod.id] ?? 0) : 0}`
-        }).join(', ')
-
-        await supabase.from('notifications').insert({
-          store_id: storeId, type: 'stock_approved', title: '✅ Ricarica completata',
-          message: `${empName} ha contato ${reqItems.length} prodotti — match confermato. Dettaglio: ${detailList}. Stock aggiornato.`,
+          return (prod ? (countedQtys[prod.id] ?? 0) : 0) === (item.qty_sent ?? 0)
         })
-        setDoneMessage('✅ Conteggio corretto! Lo stock è stato aggiornato automaticamente.')
-      } else {
-        const mismatches = reqItems
-          .filter((item: any) => {
+
+        if (allMatch) {
+          for (const item of reqItems) {
             const prod = products.find(p => p.name.toLowerCase() === item.product_name?.toLowerCase() || p.id === item.product_id)
-            return (prod ? (countedQtys[prod.id] ?? 0) : 0) !== (item.qty_sent ?? 0)
-          })
-          .map((item: any) => {
+            const counted = prod ? (countedQtys[prod.id] ?? 0) : 0
+            await supabase.from('stock_request_items').update({ qty_delivered: counted }).eq('id', item.id)
+            if (prod) await supabase.from('products').update({ stock: prod.stock + counted }).eq('id', prod.id)
+          }
+          await supabase.from('stock_requests').update({
+            status: 'approved', approved_at: new Date().toISOString(),
+            notes: `✅ Auto-approvato — conteggio ${empName} corrisponde`,
+          }).eq('id', activeRequest.id)
+
+          const detailList = reqItems.map((item: any) => {
             const prod = products.find(p => p.name.toLowerCase() === item.product_name?.toLowerCase() || p.id === item.product_id)
-            return `${item.product_name}: inviati ${item.qty_sent}, contati ${prod ? (countedQtys[prod.id] ?? 0) : 0}`
+            return `${item.product_name} ×${prod ? (countedQtys[prod.id] ?? 0) : 0}`
+          }).join(', ')
+
+          await supabase.from('notifications').insert({
+            store_id: storeId, type: 'stock_approved', title: '✅ Ricarica completata',
+            message: `${empName} ha contato ${reqItems.length} prodotti — match confermato. Dettaglio: ${detailList}. Stock aggiornato.`,
           })
+          setDoneMessage('✅ Conteggio corretto! Lo stock è stato aggiornato automaticamente.')
+        } else {
+          const mismatches = reqItems
+            .filter((item: any) => {
+              const prod = products.find(p => p.name.toLowerCase() === item.product_name?.toLowerCase() || p.id === item.product_id)
+              return (prod ? (countedQtys[prod.id] ?? 0) : 0) !== (item.qty_sent ?? 0)
+            })
+            .map((item: any) => {
+              const prod = products.find(p => p.name.toLowerCase() === item.product_name?.toLowerCase() || p.id === item.product_id)
+              return `${item.product_name}: inviati ${item.qty_sent}, contati ${prod ? (countedQtys[prod.id] ?? 0) : 0}`
+            })
 
-        await supabase.from('stock_requests').update({
-          status: 'owner_review', notes: `⚠️ Discrepanza — ${empName} ha contato quantità diverse`,
-        }).eq('id', activeRequest.id)
+          await supabase.from('stock_requests').update({
+            status: 'owner_review', notes: `⚠️ Discrepanza — ${empName} ha contato quantità diverse`,
+          }).eq('id', activeRequest.id)
 
-        await supabase.from('notifications').insert({
-          store_id: storeId, type: 'stock_counted', title: '⚠️ Discrepanza conteggio',
-          message: `${empName}: ${mismatches.join(', ')}`,
-        })
-        setDoneMessage('⚠️ Conteggio inviato all\'owner — alcune quantità non corrispondono.')
-      }
-    } else {
-      // === MANUAL FLOW ===
-      const { data: req } = await supabase
-        .from('stock_requests')
-        .insert({
-          shift_id: shiftId, store_id: storeId, user_id: userId,
-          status: 'approved', approved_at: new Date().toISOString(),
-          notes: `✅ Ricarica manuale da ${empName} — auto-approvata`,
-        })
-        .select('id').single()
-
-      if (!req) { setSaving(false); return }
-
-      const items = selectedProducts.map(p => ({
-        stock_request_id: req.id,
-        product_id: p.id,
-        product_name: p.name,
-        stock_before: p.stock,
-        qty_requested: countedQtys[p.id] || 0,
-        qty_delivered: countedQtys[p.id] || 0,
-      }))
-      await supabase.from('stock_request_items').insert(items)
-
-      for (const item of items) {
-        if (item.qty_delivered > 0) {
-          await supabase.from('products').update({
-            stock: (products.find(p => p.id === item.product_id)?.stock || 0) + item.qty_delivered,
-          }).eq('id', item.product_id)
+          await supabase.from('notifications').insert({
+            store_id: storeId, type: 'stock_counted', title: '⚠️ Discrepanza conteggio',
+            message: `${empName}: ${mismatches.join(', ')}`,
+          })
+          setDoneMessage('⚠️ Conteggio inviato all\'owner — alcune quantità non corrispondono.')
         }
+      } else {
+        // === MANUAL FLOW ===
+        const { data: req, error: reqError } = await supabase
+          .from('stock_requests')
+          .insert({
+            shift_id: shiftId, store_id: storeId, user_id: userId,
+            status: 'approved', approved_at: new Date().toISOString(),
+            notes: `✅ Ricarica manuale da ${empName} — auto-approvata`,
+          })
+          .select('id').single()
+
+        if (reqError || !req) {
+          console.error('Stock request insert error:', reqError)
+          alert(`❌ Errore nel salvataggio: ${reqError?.message || 'Nessun dato restituito'}.\n\nI tuoi dati NON sono stati persi. Riprova.`)
+          setSaving(false)
+          return
+        }
+
+        const items = selectedProducts.map(p => ({
+          stock_request_id: req.id,
+          product_id: p.id,
+          product_name: p.name,
+          stock_before: p.stock,
+          qty_requested: countedQtys[p.id] || 0,
+          qty_delivered: countedQtys[p.id] || 0,
+        }))
+        const { error: itemsError } = await supabase.from('stock_request_items').insert(items)
+        if (itemsError) {
+          console.error('Stock items insert error:', itemsError)
+          alert(`❌ Errore nell'inserimento prodotti: ${itemsError.message}.\n\nRiprova.`)
+          setSaving(false)
+          return
+        }
+
+        for (const item of items) {
+          if (item.qty_delivered > 0) {
+            await supabase.from('products').update({
+              stock: (products.find(p => p.id === item.product_id)?.stock || 0) + item.qty_delivered,
+            }).eq('id', item.product_id)
+          }
+        }
+
+        const detailList = items.map(i => `${i.product_name} ×${i.qty_delivered}`).join(', ')
+        await supabase.from('notifications').insert({
+          store_id: storeId, type: 'stock_approved', title: '✅ Ricarica Stock completata',
+          message: `${empName} ha ricaricato ${items.length} prodotti (${items.reduce((s, i) => s + i.qty_delivered, 0)} pezzi). Dettaglio: ${detailList}.`,
+        })
+        setDoneMessage('✅ Stock aggiornato! L\'owner è stato notificato.')
       }
 
-      const detailList = items.map(i => `${i.product_name} ×${i.qty_delivered}`).join(', ')
-      await supabase.from('notifications').insert({
-        store_id: storeId, type: 'stock_approved', title: '✅ Ricarica Stock completata',
-        message: `${empName} ha ricaricato ${items.length} prodotti (${items.reduce((s, i) => s + i.qty_delivered, 0)} pezzi). Dettaglio: ${detailList}.`,
-      })
-      setDoneMessage('✅ Stock aggiornato! L\'owner è stato notificato.')
+      setDone(true)
+      setSaving(false)
+    } catch (err: any) {
+      console.error('Submit error:', err)
+      alert(`❌ Errore imprevisto: ${err.message || 'Errore sconosciuto'}.\n\nI tuoi dati NON sono stati persi. Riprova.`)
+      setSaving(false)
     }
-
-    setDone(true)
-    setSaving(false)
   }
 
   // === FILTERS ===
