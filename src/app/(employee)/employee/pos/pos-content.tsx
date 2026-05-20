@@ -31,6 +31,7 @@ export default function POSContent() {
   const [search, setSearch] = useState('')
   const [discount, setDiscount] = useState({ type: 'pct' as 'pct' | 'fixed' | 'promo', value: '', applied: false, promoCode: '', promoId: '', promoDiscount: 0 })
   const [customer, setCustomer] = useState({ name: '', nationality: 'Italia', channel: 'Walk-in', email: '' })
+  const [natSearch, setNatSearch] = useState(false)
   const [showCash, setShowCash] = useState(false)
   const [showPOS, setShowPOS] = useState(false)
   const [cashReceived, setCashReceived] = useState('')
@@ -474,29 +475,47 @@ export default function POSContent() {
               <input className="input" placeholder="Nome cliente *" value={customer.name} onChange={e => { setCustomer(c => ({ ...c, name: e.target.value })); setCustomerError('') }} style={{ height: 34, fontSize: 13, borderColor: customerError ? 'var(--danger)' : undefined }} />
               {customerError && <div style={{ fontSize: 12, color: 'var(--danger)' }}>⚠️ {customerError}</div>}
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6 }}>
-                <select className="input" value={customer.nationality} onChange={e => setCustomer(c => ({ ...c, nationality: e.target.value }))} style={{ height: 34, fontSize: 12 }}>
-                  {[
-                    'Afghanistan', 'Albania', 'Algeria', 'Andorra', 'Angola', 'Antigua e Barbuda', 'Arabia Saudita', 'Argentina', 'Armenia', 'Australia',
-                    'Austria', 'Azerbaigian', 'Bahamas', 'Bahrain', 'Bangladesh', 'Barbados', 'Belgio', 'Belize', 'Benin', 'Bhutan',
-                    'Bielorussia', 'Bolivia', 'Bosnia ed Erzegovina', 'Botswana', 'Brasile', 'Brunei', 'Bulgaria', 'Burkina Faso', 'Burundi', 'Cambogia',
-                    'Camerun', 'Canada', 'Capo Verde', 'Ciad', 'Cile', 'Cina', 'Cipro', 'Colombia', 'Comore', 'Congo',
-                    'Corea del Nord', 'Corea del Sud', 'Costa Rica', "Costa d'Avorio", 'Croazia', 'Cuba', 'Danimarca', 'Dominica', 'Ecuador', 'Egitto',
-                    'El Salvador', 'Emirati Arabi Uniti', 'Eritrea', 'Estonia', 'Eswatini', 'Etiopia', 'Fiji', 'Filippine', 'Finlandia', 'Francia',
-                    'Gabon', 'Gambia', 'Georgia', 'Germania', 'Ghana', 'Giamaica', 'Giappone', 'Gibuti', 'Giordania', 'Grecia',
-                    'Grenada', 'Guatemala', 'Guinea', 'Guinea-Bissau', 'Guinea Equatoriale', 'Guyana', 'Haiti', 'Honduras', 'India', 'Indonesia',
-                    'Iran', 'Iraq', 'Irlanda', 'Islanda', 'Israele', 'Italia', 'Kazakistan', 'Kenya', 'Kirghizistan', 'Kiribati',
-                    'Kuwait', 'Laos', 'Lesotho', 'Lettonia', 'Libano', 'Liberia', 'Libia', 'Liechtenstein', 'Lituania', 'Lussemburgo',
-                    'Madagascar', 'Malawi', 'Malaysia', 'Maldive', 'Mali', 'Malta', 'Marocco', 'Mauritania', 'Mauritius', 'Messico',
-                    'Micronesia', 'Moldavia', 'Monaco', 'Mongolia', 'Montenegro', 'Mozambico', 'Myanmar', 'Namibia', 'Nauru', 'Nepal',
-                    'Nicaragua', 'Niger', 'Nigeria', 'Norvegia', 'Nuova Zelanda', 'Oman', 'Paesi Bassi', 'Pakistan', 'Palau', 'Panama',
-                    'Papua Nuova Guinea', 'Paraguay', 'Per\u00f9', 'Polonia', 'Portogallo', 'Qatar', 'Regno Unito', 'Rep. Ceca', 'Rep. Dominicana', 'Romania',
-                    'Ruanda', 'Russia', 'Saint Kitts e Nevis', 'Saint Lucia', 'Saint Vincent', 'Samoa', 'San Marino', 'S\u00e3o Tom\u00e9', 'Senegal', 'Serbia',
-                    'Seychelles', 'Sierra Leone', 'Singapore', 'Siria', 'Slovacchia', 'Slovenia', 'Somalia', 'Spagna', 'Sri Lanka', 'Stati Uniti',
-                    'Sudafrica', 'Sudan', 'Sudan del Sud', 'Suriname', 'Svezia', 'Svizzera', 'Tagikistan', 'Tanzania', 'Thailandia', 'Timor Est',
-                    'Togo', 'Tonga', 'Trinidad e Tobago', 'Tunisia', 'Turchia', 'Turkmenistan', 'Tuvalu', 'Ucraina', 'Uganda', 'Ungheria',
-                    'Uruguay', 'Uzbekistan', 'Vanuatu', 'Venezuela', 'Vietnam', 'Yemen', 'Zambia', 'Zimbabwe'
-                  ].map(n => <option key={n}>{n}</option>)}
-                </select>
+                <div style={{ position: 'relative' }}>
+                  <input className="input" placeholder="🔍 Paese..." value={customer.nationality}
+                    onChange={e => { setCustomer(c => ({ ...c, nationality: e.target.value })); setNatSearch(true) }}
+                    onFocus={() => setNatSearch(true)}
+                    style={{ height: 34, fontSize: 12 }} />
+                  {natSearch && customer.nationality && (() => {
+                    const countries = [
+                      'Afghanistan','Albania','Algeria','Andorra','Angola','Arabia Saudita','Argentina','Armenia','Australia',
+                      'Austria','Azerbaigian','Bahamas','Bahrain','Bangladesh','Belgio','Bielorussia','Bolivia','Bosnia ed Erzegovina',
+                      'Botswana','Brasile','Bulgaria','Burkina Faso','Cambogia','Camerun','Canada','Ciad','Cile','Cina','Cipro',
+                      'Colombia','Corea del Sud','Costa Rica',"Costa d'Avorio",'Croazia','Cuba','Danimarca','Ecuador','Egitto',
+                      'El Salvador','Emirati Arabi Uniti','Estonia','Etiopia','Filippine','Finlandia','Francia',
+                      'Georgia','Germania','Ghana','Giamaica','Giappone','Giordania','Grecia',
+                      'Guatemala','Guinea','Haiti','Honduras','India','Indonesia',
+                      'Iran','Iraq','Irlanda','Islanda','Israele','Italia','Kazakistan','Kenya',
+                      'Kuwait','Laos','Lettonia','Libano','Libia','Liechtenstein','Lituania','Lussemburgo',
+                      'Madagascar','Malawi','Malaysia','Maldive','Mali','Malta','Marocco','Mauritius','Messico',
+                      'Moldavia','Monaco','Mongolia','Montenegro','Mozambico','Myanmar','Namibia','Nepal',
+                      'Nicaragua','Niger','Nigeria','Norvegia','Nuova Zelanda','Oman','Paesi Bassi','Pakistan','Panama',
+                      'Paraguay','Perù','Polonia','Portogallo','Qatar','Regno Unito','Rep. Ceca','Rep. Dominicana','Romania',
+                      'Russia','Senegal','Serbia','Singapore','Siria','Slovacchia','Slovenia','Somalia','Spagna','Sri Lanka','Stati Uniti',
+                      'Sudafrica','Sudan','Svezia','Svizzera','Tanzania','Thailandia',
+                      'Togo','Trinidad e Tobago','Tunisia','Turchia','Ucraina','Uganda','Ungheria',
+                      'Uruguay','Uzbekistan','Venezuela','Vietnam','Yemen','Zambia','Zimbabwe'
+                    ]
+                    const filtered = countries.filter(c => c.toLowerCase().startsWith(customer.nationality.toLowerCase()))
+                    if (filtered.length === 0 || (filtered.length === 1 && filtered[0] === customer.nationality)) return null
+                    return (
+                      <div style={{ position:'absolute', top:'100%', left:0, right:0, zIndex:999, background:'var(--bg-primary)', border:'1px solid var(--border-default)', borderRadius:8, maxHeight:160, overflowY:'auto', boxShadow:'0 4px 12px rgba(0,0,0,0.15)' }}>
+                        {filtered.slice(0, 8).map(c => (
+                          <div key={c} onClick={() => { setCustomer(prev => ({ ...prev, nationality: c })); setNatSearch(false) }}
+                            style={{ padding:'8px 12px', fontSize:13, cursor:'pointer', borderBottom:'1px solid var(--border-subtle)' }}
+                            onMouseEnter={e => (e.currentTarget.style.background = 'var(--bg-surface)')}
+                            onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}>
+                            {c}
+                          </div>
+                        ))}
+                      </div>
+                    )
+                  })()}
+                </div>
                 <select className="input" value={customer.channel} onChange={e => setCustomer(c => ({ ...c, channel: e.target.value }))} style={{ height: 34, fontSize: 12 }}>
                   {['Walk-in', 'Usual Customer', 'Google', 'Social', 'AI/ChatGPT/Gemini Etc..', 'Friends'].map(c => <option key={c}>{c}</option>)}
                 </select>
