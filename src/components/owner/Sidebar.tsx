@@ -11,6 +11,7 @@ const NAV_MAIN = [
   { href: '/owner/products',              icon: '📦', label: 'Prodotti' },
   { href: '/owner/analytics/products',    icon: '📈', label: 'Prodotti Analytics' },
   { href: '/owner/analytics/team',        icon: '👥', label: 'Team Performance' },
+  { href: '/owner/members',               icon: '💳', label: 'Members' },
 ]
 const NAV_MAGAZZINO = [
   { href: '/owner/warehouse/central',          icon: '🏭', label: 'Centrale' },
