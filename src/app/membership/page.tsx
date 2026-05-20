@@ -74,7 +74,7 @@ export default function MembershipPage() {
   }
 
   async function handleRegister() {
-    if (!storeId || !form.first_name || !form.last_name || !form.phone || !form.privacy) return
+    if (!storeId || !form.first_name || !form.last_name || !form.phone || !form.email || !form.privacy) return
     setSaving(true); setError('')
     const fullName = `${form.first_name} ${form.last_name}`
     const { data, error: err } = await supabase.from('fidelity_cards').insert({
@@ -84,6 +84,17 @@ export default function MembershipPage() {
     }).select('*').single()
     if (err) { setError(err.message); setSaving(false); return }
     setCard(data); setScreen('success'); setSaving(false); startTimeout(25000)
+    // Send welcome email if email provided
+    if (form.email) {
+      fetch('/api/send-membership-email', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          to: form.email, customerName: fullName,
+          cardNumber: data.card_number, storeName, points: 0,
+        }),
+      }).catch(() => {})
+    }
     // Notify store
     await supabase.from('notifications').insert({
       store_id: storeId, type: 'fidelity',
@@ -161,8 +172,8 @@ export default function MembershipPage() {
         </div>
 
         <div style={styles.field}>
-          <label style={styles.label}>Email <span style={{color:'#9CA3AF',fontWeight:400}}>(optional)</span></label>
-          <input style={styles.input} type="email" placeholder="john@email.com" value={form.email}
+          <label style={styles.label}>Email *</label>
+          <input style={styles.input} type="email" placeholder="john@email.com" value={form.email} required
             onChange={e => setForm(f => ({...f, email: e.target.value}))} />
         </div>
 
@@ -206,8 +217,8 @@ export default function MembershipPage() {
 
         <button onClick={handleRegister} style={{
           ...styles.btnPrimary,
-          opacity: (!form.first_name || !form.last_name || !form.phone || !form.privacy) ? 0.5 : 1,
-        }} disabled={saving || !form.first_name || !form.last_name || !form.phone || !form.privacy}>
+          opacity: (!form.first_name || !form.last_name || !form.phone || !form.email || !form.privacy) ? 0.5 : 1,
+        }} disabled={saving || !form.first_name || !form.last_name || !form.phone || !form.email || !form.privacy}>
           {saving ? 'Creating...' : '🎉 Create My Membership'}
         </button>
       </div>
