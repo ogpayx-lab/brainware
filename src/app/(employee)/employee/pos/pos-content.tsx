@@ -34,6 +34,8 @@ export default function POSContent() {
   const [natSearch, setNatSearch] = useState(false)
   const [showCash, setShowCash] = useState(false)
   const [showPOS, setShowPOS] = useState(false)
+  const [showSplit, setShowSplit] = useState(false)
+  const [splitCash, setSplitCash] = useState('')
   const [cashReceived, setCashReceived] = useState('')
   const [posRef, setPosRef] = useState('')
   const [saving, setSaving] = useState(false)
@@ -254,7 +256,8 @@ export default function POSContent() {
       subtotal: mode === 'autoconsumo' ? 0 : subtotal, discount_amount: mode === 'autoconsumo' ? 0 : discAmt, discount_pct: mode === 'autoconsumo' ? 0 : discPct,
       total: autoconsumoTotal,
       cash_received: null, cash_change: null,
-      pos_reference: method === 'pos' ? posRef : null,
+      split_cash_amount: method === 'split' ? parseFloat(splitCash) || 0 : null,
+      pos_reference: (method === 'pos' || method === 'split') ? posRef : null,
       customer_name: customer.name || null, customer_nationality: customer.nationality || null,
       acquisition_channel: channel as any,
       customer_email: customer.email || null,
@@ -302,7 +305,7 @@ export default function POSContent() {
     setCart([])
     setCustomer({ name: '', nationality: 'Italia', channel: 'Walk-in', email: '' })
     setDiscount({ type: 'pct', value: '', applied: false, promoCode: '', promoId: '', promoDiscount: 0 })
-    setCashReceived(''); setPosRef(''); setShowCash(false); setShowPOS(false)
+    setCashReceived(''); setPosRef(''); setSplitCash(''); setShowCash(false); setShowPOS(false); setShowSplit(false)
     setSaving(false)
     loadData()
   }
@@ -601,6 +604,7 @@ export default function POSContent() {
                 <button className="btn btn-primary btn-lg" onClick={() => { setMobileCartOpen(false); if (validateCustomer()) setShowCash(true) }} disabled={saving} style={{ background: 'var(--success)' }}>💵 CONTANTI</button>
                 <button className="btn btn-primary btn-lg" onClick={() => { setMobileCartOpen(false); if (validateCustomer()) setShowPOS(true) }} disabled={saving} style={{ background: 'var(--accent-blue)' }}>💳 POS</button>
               </div>
+              <button className="btn btn-lg" onClick={() => { setMobileCartOpen(false); if (validateCustomer()) { setSplitCash(''); setShowSplit(true) } }} disabled={saving} style={{ background: '#7C3AED', color: 'white', width: '100%', marginTop: 8 }}>💵+💳 SPLIT</button>
             ) : (
               <button className="btn btn-primary btn-full btn-lg" disabled={saving || !shipping.name} onClick={() => completeSale('other')} style={{ opacity: deliverySteps.every(Boolean) ? 1 : 0.7 }}>
                 {saving ? 'Conferma...' : deliverySteps.every(Boolean) ? '✅ CONFERMA ORDINE' : `🚧 ${5 - deliverySteps.filter(Boolean).length} step mancanti`}
@@ -690,6 +694,43 @@ export default function POSContent() {
           </div>
         </div>
       )}
+      {/* Split modal */}
+      {showSplit && (
+        <div className="modal-overlay">
+          <div className="modal">
+            <div style={{ marginBottom: 16 }}>
+              <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Pagamento Split</div>
+              <div style={{ fontSize: 28, fontFamily: 'var(--font-heading)', fontWeight: 700, marginTop: 8 }}>{fmt(total)}</div>
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 16 }}>
+              <div>
+                <label style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-secondary)', display: 'block', marginBottom: 4 }}>💵 Contanti</label>
+                <input className="input" type="number" step="0.01" placeholder="0.00" value={splitCash}
+                  onChange={e => setSplitCash(e.target.value)}
+                  style={{ fontSize: 20, fontWeight: 700, textAlign: 'center', height: 48 }} />
+              </div>
+              <div>
+                <label style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-secondary)', display: 'block', marginBottom: 4 }}>💳 POS</label>
+                <div style={{ fontSize: 20, fontWeight: 700, textAlign: 'center', height: 48, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--bg-surface)', borderRadius: 8, color: (total - (parseFloat(splitCash) || 0)) >= 0 ? 'var(--accent-blue)' : 'var(--danger)' }}>
+                  {fmt(total - (parseFloat(splitCash) || 0))}
+                </div>
+              </div>
+            </div>
+            <div className="input-group" style={{ marginBottom: 16 }}>
+              <label className="input-label">Rif. POS (opzionale)</label>
+              <input className="input" placeholder="#TXN-..." value={posRef} onChange={e => setPosRef(e.target.value)} />
+            </div>
+            {(parseFloat(splitCash) || 0) <= 0 && <div style={{ fontSize: 12, color: 'var(--danger)', marginBottom: 8 }}>⚠️ Inserisci l'importo in contanti</div>}
+            {(total - (parseFloat(splitCash) || 0)) < 0 && <div style={{ fontSize: 12, color: 'var(--danger)', marginBottom: 8 }}>⚠️ L'importo contanti supera il totale</div>}
+            <div style={{ display: 'flex', gap: 8 }}>
+              <button className="btn btn-secondary" style={{ flex: 1 }} onClick={() => setShowSplit(false)}>Annulla</button>
+              <button className="btn btn-primary" style={{ flex: 2, background: '#7C3AED' }}
+                disabled={saving || (parseFloat(splitCash) || 0) <= 0 || (total - (parseFloat(splitCash) || 0)) < 0}
+                onClick={() => completeSale('split' as any)}>💵+💳 Conferma Split</button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Cronologia vendite modal */}
       {showHistory && (
@@ -712,7 +753,7 @@ export default function POSContent() {
                       <span style={{ fontSize: 11, color: 'var(--text-tertiary)' }}>{new Date(s.created_at).toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' })}</span>
                     </div>
                     <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginBottom: 4 }}>
-                      Cliente: {s.customer_name || 'Anonimo'} · {s.payment_method === 'cash' ? '💵 Contanti' : '💳 POS'}
+                      Cliente: {s.customer_name || 'Anonimo'} · {s.payment_method === 'cash' ? '💵 Contanti' : s.payment_method === 'split' ? '💵+💳 Split' : '💳 POS'}
                     </div>
                     <div style={{ fontSize: 11, color: 'var(--text-tertiary)', marginBottom: 6 }}>
                       {s.sale_items?.map(it => `${it.product_name} ×${it.qty}`).join(' · ')}
