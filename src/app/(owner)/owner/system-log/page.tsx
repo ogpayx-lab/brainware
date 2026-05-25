@@ -194,6 +194,7 @@ const TABS: TabDef[] = [
     columns: [
       { key: '_date', label: 'Data', width: 85, render: (_, r) => new Date(r.created_at).toLocaleDateString('it-IT') },
       { key: '_time', label: 'Ora', width: 55, render: (_, r) => new Date(r.created_at).toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' }) },
+      { key: '_store', label: 'Negozio', width: 120, render: (_, r) => r._storeName || '' },
       { key: 'payment_method', label: 'Pagamento', width: 70, editable: true },
       { key: 'total', label: 'Totale', width: 70, editable: true, type: 'number' },
       { key: '_employee', label: 'Referente', width: 100, render: (_, r) => r._userName || '' },
@@ -209,6 +210,7 @@ const TABS: TabDef[] = [
     columns: [
       { key: '_date', label: 'Data', width: 85, render: (_, r) => new Date(r.created_at).toLocaleDateString('it-IT') },
       { key: '_time', label: 'Ora', width: 55, render: (_, r) => new Date(r.created_at).toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' }) },
+      { key: '_store', label: 'Negozio', width: 120, render: (_, r) => r._storeName || '' },
       { key: 'product_name', label: 'Item Name', width: 180, editable: true },
       { key: 'qty', label: 'Quantity', width: 70, editable: true, type: 'number' },
       { key: 'notes', label: 'Note', width: 150, editable: true },
@@ -219,6 +221,7 @@ const TABS: TabDef[] = [
     select: 'id, date, shift_period, clean_floor, clean_door, clean_bathroom, clean_bancone, clean_shelfs, clean_products, throw_trash, expired_products, price_labels, maintenance_supplies, vending_on_off, vending_ricarica, deposits_delivery, store_id, user_id, created_at',
     orderBy: 'date',
     columns: [
+      { key: '_store', label: 'Negozio', width: 120, render: (_, r) => r._storeName || '' },
       { key: 'date', label: 'Data', width: 85, editable: true },
       { key: 'shift_period', label: 'Turno', width: 70, editable: true },
       { key: 'clean_floor', label: 'Floor', width: 45, editable: true, render: (v) => v ? '✓' : '✗' },
@@ -239,6 +242,7 @@ const TABS: TabDef[] = [
     select: 'id, product_name, category, counted_qty, expected_qty, match, store_id, user_id, created_at',
     orderBy: 'created_at',
     columns: [
+      { key: '_store', label: 'Negozio', width: 120, render: (_, r) => r._storeName || '' },
       { key: '_date', label: 'Data', width: 85, render: (_, r) => new Date(r.created_at).toLocaleDateString('it-IT') },
       { key: 'product_name', label: 'Prodotto', width: 180, editable: true },
       { key: 'category', label: 'Categoria', width: 100, editable: true },
@@ -326,6 +330,7 @@ export default function SystemLogPage() {
   const [saving, setSaving] = useState(false)
   const [savedMsg, setSavedMsg] = useState('')
   const [warehouseIds, setWarehouseIds] = useState<string[]>([])
+  const [currentUserId, setCurrentUserId] = useState<string>('')
   const editRef = useRef<HTMLInputElement>(null)
 
   const tab = TABS.find(t => t.key === activeTab)!
@@ -336,6 +341,7 @@ export default function SystemLogPage() {
   async function loadStores() {
     const { data: { session } } = await supabase.auth.getSession(); const user = session?.user
     if (!user) { router.push('/login'); return }
+    setCurrentUserId(user.id)
     const { data: profile } = await supabase.from('users').select('store_id, role').eq('id', user.id).single()
     if (profile?.role !== 'owner') { router.push('/login'); return }
     const { data: myStore } = await supabase.from('stores').select('organization_id').eq('id', profile.store_id).single()
@@ -654,23 +660,25 @@ export default function SystemLogPage() {
   async function addRow() {
     const storeId = selectedStore !== 'all' ? selectedStore : orgStoreIds[0]
     if (!storeId && tab.table !== 'sale_items') { setSavedMsg('✗ Seleziona uno store'); setTimeout(() => setSavedMsg(''), 3000); return }
+    if (tab.table === 'users') { setSavedMsg('✗ Usa la pagina Dipendenti per aggiungere personale'); setTimeout(() => setSavedMsg(''), 4000); return }
+    if (tab.table === 'notifications') { setSavedMsg('✗ Le notifiche sono generate dal sistema'); setTimeout(() => setSavedMsg(''), 4000); return }
     const now = new Date().toISOString()
+    const id = crypto.randomUUID()
     let newRow: any = {}
     switch (tab.table) {
-      case 'products': newRow = { name: '', price: 0, category: '', stock: 0, unit: 'pz', barcode: '', is_active: true, store_id: storeId, created_at: now }; break
-      case 'users': newRow = { full_name: '', pin: null, role: 'employee', is_active: true, store_id: storeId, created_at: now }; break
-      case 'sales': newRow = { total: 0, payment_method: 'cash', movement_type: 'sale', customer_name: null, customer_nationality: null, acquisition_channel: null, invoice_number: null, store_id: storeId, created_at: now }; break
-      case 'sale_items': newRow = { product_name: '', qty: 1, unit_price: 0, line_total: 0 }; break
-      case 'shifts': newRow = { opened_at: now, period: 'morning', status: 'open', fce: 0, fcu: null, deposit_actual: null, store_id: storeId, created_at: now }; break
-      case 'expenses': newRow = { amount: 0, description: '', store_id: storeId, created_at: now }; break
-      case 'fidelity_cards': newRow = { customer_name: '', phone: '', email: '', nationality: '', how_found: '', is_resident: false, card_number: `FC-${Date.now()}`, points: 0, store_id: storeId, created_at: now }; break
-      case 'day_off_requests': newRow = { date: new Date().toISOString().split('T')[0], notes: '', status: 'pending', store_id: storeId, created_at: now }; break
-      case 'warehouse_movements': newRow = { product_name: '', movement_type: 'restock', qty: 0, destination_name: '', notes: '', warehouse_id: warehouseIds[0] || null, created_at: now }; break
-      case 'tasks': newRow = { description: '', status: 'pending', priority: 'normal', due_date: null, store_id: storeId, created_at: now }; break
-      case 'maintenance_logs': newRow = { title: '', notes: '', completed: false, store_id: storeId, created_at: now }; break
-      case 'daily_checklists': newRow = { date: new Date().toISOString().split('T')[0], shift_period: 'morning', clean_floor: false, clean_door: false, clean_bathroom: false, clean_bancone: false, clean_shelfs: false, clean_products: false, throw_trash: false, expired_products: false, price_labels: false, maintenance_supplies: false, vending_on_off: false, vending_ricarica: false, deposits_delivery: false, store_id: storeId, created_at: now }; break
-      case 'inventory_counts': newRow = { product_name: '', category: '', counted_qty: 0, expected_qty: 0, match: false, store_id: storeId, created_at: now }; break
-      default: newRow = { store_id: storeId, created_at: now }
+      case 'products': newRow = { id, name: '', price: 0, category: '', stock: 0, unit: 'pz', barcode: '', is_active: true, store_id: storeId, created_at: now }; break
+      case 'sales': newRow = { id, total: 0, payment_method: 'cash', movement_type: 'sale', customer_name: null, customer_nationality: null, acquisition_channel: null, invoice_number: null, store_id: storeId, user_id: currentUserId, created_at: now }; break
+      case 'sale_items': newRow = { id, product_name: '', qty: 1, unit_price: 0, line_total: 0 }; break
+      case 'shifts': newRow = { id, opened_at: now, period: 'morning', status: 'open', fce: 0, fcu: null, deposit_actual: null, store_id: storeId, user_id: currentUserId, created_at: now }; break
+      case 'expenses': newRow = { id, amount: 0, description: '', store_id: storeId, user_id: currentUserId, created_at: now }; break
+      case 'fidelity_cards': newRow = { id, customer_name: '', phone: '', email: '', nationality: '', how_found: '', is_resident: false, card_number: `FC-${Date.now()}`, points: 0, store_id: storeId, user_id: currentUserId, created_at: now }; break
+      case 'day_off_requests': newRow = { id, date: new Date().toISOString().split('T')[0], notes: '', status: 'pending', store_id: storeId, user_id: currentUserId, created_at: now }; break
+      case 'warehouse_movements': newRow = { id, product_name: '', movement_type: 'restock', qty: 0, destination_name: '', notes: '', warehouse_id: warehouseIds[0] || null, user_id: currentUserId, created_at: now }; break
+      case 'tasks': newRow = { id, description: '', status: 'pending', priority: 'normal', due_date: null, store_id: storeId, user_id: currentUserId, created_at: now }; break
+      case 'maintenance_logs': newRow = { id, title: '', notes: '', completed: false, store_id: storeId, user_id: currentUserId, created_at: now }; break
+      case 'daily_checklists': newRow = { id, date: new Date().toISOString().split('T')[0], shift_period: 'morning', clean_floor: false, clean_door: false, clean_bathroom: false, clean_bancone: false, clean_shelfs: false, clean_products: false, throw_trash: false, expired_products: false, price_labels: false, maintenance_supplies: false, vending_on_off: false, vending_ricarica: false, deposits_delivery: false, store_id: storeId, user_id: currentUserId, created_at: now }; break
+      case 'inventory_counts': newRow = { id, product_name: '', category: '', counted_qty: 0, expected_qty: 0, match: false, store_id: storeId, user_id: currentUserId, created_at: now }; break
+      default: newRow = { id, store_id: storeId, user_id: currentUserId, created_at: now }
     }
     const { data, error } = await supabase.from(tab.table).insert(newRow).select()
     if (error) { setSavedMsg(`✗ ${error.message}`); setTimeout(() => setSavedMsg(''), 4000); return }
