@@ -28,6 +28,10 @@ export default function EmployeesPage() {
   const [pinSaving, setPinSaving] = useState<string|null>(null)
   const [pinSaved, setPinSaved] = useState<string|null>(null)
 
+  // Edit name
+  const [editingId, setEditingId] = useState<string|null>(null)
+  const [editName, setEditName] = useState('')
+
   useEffect(() => { loadData() }, [])
 
   async function loadData() {
@@ -142,7 +146,33 @@ export default function EmployeesPage() {
 
   async function deleteEmployee(emp: any) {
     if (!confirm(`Eliminare ${emp.full_name}? Questa azione è irreversibile.`)) return
-    await supabase.from('users').delete().eq('id', emp.id)
+    const { error } = await supabase.from('users').delete().eq('id', emp.id)
+    if (error) {
+      // FK constraint — fallback to soft delete
+      const { error: deactErr } = await supabase.from('users').update({ is_active: false }).eq('id', emp.id)
+      if (deactErr) {
+        alert(`❌ Impossibile eliminare: ${deactErr.message}`)
+      } else {
+        setFeedback({ type: 'success', msg: `⚠️ ${emp.full_name} disattivato (ha vendite/turni collegati, eliminazione diretta non possibile)` })
+        setTimeout(() => setFeedback(null), 5000)
+      }
+    } else {
+      setFeedback({ type: 'success', msg: `🗑️ ${emp.full_name} eliminato` })
+      setTimeout(() => setFeedback(null), 3000)
+    }
+    loadData()
+  }
+
+  async function saveEmployeeName(empId: string) {
+    if (!editName.trim()) return
+    const { error } = await supabase.from('users').update({ full_name: editName.trim() }).eq('id', empId)
+    if (error) {
+      alert(`❌ Errore: ${error.message}`)
+    } else {
+      setFeedback({ type: 'success', msg: `✅ Nome aggiornato` })
+      setTimeout(() => setFeedback(null), 3000)
+    }
+    setEditingId(null)
     loadData()
   }
 
@@ -374,7 +404,23 @@ export default function EmployeesPage() {
 
             {/* Name + store */}
             <div style={{ flex:'1 1 150px', minWidth:120 }}>
-              <div style={{ fontWeight:700, fontSize:15 }}>{emp.full_name}</div>
+              {editingId === emp.id ? (
+                <div style={{ display:'flex', gap:4, alignItems:'center' }}>
+                  <input className="input" value={editName}
+                    onChange={e => setEditName(e.target.value)}
+                    onKeyDown={e => { if (e.key === 'Enter') saveEmployeeName(emp.id); if (e.key === 'Escape') setEditingId(null) }}
+                    autoFocus
+                    style={{ height:30, fontSize:14, fontWeight:700, padding:'2px 8px' }} />
+                  <button onClick={() => saveEmployeeName(emp.id)} style={{ background:'none', border:'none', cursor:'pointer', fontSize:16 }}>✅</button>
+                  <button onClick={() => setEditingId(null)} style={{ background:'none', border:'none', cursor:'pointer', fontSize:16 }}>❌</button>
+                </div>
+              ) : (
+                <div style={{ fontWeight:700, fontSize:15, cursor:'pointer', display:'flex', alignItems:'center', gap:6 }}
+                  onClick={() => { setEditingId(emp.id); setEditName(emp.full_name) }}>
+                  {emp.full_name}
+                  <span style={{ fontSize:11, color:'var(--text-tertiary)' }}>✏️</span>
+                </div>
+              )}
               <div style={{ fontSize:11, color:'var(--text-tertiary)', display:'flex', alignItems:'center', gap:6 }}>
                 <span>🏪 {(emp.stores as any)?.name?.replace('MamaMary ', '') || '—'}</span>
                 <span>·</span>
