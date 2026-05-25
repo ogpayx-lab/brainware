@@ -33,7 +33,7 @@ const NAV_GESTIONE = [
   { href: '/owner/maintenance',       icon: '🔧', label: 'Manutenzione' },
   { href: '/owner/intelligence',      icon: '🧠', label: 'Intelligence AI' },
   { href: '/owner/ai-management',     icon: '🤖', label: 'Gestione AI' },
-  { href: '/owner/system-log',        icon: '🗄️', label: 'System Log' },
+  { href: '/owner/system-log',        icon: '📊', label: 'Database' },
   { href: '/owner/help',              icon: '📖', label: 'Help Center' },
   { href: '/owner/settings',          icon: '⚙️', label: 'Impostazioni' },
 ]

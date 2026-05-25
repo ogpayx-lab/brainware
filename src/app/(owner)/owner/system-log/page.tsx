@@ -12,6 +12,7 @@ interface TabDef {
   select: string
   columns: { key: string; label: string; width?: number; editable?: boolean; type?: string; render?: (v: any, row: any) => string }[]
   orderBy: string
+  computed?: boolean
 }
 
 const TABS: TabDef[] = [
@@ -47,17 +48,17 @@ const TABS: TabDef[] = [
     select: 'id, created_at, store_id, user_id, total, payment_method, customer_name, customer_nationality, acquisition_channel, movement_type, invoice_number',
     orderBy: 'created_at',
     columns: [
-      { key: '_date', label: 'Data', width: 90, render: (_, r) => new Date(r.created_at).toLocaleDateString('it-IT') },
-      { key: '_time', label: 'Ora', width: 60, render: (_, r) => new Date(r.created_at).toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' }) },
-      { key: '_store', label: 'Negozio', width: 140, render: (_, r) => r._storeName || '' },
-      { key: '_employee', label: 'Dipendente', width: 120, render: (_, r) => r._userName || '' },
-      { key: 'total', label: 'Totale', width: 80, editable: true, type: 'number' },
-      { key: 'payment_method', label: 'Pagamento', width: 80, editable: true },
-      { key: 'customer_name', label: 'Cliente', width: 120, editable: true },
-      { key: 'customer_nationality', label: 'Nazionalità', width: 90, editable: true },
-      { key: 'acquisition_channel', label: 'Canale', width: 80, editable: true },
-      { key: 'movement_type', label: 'Tipo', width: 60, editable: true },
-      { key: 'invoice_number', label: 'N° Fattura', width: 80, editable: true },
+      { key: '_date', label: 'Data', width: 85, render: (_, r) => new Date(r.created_at).toLocaleDateString('it-IT') },
+      { key: '_time', label: 'Ora', width: 55, render: (_, r) => new Date(r.created_at).toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' }) },
+      { key: 'payment_method', label: 'Pagamento', width: 70, editable: true },
+      { key: '_store', label: 'Negozio', width: 120, render: (_, r) => r._storeName || '' },
+      { key: 'invoice_number', label: 'N° Fatt.', width: 65, editable: true },
+      { key: 'total', label: 'Totale', width: 70, editable: true, type: 'number' },
+      { key: '_employee', label: 'Referente', width: 100, render: (_, r) => r._userName || '' },
+      { key: 'customer_name', label: 'Customer', width: 110, editable: true },
+      { key: 'customer_nationality', label: 'Nazionalità', width: 85, editable: true },
+      { key: 'acquisition_channel', label: 'How Found', width: 90, editable: true },
+      { key: 'movement_type', label: 'Tipo', width: 55, editable: true },
     ],
   },
   {
@@ -74,17 +75,19 @@ const TABS: TabDef[] = [
   },
   {
     key: 'shifts', label: 'Turni', icon: '⏰', table: 'shifts',
-    select: 'id, opened_at, closed_at, period, status, deposit_actual, user_id, store_id, created_at',
+    select: 'id, opened_at, closed_at, period, status, fce, fcu, deposit_actual, user_id, store_id, created_at',
     orderBy: 'created_at',
     columns: [
-      { key: '_date', label: 'Data', width: 90, render: (_, r) => new Date(r.opened_at || r.created_at).toLocaleDateString('it-IT') },
-      { key: '_open', label: 'Apertura', width: 60, render: (_, r) => r.opened_at ? new Date(r.opened_at).toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' }) : '' },
-      { key: '_close', label: 'Chiusura', width: 60, render: (_, r) => r.closed_at ? new Date(r.closed_at).toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' }) : '—' },
-      { key: '_store', label: 'Negozio', width: 140, render: (_, r) => r._storeName || '' },
-      { key: '_employee', label: 'Dipendente', width: 120, render: (_, r) => r._userName || '' },
-      { key: 'period', label: 'Periodo', width: 70, editable: true },
-      { key: 'status', label: 'Status', width: 70, editable: true },
-      { key: 'deposit_actual', label: 'Deposit', width: 70, editable: true, type: 'number' },
+      { key: '_date', label: 'Data', width: 85, render: (_, r) => new Date(r.opened_at || r.created_at).toLocaleDateString('it-IT') },
+      { key: 'fce', label: 'FCE', width: 60, editable: true, type: 'number' },
+      { key: 'fcu', label: 'FCU', width: 60, editable: true, type: 'number' },
+      { key: '_employee', label: 'Referente', width: 100, render: (_, r) => r._userName || '' },
+      { key: '_open', label: 'Checkin', width: 55, render: (_, r) => r.opened_at ? new Date(r.opened_at).toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' }) : '' },
+      { key: '_close', label: 'Checkout', width: 55, render: (_, r) => r.closed_at ? new Date(r.closed_at).toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' }) : '—' },
+      { key: '_store', label: 'Negozio', width: 120, render: (_, r) => r._storeName || '' },
+      { key: 'period', label: 'Periodo', width: 65, editable: true },
+      { key: 'status', label: 'Status', width: 65, editable: true },
+      { key: 'deposit_actual', label: 'Deposit', width: 65, editable: true, type: 'number' },
     ],
   },
   {
@@ -185,6 +188,117 @@ const TABS: TabDef[] = [
       { key: 'read', label: 'Letto', width: 50, render: (v) => v ? '✓' : '✗' },
     ],
   },
+  {
+    key: 'customers', label: 'Customers', icon: '👤', table: 'sales',
+    select: 'id, created_at, store_id, user_id, total, payment_method, customer_name, customer_nationality, acquisition_channel',
+    orderBy: 'created_at',
+    columns: [
+      { key: '_date', label: 'Data', width: 85, render: (_, r) => new Date(r.created_at).toLocaleDateString('it-IT') },
+      { key: '_time', label: 'Ora', width: 55, render: (_, r) => new Date(r.created_at).toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' }) },
+      { key: 'payment_method', label: 'Pagamento', width: 70, editable: true },
+      { key: 'total', label: 'Totale', width: 70, editable: true, type: 'number' },
+      { key: '_employee', label: 'Referente', width: 100, render: (_, r) => r._userName || '' },
+      { key: 'customer_name', label: 'Customer Name', width: 130, editable: true },
+      { key: 'customer_nationality', label: 'Nazionalità', width: 90, editable: true },
+      { key: 'acquisition_channel', label: 'How Found', width: 110, editable: true },
+    ],
+  },
+  {
+    key: 'ricarica', label: 'Ricarica', icon: '📥', table: 'warehouse_movements',
+    select: 'id, product_name, qty, created_at, warehouse_id, notes',
+    orderBy: 'created_at',
+    columns: [
+      { key: '_date', label: 'Data', width: 85, render: (_, r) => new Date(r.created_at).toLocaleDateString('it-IT') },
+      { key: '_time', label: 'Ora', width: 55, render: (_, r) => new Date(r.created_at).toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' }) },
+      { key: 'product_name', label: 'Item Name', width: 180, editable: true },
+      { key: 'qty', label: 'Quantity', width: 70, editable: true, type: 'number' },
+      { key: 'notes', label: 'Note', width: 150, editable: true },
+    ],
+  },
+  {
+    key: 'checklist', label: 'Store Maint.', icon: '🧹', table: 'daily_checklists',
+    select: 'id, date, shift_period, clean_floor, clean_door, clean_bathroom, clean_bancone, clean_shelfs, clean_products, throw_trash, expired_products, price_labels, maintenance_supplies, vending_on_off, vending_ricarica, deposits_delivery, store_id, user_id, created_at',
+    orderBy: 'date',
+    columns: [
+      { key: 'date', label: 'Data', width: 85, editable: true },
+      { key: 'shift_period', label: 'Turno', width: 70, editable: true },
+      { key: 'clean_floor', label: 'Floor', width: 45, editable: true, render: (v) => v ? '✓' : '✗' },
+      { key: 'clean_door', label: 'Door', width: 45, editable: true, render: (v) => v ? '✓' : '✗' },
+      { key: 'clean_bathroom', label: 'Bath', width: 45, editable: true, render: (v) => v ? '✓' : '✗' },
+      { key: 'clean_bancone', label: 'Banc.', width: 45, editable: true, render: (v) => v ? '✓' : '✗' },
+      { key: 'clean_shelfs', label: 'Shelfs', width: 45, editable: true, render: (v) => v ? '✓' : '✗' },
+      { key: 'clean_products', label: 'Prod.', width: 45, editable: true, render: (v) => v ? '✓' : '✗' },
+      { key: 'throw_trash', label: 'Trash', width: 45, editable: true, render: (v) => v ? '✓' : '✗' },
+      { key: 'expired_products', label: 'Expir.', width: 45, editable: true, render: (v) => v ? '✓' : '✗' },
+      { key: 'price_labels', label: 'Labels', width: 45, editable: true, render: (v) => v ? '✓' : '✗' },
+      { key: 'vending_on_off', label: 'Vend.', width: 45, editable: true, render: (v) => v ? '✓' : '✗' },
+      { key: 'deposits_delivery', label: 'Dep.', width: 45, editable: true, render: (v) => v ? '✓' : '✗' },
+    ],
+  },
+  {
+    key: 'person_counted', label: 'Person Counted', icon: '🔢', table: 'inventory_counts',
+    select: 'id, product_name, category, counted_qty, expected_qty, match, store_id, user_id, created_at',
+    orderBy: 'created_at',
+    columns: [
+      { key: '_date', label: 'Data', width: 85, render: (_, r) => new Date(r.created_at).toLocaleDateString('it-IT') },
+      { key: 'product_name', label: 'Prodotto', width: 180, editable: true },
+      { key: 'category', label: 'Categoria', width: 100, editable: true },
+      { key: 'counted_qty', label: 'Contato', width: 65, editable: true, type: 'number' },
+      { key: 'expected_qty', label: 'Atteso', width: 65, type: 'number' },
+      { key: 'match', label: 'Match', width: 55, render: (v) => v ? '✓ Match' : '✗ No' },
+      { key: '_employee', label: 'Contato da', width: 100, render: (_, r) => r._userName || '' },
+    ],
+  },
+  {
+    key: 'inventory', label: 'Inventario', icon: '📊', table: 'products',
+    select: 'id, name, category, stock, starting_point, store_id',
+    orderBy: 'name',
+    columns: [
+      { key: '_store', label: 'Negozio', width: 120, render: (_, r) => r._storeName || '' },
+      { key: 'name', label: 'Item Name', width: 200 },
+      { key: 'category', label: 'Categoria', width: 110 },
+      { key: 'stock', label: 'Current Inv.', width: 80, editable: true, type: 'number' },
+      { key: 'starting_point', label: 'Starting Point', width: 90, editable: true, type: 'number' },
+    ],
+  },
+  // ─── COMPUTED TABS ───
+  {
+    key: 'sold_items_daily', label: 'Sold Items', icon: '📦', table: 'sale_items', select: '', orderBy: '', computed: true,
+    columns: [
+      { key: 'date', label: 'Data', width: 90 },
+      { key: 'product_name', label: 'Item Name', width: 200 },
+      { key: 'sum_total', label: 'SUM SubTotal', width: 100 },
+      { key: 'sum_qty', label: 'SUM QTY', width: 70 },
+    ],
+  },
+  {
+    key: 'cash_pos', label: 'Cash / POS', icon: '💵', table: 'sales', select: '', orderBy: '', computed: true,
+    columns: [
+      { key: 'date', label: 'Data', width: 90 },
+      { key: 'cash', label: 'Cash', width: 80 },
+      { key: 'pos', label: 'POS', width: 80 },
+      { key: 'auto_consumo', label: 'AutoConsumo', width: 85 },
+      { key: 'online', label: 'Online', width: 80 },
+      { key: 'other', label: 'Altro', width: 80 },
+      { key: 'grand_total', label: 'Grand Total', width: 90 },
+    ],
+  },
+  {
+    key: 'deposits', label: 'Deposits', icon: '🏦', table: 'shifts', select: '', orderBy: '', computed: true,
+    columns: [
+      { key: 'date', label: 'Data', width: 100 },
+      { key: 'amount', label: 'Amount', width: 100 },
+    ],
+  },
+  {
+    key: 'avg_sales', label: 'Avg Sales/Cust.', icon: '📈', table: 'sales', select: '', orderBy: '', computed: true,
+    columns: [
+      { key: 'date', label: 'Data', width: 110 },
+      { key: 'total_sales', label: 'Total Sales', width: 100 },
+      { key: 'customers', label: 'Customers', width: 80 },
+      { key: 'avg', label: 'Avg Sales/Customer', width: 120 },
+    ],
+  },
 ]
 
 // ─── Styles ───
@@ -248,15 +362,35 @@ export default function SystemLogPage() {
 
     let data: any[] = []
 
-    if (tab.key === 'products' || tab.key === 'employees') {
-      // No date filter — just store filter + order by name
+    if (tab.key === 'products' || tab.key === 'employees' || tab.key === 'inventory' || tab.key === 'person_counted') {
+      // No date filter — just store filter + order by name/date
       let query = supabase.from(tab.table).select(tab.select)
         .in('store_id', storeIds)
-        .order(tab.orderBy, { ascending: true })
+        .order(tab.orderBy, { ascending: tab.key === 'products' || tab.key === 'inventory' })
         .limit(1000)
       const { data: result, error } = await query
       if (error) console.error(`Error loading ${tab.table}:`, error.message)
       data = result ?? []
+    } else if (tab.key === 'checklist') {
+      // Daily checklists — filter by store + date range on 'date' column
+      let query = supabase.from('daily_checklists').select(tab.select)
+        .in('store_id', storeIds)
+        .gte('date', dateFrom).lte('date', dateTo)
+        .order('date', { ascending: false })
+        .limit(500)
+      const { data: result, error } = await query
+      if (error) console.error('Error loading daily_checklists:', error.message)
+      data = result ?? []
+    } else if (tab.key === 'ricarica') {
+      // Ricarica = warehouse_movements filtered by restock
+      if (warehouseIds.length > 0) {
+        const { data: result } = await supabase.from('warehouse_movements').select(tab.select)
+          .in('warehouse_id', warehouseIds)
+          .eq('movement_type', 'restock')
+          .gte('created_at', fromDate).lte('created_at', toDate)
+          .order('created_at', { ascending: false }).limit(500)
+        data = result ?? []
+      }
     } else if (tab.key === 'sale_items') {
       // sale_items: no created_at, no store_id — load via sale_ids from sales in date range
       const { data: salesInRange } = await supabase
@@ -274,6 +408,86 @@ export default function SystemLogPage() {
           .in('sale_id', saleIds)
           .limit(1000)
         data = items ?? []
+      }
+    } else if (tab.computed) {
+      // ─── COMPUTED TABS ───
+      if (tab.key === 'sold_items_daily') {
+        const { data: salesInRange } = await supabase.from('sales').select('id, created_at').in('store_id', storeIds).gte('created_at', fromDate).lte('created_at', toDate)
+        const saleIds = (salesInRange ?? []).map(s => s.id)
+        const saleDateMap = new Map((salesInRange ?? []).map(s => [s.id, new Date(s.created_at).toLocaleDateString('it-IT')]))
+        if (saleIds.length > 0) {
+          const { data: items } = await supabase.from('sale_items').select('sale_id, product_name, qty, line_total').in('sale_id', saleIds)
+          const grouped: Record<string, Record<string, { total: number; qty: number }>> = {}
+          for (const it of items ?? []) {
+            const d = saleDateMap.get(it.sale_id) || '?'
+            if (!grouped[d]) grouped[d] = {}
+            if (!grouped[d][it.product_name]) grouped[d][it.product_name] = { total: 0, qty: 0 }
+            grouped[d][it.product_name].total += it.line_total || 0
+            grouped[d][it.product_name].qty += it.qty || 0
+          }
+          data = []; let idx = 0
+          for (const [date, products] of Object.entries(grouped).sort()) {
+            for (const [name, vals] of Object.entries(products).sort()) {
+              data.push({ id: `comp-${idx++}`, date, product_name: name, sum_total: vals.total.toFixed(2), sum_qty: vals.qty })
+            }
+          }
+        }
+      } else if (tab.key === 'cash_pos') {
+        const { data: sales } = await supabase.from('sales').select('created_at, total, payment_method').in('store_id', storeIds).gte('created_at', fromDate).lte('created_at', toDate)
+        const grouped: Record<string, Record<string, number>> = {}
+        for (const s of sales ?? []) {
+          const d = new Date(s.created_at).toLocaleDateString('it-IT')
+          if (!grouped[d]) grouped[d] = {}
+          const pm = (s.payment_method || 'other').toLowerCase()
+          grouped[d][pm] = (grouped[d][pm] || 0) + (s.total || 0)
+        }
+        data = Object.entries(grouped).sort().map(([date, methods], i) => ({
+          id: `comp-${i}`, date,
+          cash: (methods['cash'] || 0).toFixed(2),
+          pos: (methods['pos'] || 0).toFixed(2),
+          auto_consumo: (methods['auto_consumo'] || methods['autoconsumo'] || 0).toFixed(2),
+          online: (methods['online'] || 0).toFixed(2),
+          other: Object.entries(methods).filter(([k]) => !['cash','pos','auto_consumo','autoconsumo','online'].includes(k)).reduce((s, [,v]) => s + v, 0).toFixed(2),
+          grand_total: Object.values(methods).reduce((s, v) => s + v, 0).toFixed(2),
+        }))
+      } else if (tab.key === 'deposits') {
+        const { data: shifts } = await supabase.from('shifts').select('opened_at, fce, fcu, deposit_actual, store_id').in('store_id', storeIds).gte('opened_at', fromDate).lte('opened_at', toDate).eq('status', 'closed')
+        const { data: sales } = await supabase.from('sales').select('created_at, total, payment_method').in('store_id', storeIds).gte('created_at', fromDate).lte('created_at', toDate)
+        const { data: expenses } = await supabase.from('expenses').select('created_at, amount').in('store_id', storeIds).gte('created_at', fromDate).lte('created_at', toDate)
+        const daily: Record<string, { fce: number; fcu: number; cash: number; expenses: number }> = {}
+        for (const sh of shifts ?? []) {
+          const d = new Date(sh.opened_at).toLocaleDateString('it-IT')
+          if (!daily[d]) daily[d] = { fce: 0, fcu: 0, cash: 0, expenses: 0 }
+          daily[d].fce += sh.fce || 0
+          daily[d].fcu += sh.fcu || 0
+        }
+        for (const s of sales ?? []) {
+          if ((s.payment_method || '').toLowerCase() === 'cash') {
+            const d = new Date(s.created_at).toLocaleDateString('it-IT')
+            if (!daily[d]) daily[d] = { fce: 0, fcu: 0, cash: 0, expenses: 0 }
+            daily[d].cash += s.total || 0
+          }
+        }
+        for (const e of expenses ?? []) {
+          const d = new Date(e.created_at).toLocaleDateString('it-IT')
+          if (daily[d]) daily[d].expenses += e.amount || 0
+        }
+        data = Object.entries(daily).sort().map(([date, v], i) => ({
+          id: `comp-${i}`, date, amount: (v.fce + v.cash - v.expenses - v.fcu).toFixed(2),
+        }))
+      } else if (tab.key === 'avg_sales') {
+        const { data: sales } = await supabase.from('sales').select('created_at, total, customer_name').in('store_id', storeIds).gte('created_at', fromDate).lte('created_at', toDate).eq('movement_type', 'sale')
+        const daily: Record<string, { total: number; customers: Set<string> }> = {}
+        for (const s of sales ?? []) {
+          const d = new Date(s.created_at).toLocaleDateString('it-IT')
+          if (!daily[d]) daily[d] = { total: 0, customers: new Set() }
+          daily[d].total += s.total || 0
+          daily[d].customers.add(s.customer_name || s.id || 'anon')
+        }
+        data = Object.entries(daily).sort().map(([date, v], i) => ({
+          id: `comp-${i}`, date, total_sales: v.total.toFixed(2), customers: v.customers.size,
+          avg: v.customers.size > 0 ? (v.total / v.customers.size).toFixed(2) : '0',
+        }))
       }
     } else {
       // Normal tables with created_at and store_id
@@ -336,9 +550,22 @@ export default function SystemLogPage() {
   }
 
   function startEdit(rowId: string, colKey: string, currentValue: any) {
+    // Boolean toggle (for checklist checkboxes)
+    if (typeof currentValue === 'boolean') {
+      toggleBoolean(rowId, colKey, currentValue)
+      return
+    }
     setEditCell({ rowId, colKey })
     setEditValue(currentValue?.toString() ?? '')
     setTimeout(() => editRef.current?.focus(), 50)
+  }
+
+  async function toggleBoolean(rowId: string, colKey: string, current: boolean) {
+    const newVal = !current
+    await supabase.from(tab.table).update({ [colKey]: newVal }).eq('id', rowId)
+    setRows(prev => prev.map(r => r.id === rowId ? { ...r, [colKey]: newVal } : r))
+    setSavedMsg(newVal ? '✓ Attivato' : '✗ Disattivato')
+    setTimeout(() => setSavedMsg(''), 1500)
   }
 
   async function saveEdit() {
@@ -425,6 +652,34 @@ export default function SystemLogPage() {
     }
   }
 
+  async function addRow() {
+    const storeId = selectedStore !== 'all' ? selectedStore : orgStoreIds[0]
+    if (!storeId && tab.table !== 'sale_items') { setSavedMsg('✗ Seleziona uno store'); setTimeout(() => setSavedMsg(''), 3000); return }
+    const now = new Date().toISOString()
+    let newRow: any = {}
+    switch (tab.table) {
+      case 'products': newRow = { name: '', price: 0, category: '', stock: 0, unit: 'pz', barcode: '', is_active: true, store_id: storeId, created_at: now }; break
+      case 'users': newRow = { full_name: '', pin: null, role: 'employee', is_active: true, store_id: storeId, created_at: now }; break
+      case 'sales': newRow = { total: 0, payment_method: 'cash', movement_type: 'sale', customer_name: '', customer_nationality: '', acquisition_channel: '', invoice_number: null, store_id: storeId, created_at: now }; break
+      case 'sale_items': newRow = { product_name: '', qty: 1, unit_price: 0, line_total: 0 }; break
+      case 'shifts': newRow = { opened_at: now, period: 'morning', status: 'open', fce: 0, fcu: null, deposit_actual: null, store_id: storeId, created_at: now }; break
+      case 'expenses': newRow = { amount: 0, description: '', store_id: storeId, created_at: now }; break
+      case 'fidelity_cards': newRow = { customer_name: '', phone: '', email: '', nationality: '', how_found: '', is_resident: false, card_number: `FC-${Date.now()}`, points: 0, store_id: storeId, created_at: now }; break
+      case 'day_off_requests': newRow = { date: new Date().toISOString().split('T')[0], notes: '', status: 'pending', store_id: storeId, created_at: now }; break
+      case 'warehouse_movements': newRow = { product_name: '', movement_type: 'restock', qty: 0, destination_name: '', notes: '', warehouse_id: warehouseIds[0] || null, created_at: now }; break
+      case 'tasks': newRow = { description: '', status: 'pending', priority: 'normal', due_date: null, store_id: storeId, created_at: now }; break
+      case 'maintenance_logs': newRow = { title: '', notes: '', completed: false, store_id: storeId, created_at: now }; break
+      case 'daily_checklists': newRow = { date: new Date().toISOString().split('T')[0], shift_period: 'morning', clean_floor: false, clean_door: false, clean_bathroom: false, clean_bancone: false, clean_shelfs: false, clean_products: false, throw_trash: false, expired_products: false, price_labels: false, maintenance_supplies: false, vending_on_off: false, vending_ricarica: false, deposits_delivery: false, store_id: storeId, created_at: now }; break
+      case 'inventory_counts': newRow = { product_name: '', category: '', counted_qty: 0, expected_qty: 0, match: false, store_id: storeId, created_at: now }; break
+      default: newRow = { store_id: storeId, created_at: now }
+    }
+    const { data, error } = await supabase.from(tab.table).insert(newRow).select()
+    if (error) { setSavedMsg(`✗ ${error.message}`); setTimeout(() => setSavedMsg(''), 4000); return }
+    setSavedMsg('✅ Riga aggiunta — clicca sulle celle per compilare')
+    setTimeout(() => setSavedMsg(''), 3000)
+    loadData()
+  }
+
   function getCellValue(row: any, col: TabDef['columns'][0]) {
     if (col.render) return col.render(row[col.key], row)
     const v = row[col.key]
@@ -440,11 +695,15 @@ export default function SystemLogPage() {
       {/* Header */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12 }}>
         <div>
-          <h2 style={{ marginBottom: 4 }}>📋 System Log</h2>
-          <p style={{ color: '#6B7280', fontSize: 12 }}>Visualizzazione e modifica dati grezzi — stile foglio di calcolo</p>
+          <h2 style={{ marginBottom: 4 }}>📊 Database</h2>
+          <p style={{ color: '#6B7280', fontSize: 12 }}>Gestione completa dati — stile foglio di calcolo · Clicca cella per modificare</p>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           {savedMsg && <span style={{ fontSize: 12, fontWeight: 600, color: savedMsg.includes('✗') ? '#DC2626' : '#16A34A' }}>{savedMsg}</span>}
+          {!tab.computed && <button onClick={addRow}
+            style={{ background: '#7C3AED', color: 'white', border: 'none', borderRadius: 6, padding: '6px 14px', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>
+            ➕ Aggiungi Riga
+          </button>}
           <button onClick={exportCSV} disabled={rows.length === 0}
             style={{ background: '#16A34A', color: 'white', border: 'none', borderRadius: 6, padding: '6px 14px', fontSize: 12, fontWeight: 600, cursor: 'pointer', opacity: rows.length === 0 ? 0.5 : 1 }}>
             📥 CSV
@@ -568,13 +827,13 @@ export default function SystemLogPage() {
                       )
                     })}
                     <td style={{ ...CELL, textAlign: 'center' }}>
-                      <button onClick={() => deleteRow(row.id)}
+                      {!tab.computed && <button onClick={() => deleteRow(row.id)}
                         style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 11, color: '#DC2626', opacity: 0.4, padding: 0 }}
                         title="Elimina riga"
                         onMouseEnter={e => (e.currentTarget.style.opacity = '1')}
                         onMouseLeave={e => (e.currentTarget.style.opacity = '0.4')}>
                         ✗
-                      </button>
+                      </button>}
                     </td>
                   </tr>
                 ))}
