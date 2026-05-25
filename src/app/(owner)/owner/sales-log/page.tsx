@@ -58,6 +58,20 @@ export default function SalesLogPage() {
   const [loading, setLoading] = useState(true)
   const [orgStoreIds, setOrgStoreIds] = useState<string[]>([])
   const [exporting, setExporting] = useState(false)
+  const [ownerId, setOwnerId] = useState<string | null>(null)
+
+  // Manual sale modal
+  const [showManual, setShowManual] = useState(false)
+  const [manualStore, setManualStore] = useState('')
+  const [manualDate, setManualDate] = useState(new Date().toISOString().split('T')[0])
+  const [manualTime, setManualTime] = useState(() => { const n = new Date(); return `${String(n.getHours()).padStart(2,'0')}:${String(n.getMinutes()).padStart(2,'0')}` })
+  const [manualMethod, setManualMethod] = useState<'cash' | 'pos'>('cash')
+  const [manualCustomer, setManualCustomer] = useState('')
+  const [manualNationality, setManualNationality] = useState('Italia')
+  const [manualProducts, setManualProducts] = useState<any[]>([])
+  const [manualCart, setManualCart] = useState<{ id: string; name: string; price: number; qty: number }[]>([])
+  const [manualSearch, setManualSearch] = useState('')
+  const [savingManual, setSavingManual] = useState(false)
 
   useEffect(() => { loadStores() }, [])
   useEffect(() => { if (orgStoreIds.length > 0) loadSales() }, [selectedStore, dateFrom, dateTo, orgStoreIds])
@@ -67,6 +81,7 @@ export default function SalesLogPage() {
     if (!user) { router.push('/login'); return }
     const { data: profile } = await supabase.from('users').select('store_id, role').eq('id', user.id).single()
     if (profile?.role !== 'owner') { router.push('/login'); return }
+    setOwnerId(user.id)
     const { data: myStore } = await supabase.from('stores').select('organization_id').eq('id', profile.store_id).single()
     const oid = myStore?.organization_id
     const { data: storeList } = await supabase.from('stores').select('id,name').eq('organization_id', oid).eq('is_active', true).order('name')
@@ -190,6 +205,98 @@ export default function SalesLogPage() {
     setExporting(false)
   }
 
+  async function openManualModal() {
+    setShowManual(true)
+    setManualCart([])
+    setManualSearch('')
+    setManualCustomer('')
+    setManualNationality('Italia')
+    setManualMethod('cash')
+    if (stores.length > 0 && !manualStore) setManualStore(stores[0].id)
+  }
+
+  async function loadManualProducts(storeId: string) {
+    const { data } = await supabase.from('products').select('id, name, price').eq('store_id', storeId).eq('is_active', true).order('name')
+    setManualProducts(data ?? [])
+  }
+
+  useEffect(() => { if (manualStore) loadManualProducts(manualStore) }, [manualStore])
+
+  function addToManualCart(prod: any) {
+    setManualCart(prev => {
+      const existing = prev.find(p => p.id === prod.id)
+      if (existing) return prev.map(p => p.id === prod.id ? { ...p, qty: p.qty + 1 } : p)
+      return [...prev, { id: prod.id, name: prod.name, price: prod.price, qty: 1 }]
+    })
+    setManualSearch('')
+  }
+
+  async function submitManualSale() {
+    if (!manualStore || !ownerId || manualCart.length === 0) return
+    setSavingManual(true)
+    try {
+      // Find or create a shift for this store/date
+      const { data: existingShift } = await supabase.from('shifts').select('id')
+        .eq('store_id', manualStore).order('created_at', { ascending: false }).limit(1).single()
+
+      let shiftId = existingShift?.id
+      if (!shiftId) {
+        const { data: newShift } = await supabase.from('shifts').insert({
+          store_id: manualStore, user_id: ownerId, period: 'morning', status: 'closed',
+          fce: 0, opened_at: `${manualDate}T08:00:00`, closed_at: `${manualDate}T23:00:00`,
+        }).select('id').single()
+        shiftId = newShift?.id
+      }
+      if (!shiftId) { alert('Errore: impossibile creare turno'); setSavingManual(false); return }
+
+      const subtotal = manualCart.reduce((s, p) => s + p.price * p.qty, 0)
+      const createdAt = `${manualDate}T${manualTime}:00`
+
+      const { data: sale, error: saleErr } = await supabase.from('sales').insert({
+        shift_id: shiftId, store_id: manualStore, user_id: ownerId, created_by: ownerId,
+        movement_type: 'sale', payment_method: manualMethod,
+        subtotal, discount_amount: 0, discount_pct: 0, total: subtotal,
+        customer_name: manualCustomer || null, customer_nationality: manualNationality || null,
+        created_at: createdAt,
+      }).select('id').single()
+
+      if (saleErr || !sale) {
+        alert(`Errore: ${saleErr?.message || 'Vendita non creata'}`)
+        setSavingManual(false)
+        return
+      }
+
+      await supabase.from('sale_items').insert(
+        manualCart.map(p => ({
+          sale_id: sale.id, product_id: p.id, product_name: p.name,
+          qty: p.qty, unit_price: p.price, line_total: p.price * p.qty,
+        }))
+      )
+
+      // Update stock
+      for (const p of manualCart) {
+        await supabase.rpc('decrement_stock', { p_product_id: p.id, p_qty: p.qty }).catch(() => {
+          // fallback: manual update
+          supabase.from('products').select('stock').eq('id', p.id).single().then(({ data }) => {
+            if (data) supabase.from('products').update({ stock: Math.max(0, data.stock - p.qty) }).eq('id', p.id)
+          })
+        })
+      }
+
+      setShowManual(false)
+      setSavingManual(false)
+      loadSales()
+    } catch (err: any) {
+      alert(`Errore: ${err.message}`)
+      setSavingManual(false)
+    }
+  }
+
+  const manualTotal = manualCart.reduce((s, p) => s + p.price * p.qty, 0)
+  const filteredManualProducts = manualProducts.filter(p =>
+    manualSearch && p.name.toLowerCase().includes(manualSearch.toLowerCase())
+  ).slice(0, 8)
+
   const uniqueSales = new Set(rows.map(r => r.saleId)).size
   const totalRevenue = rows.reduce((s, r) => s + r.lineTotal, 0)
 
@@ -203,14 +310,16 @@ export default function SalesLogPage() {
           <h2 style={{ marginBottom: 4 }}>🧾 Registro Vendite</h2>
           <p style={{ color: '#6B7280', fontSize: 13 }}>Dettaglio vendite per negozio — esportabile in Excel</p>
         </div>
-        <button onClick={exportToExcel} disabled={exporting || rows.length === 0}
-          style={{
-            background: '#16A34A', color: 'white', border: 'none', borderRadius: 6,
-            padding: '8px 18px', fontSize: 13, fontWeight: 600, cursor: 'pointer',
-            opacity: rows.length === 0 ? 0.5 : 1, display: 'flex', alignItems: 'center', gap: 6,
-          }}>
-          📥 {exporting ? 'Esportazione...' : 'Esporta Excel'}
-        </button>
+        <div style={{ display: 'flex', gap: 8 }}>
+          <button onClick={openManualModal}
+            style={{ background: '#7C3AED', color: 'white', border: 'none', borderRadius: 6, padding: '8px 18px', fontSize: 13, fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 }}>
+            ➕ Vendita Manuale
+          </button>
+          <button onClick={exportToExcel} disabled={exporting || rows.length === 0}
+            style={{ background: '#16A34A', color: 'white', border: 'none', borderRadius: 6, padding: '8px 18px', fontSize: 13, fontWeight: 600, cursor: 'pointer', opacity: rows.length === 0 ? 0.5 : 1, display: 'flex', alignItems: 'center', gap: 6 }}>
+            📥 {exporting ? 'Esportazione...' : 'Esporta Excel'}
+          </button>
+        </div>
       </div>
 
       {/* Filters — compact bar */}
@@ -331,6 +440,105 @@ export default function SalesLogPage() {
           <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 12px', borderTop: '2px solid #9CA3AF', background: '#F3F4F6', fontSize: 11, color: '#6B7280' }}>
             <span>{uniqueSales} vendite · {rows.length} righe prodotto</span>
             <span>{dateFrom} → {dateTo}</span>
+          </div>
+        </div>
+      )}
+      {/* Manual Sale Modal */}
+      {showManual && (
+        <div className="modal-overlay">
+          <div className="modal" style={{ maxWidth: 520, maxHeight: '90vh', overflowY: 'auto' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+              <h4>➕ Vendita Manuale</h4>
+              <button onClick={() => setShowManual(false)} style={{ background: 'none', border: 'none', fontSize: 22, cursor: 'pointer' }}>×</button>
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 12 }}>
+              <div>
+                <label style={{ fontSize: 11, fontWeight: 600, color: '#6B7280', display: 'block', marginBottom: 3 }}>Negozio</label>
+                <select className="input" value={manualStore} onChange={e => setManualStore(e.target.value)} style={{ height: 36, fontSize: 12 }}>
+                  {stores.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+                </select>
+              </div>
+              <div>
+                <label style={{ fontSize: 11, fontWeight: 600, color: '#6B7280', display: 'block', marginBottom: 3 }}>Pagamento</label>
+                <select className="input" value={manualMethod} onChange={e => setManualMethod(e.target.value as any)} style={{ height: 36, fontSize: 12 }}>
+                  <option value="cash">💵 Contanti</option>
+                  <option value="pos">💳 POS</option>
+                </select>
+              </div>
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 12 }}>
+              <div>
+                <label style={{ fontSize: 11, fontWeight: 600, color: '#6B7280', display: 'block', marginBottom: 3 }}>Data</label>
+                <input className="input" type="date" value={manualDate} onChange={e => setManualDate(e.target.value)} style={{ height: 36, fontSize: 12 }} />
+              </div>
+              <div>
+                <label style={{ fontSize: 11, fontWeight: 600, color: '#6B7280', display: 'block', marginBottom: 3 }}>Ora</label>
+                <input className="input" type="time" value={manualTime} onChange={e => setManualTime(e.target.value)} style={{ height: 36, fontSize: 12 }} />
+              </div>
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 12 }}>
+              <div>
+                <label style={{ fontSize: 11, fontWeight: 600, color: '#6B7280', display: 'block', marginBottom: 3 }}>Cliente</label>
+                <input className="input" placeholder="Nome cliente" value={manualCustomer} onChange={e => setManualCustomer(e.target.value)} style={{ height: 36, fontSize: 12 }} />
+              </div>
+              <div>
+                <label style={{ fontSize: 11, fontWeight: 600, color: '#6B7280', display: 'block', marginBottom: 3 }}>Nazionalità</label>
+                <input className="input" placeholder="Nazionalità" value={manualNationality} onChange={e => setManualNationality(e.target.value)} style={{ height: 36, fontSize: 12 }} />
+              </div>
+            </div>
+
+            {/* Product search */}
+            <div style={{ marginBottom: 12, position: 'relative' }}>
+              <label style={{ fontSize: 11, fontWeight: 600, color: '#6B7280', display: 'block', marginBottom: 3 }}>Aggiungi Prodotti</label>
+              <input className="input" placeholder="🔍 Cerca prodotto..." value={manualSearch} onChange={e => setManualSearch(e.target.value)} style={{ height: 36, fontSize: 12 }} />
+              {filteredManualProducts.length > 0 && (
+                <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 999, background: 'var(--bg-primary)', border: '1px solid var(--border-default)', borderRadius: 8, maxHeight: 200, overflowY: 'auto', boxShadow: '0 4px 12px rgba(0,0,0,0.15)' }}>
+                  {filteredManualProducts.map(p => (
+                    <div key={p.id} onClick={() => addToManualCart(p)}
+                      style={{ padding: '8px 12px', fontSize: 13, cursor: 'pointer', display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid var(--border-subtle)' }}
+                      onMouseEnter={e => (e.currentTarget.style.background = 'var(--bg-surface)')}
+                      onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}>
+                      <span>{p.name}</span>
+                      <span style={{ fontWeight: 700, color: '#16A34A' }}>{fmt(p.price)}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Cart */}
+            {manualCart.length > 0 && (
+              <div style={{ background: '#F9FAFB', borderRadius: 8, padding: 10, marginBottom: 12 }}>
+                {manualCart.map((item, i) => (
+                  <div key={item.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '6px 0', borderBottom: i < manualCart.length - 1 ? '1px solid #E5E7EB' : 'none' }}>
+                    <span style={{ fontSize: 13, flex: 1 }}>{item.name}</span>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                      <button onClick={() => setManualCart(prev => prev.map(p => p.id === item.id ? { ...p, qty: Math.max(1, p.qty - 1) } : p))} style={{ width: 24, height: 24, border: '1px solid #D1D5DB', borderRadius: 4, background: 'white', cursor: 'pointer', fontSize: 14 }}>−</button>
+                      <span style={{ fontWeight: 700, minWidth: 20, textAlign: 'center', fontSize: 13 }}>{item.qty}</span>
+                      <button onClick={() => setManualCart(prev => prev.map(p => p.id === item.id ? { ...p, qty: p.qty + 1 } : p))} style={{ width: 24, height: 24, border: '1px solid #D1D5DB', borderRadius: 4, background: 'white', cursor: 'pointer', fontSize: 14 }}>+</button>
+                      <span style={{ fontWeight: 700, fontSize: 13, minWidth: 60, textAlign: 'right' }}>{fmt(item.price * item.qty)}</span>
+                      <button onClick={() => setManualCart(prev => prev.filter(p => p.id !== item.id))} style={{ background: 'none', border: 'none', color: '#EF4444', cursor: 'pointer', fontSize: 16 }}>✕</button>
+                    </div>
+                  </div>
+                ))}
+                <div style={{ display: 'flex', justifyContent: 'space-between', paddingTop: 8, marginTop: 4, borderTop: '2px solid #D1D5DB', fontWeight: 700, fontSize: 15 }}>
+                  <span>Totale</span>
+                  <span style={{ color: '#16A34A' }}>{fmt(manualTotal)}</span>
+                </div>
+              </div>
+            )}
+
+            <div style={{ display: 'flex', gap: 8 }}>
+              <button className="btn btn-secondary" style={{ flex: 1 }} onClick={() => setShowManual(false)}>Annulla</button>
+              <button className="btn btn-primary" style={{ flex: 2 }}
+                disabled={savingManual || manualCart.length === 0}
+                onClick={submitManualSale}>
+                {savingManual ? 'Salvataggio...' : `✅ Registra Vendita (${fmt(manualTotal)})`}
+              </button>
+            </div>
           </div>
         </div>
       )}
