@@ -16,6 +16,33 @@ interface TabDef {
 
 const TABS: TabDef[] = [
   {
+    key: 'products', label: 'Prodotti', icon: '📦', table: 'products',
+    select: 'id, name, price, category, stock, unit, barcode, is_active, store_id, created_at',
+    orderBy: 'name',
+    columns: [
+      { key: '_store', label: 'Negozio', width: 140, render: (_, r) => r._storeName || '' },
+      { key: 'name', label: 'Nome', width: 200, editable: true },
+      { key: 'price', label: 'Prezzo', width: 70, editable: true, type: 'number' },
+      { key: 'category', label: 'Categoria', width: 120, editable: true },
+      { key: 'stock', label: 'Stock', width: 60, editable: true, type: 'number' },
+      { key: 'unit', label: 'Unità', width: 60, editable: true },
+      { key: 'barcode', label: 'Barcode', width: 100, editable: true },
+      { key: 'is_active', label: 'Attivo', width: 50, editable: true, render: (v) => v ? '✓' : '✗' },
+    ],
+  },
+  {
+    key: 'employees', label: 'Dipendenti', icon: '👤', table: 'users',
+    select: 'id, full_name, pin, role, is_active, store_id, created_at',
+    orderBy: 'full_name',
+    columns: [
+      { key: '_store', label: 'Negozio', width: 140, render: (_, r) => r._storeName || '' },
+      { key: 'full_name', label: 'Nome', width: 160, editable: true },
+      { key: 'pin', label: 'PIN', width: 60, editable: true },
+      { key: 'role', label: 'Ruolo', width: 80, editable: true },
+      { key: 'is_active', label: 'Attivo', width: 50, editable: true, render: (v) => v ? '✓' : '✗' },
+    ],
+  },
+  {
     key: 'sales', label: 'Vendite', icon: '💰', table: 'sales',
     select: 'id, created_at, store_id, user_id, total, payment_method, customer_name, customer_nationality, acquisition_channel, movement_type, invoice_number',
     orderBy: 'created_at',
@@ -74,17 +101,20 @@ const TABS: TabDef[] = [
     ],
   },
   {
-    key: 'fidelity', label: 'Fidelity', icon: '💳', table: 'fidelity_cards',
-    select: 'id, customer_name, customer_email, customer_phone, card_number, created_at, store_id, created_by',
+    key: 'fidelity', label: 'Members', icon: '💳', table: 'fidelity_cards',
+    select: 'id, customer_name, email, phone, nationality, how_found, is_resident, card_number, points, created_at, store_id',
     orderBy: 'created_at',
     columns: [
       { key: '_date', label: 'Data', width: 90, render: (_, r) => new Date(r.created_at).toLocaleDateString('it-IT') },
       { key: '_store', label: 'Negozio', width: 140, render: (_, r) => r._storeName || '' },
-      { key: 'customer_name', label: 'Cliente', width: 140, editable: true },
-      { key: 'customer_email', label: 'Email', width: 160, editable: true },
-      { key: 'customer_phone', label: 'Telefono', width: 110, editable: true },
-      { key: 'card_number', label: 'N° Card', width: 120 },
-      { key: '_created_by', label: 'Creata da', width: 120, render: (_, r) => r._userName || '' },
+      { key: 'customer_name', label: 'Nome', width: 140, editable: true },
+      { key: 'phone', label: 'Telefono', width: 110, editable: true },
+      { key: 'email', label: 'Email', width: 160, editable: true },
+      { key: 'nationality', label: 'Nazionalità', width: 90, editable: true },
+      { key: 'how_found', label: 'Fonte', width: 90, editable: true },
+      { key: 'is_resident', label: 'Residente', width: 60, editable: true, render: (v) => v ? '✓' : '✗' },
+      { key: 'points', label: 'Punti', width: 50, editable: true, type: 'number' },
+      { key: 'card_number', label: 'N° Card', width: 100 },
     ],
   },
   {
@@ -170,7 +200,7 @@ const HEADER: React.CSSProperties = {
 export default function SystemLogPage() {
   const router = useRouter()
   const supabase = createClient()
-  const [activeTab, setActiveTab] = useState('sales')
+  const [activeTab, setActiveTab] = useState('products')
   const [rows, setRows] = useState<any[]>([])
   const [stores, setStores] = useState<any[]>([])
   const [selectedStore, setSelectedStore] = useState('all')
@@ -218,7 +248,16 @@ export default function SystemLogPage() {
 
     let data: any[] = []
 
-    if (tab.key === 'sale_items') {
+    if (tab.key === 'products' || tab.key === 'employees') {
+      // No date filter — just store filter + order by name
+      let query = supabase.from(tab.table).select(tab.select)
+        .in('store_id', storeIds)
+        .order(tab.orderBy, { ascending: true })
+        .limit(1000)
+      const { data: result, error } = await query
+      if (error) console.error(`Error loading ${tab.table}:`, error.message)
+      data = result ?? []
+    } else if (tab.key === 'sale_items') {
       // sale_items: no created_at, no store_id — load via sale_ids from sales in date range
       const { data: salesInRange } = await supabase
         .from('sales')
