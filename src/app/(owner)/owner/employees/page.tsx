@@ -192,7 +192,33 @@ export default function EmployeesPage() {
   if (loading) return <div style={{ display:'flex', alignItems:'center', justifyContent:'center', height:'60vh' }}>Caricamento...</div>
 
   // Filter employees by selected store
-  const displayed = selectedStoreId === 'all' ? employees : employees.filter(e => e.store_id === selectedStoreId)
+  const filtered = selectedStoreId === 'all' ? employees : employees.filter(e => e.store_id === selectedStoreId)
+
+  // Group by name when viewing all stores
+  type GroupedEmp = { name: string; entries: typeof employees; storeNames: string[]; pin: string | null; primaryId: string }
+  let displayed: GroupedEmp[] = []
+  if (selectedStoreId === 'all') {
+    const map = new Map<string, typeof employees>()
+    for (const e of filtered) {
+      const existing = map.get(e.full_name) || []
+      existing.push(e)
+      map.set(e.full_name, existing)
+    }
+    displayed = Array.from(map.entries()).map(([name, entries]) => ({
+      name, entries,
+      storeNames: entries.map(e => (e.stores as any)?.name?.replace('MamaMary ', '') || '').filter(Boolean),
+      pin: entries[0]?.pin,
+      primaryId: entries[0]?.id,
+    }))
+  } else {
+    displayed = filtered.map(e => ({
+      name: e.full_name,
+      entries: [e],
+      storeNames: [(e.stores as any)?.name?.replace('MamaMary ', '') || ''],
+      pin: e.pin,
+      primaryId: e.id,
+    }))
+  }
 
   return (
     <div>
@@ -385,54 +411,55 @@ export default function EmployeesPage() {
             Nessun referente{selectedStoreId !== 'all' ? ' in questo negozio' : ''}. Aggiungine uno con il pulsante &quot;+ Nuovo Referente&quot;.
           </div>
         )}
-        {displayed.map(emp => (
-          <div key={emp.id} className="card" style={{
+        {displayed.map(group => (
+          <div key={group.primaryId} className="card" style={{
             padding:'16px 20px', display:'flex', alignItems:'center', gap:14,
             flexWrap:'wrap',
-            border: emp.is_active ? '1px solid var(--border-subtle)' : '1px solid var(--border-default)',
-            opacity: emp.is_active ? 1 : 0.5,
+            border: '1px solid var(--border-subtle)',
           }}>
             {/* Avatar */}
             <div style={{
               width:42, height:42, borderRadius:12,
-              background: emp.pin ? 'var(--brand-primary)' : 'var(--accent-blue)',
+              background: group.pin ? 'var(--brand-primary)' : 'var(--accent-blue)',
               display:'flex', alignItems:'center', justifyContent:'center',
               fontSize:15, fontWeight:700, color:'white', flexShrink:0,
             }}>
-              {emp.full_name?.split(' ').map((n:string)=>n[0]).join('').slice(0,2)||'?'}
+              {group.name?.split(' ').map((n:string)=>n[0]).join('').slice(0,2)||'?'}
             </div>
 
-            {/* Name + store */}
+            {/* Name + stores */}
             <div style={{ flex:'1 1 150px', minWidth:120 }}>
-              {editingId === emp.id ? (
+              {editingId === group.primaryId ? (
                 <div style={{ display:'flex', gap:4, alignItems:'center' }}>
                   <input className="input" value={editName}
                     onChange={e => setEditName(e.target.value)}
-                    onKeyDown={e => { if (e.key === 'Enter') saveEmployeeName(emp.id); if (e.key === 'Escape') setEditingId(null) }}
+                    onKeyDown={e => { if (e.key === 'Enter') { group.entries.forEach(emp => supabase.from('users').update({ full_name: editName.trim() }).eq('id', emp.id)); saveEmployeeName(group.primaryId) }; if (e.key === 'Escape') setEditingId(null) }}
                     autoFocus
                     style={{ height:30, fontSize:14, fontWeight:700, padding:'2px 8px' }} />
-                  <button onClick={() => saveEmployeeName(emp.id)} style={{ background:'none', border:'none', cursor:'pointer', fontSize:16 }}>✅</button>
+                  <button onClick={() => { group.entries.forEach(emp => supabase.from('users').update({ full_name: editName.trim() }).eq('id', emp.id)); saveEmployeeName(group.primaryId) }} style={{ background:'none', border:'none', cursor:'pointer', fontSize:16 }}>✅</button>
                   <button onClick={() => setEditingId(null)} style={{ background:'none', border:'none', cursor:'pointer', fontSize:16 }}>❌</button>
                 </div>
               ) : (
                 <div style={{ fontWeight:700, fontSize:15, cursor:'pointer', display:'flex', alignItems:'center', gap:6 }}
-                  onClick={() => { setEditingId(emp.id); setEditName(emp.full_name) }}>
-                  {emp.full_name}
+                  onClick={() => { setEditingId(group.primaryId); setEditName(group.name) }}>
+                  {group.name}
                   <span style={{ fontSize:11, color:'var(--text-tertiary)' }}>✏️</span>
                 </div>
               )}
-              <div style={{ fontSize:11, color:'var(--text-tertiary)', display:'flex', alignItems:'center', gap:6 }}>
-                <span>🏪 {(emp.stores as any)?.name?.replace('MamaMary ', '') || '—'}</span>
+              <div style={{ fontSize:11, color:'var(--text-tertiary)', display:'flex', alignItems:'center', gap:6, flexWrap:'wrap', marginTop: 2 }}>
+                {group.storeNames.map(s => (
+                  <span key={s} style={{ display:'inline-block', background:'var(--bg-surface)', border:'1px solid var(--border-subtle)', borderRadius:4, padding:'1px 6px', fontSize:10 }}>🏪 {s}</span>
+                ))}
                 <span>·</span>
-                <span style={{ color: emp.pin ? 'var(--success)' : 'var(--warning)' }}>
-                  {emp.pin ? '🔑 PIN ok' : '⚠️ No PIN'}
+                <span style={{ color: group.pin ? 'var(--success)' : 'var(--warning)' }}>
+                  {group.pin ? '🔑 PIN ok' : '⚠️ No PIN'}
                 </span>
               </div>
             </div>
 
             {/* Status */}
-            <span className={`badge ${emp.is_active?'badge-success':'badge-gray'}`} style={{ fontSize:11 }}>
-              {emp.is_active ? 'Attivo' : 'Off'}
+            <span className="badge badge-success" style={{ fontSize:11 }}>
+              Attivo
             </span>
 
             {/* PIN input */}
@@ -444,38 +471,31 @@ export default function EmployeesPage() {
                 inputMode="numeric"
                 maxLength={4}
                 placeholder="PIN"
-                value={emp.pin || ''}
+                value={group.pin || ''}
                 onChange={e => {
                   const val = e.target.value.replace(/\D/g, '').slice(0, 4)
-                  setEmployees(prev => prev.map(em => em.id === emp.id ? { ...em, pin: val || null } : em))
+                  setEmployees(prev => prev.map(em => group.entries.some(ge => ge.id === em.id) ? { ...em, pin: val || null } : em))
                 }}
                 style={{
                   width:64, textAlign:'center', fontSize:15, fontWeight:700,
                   letterSpacing:4, padding:'5px 6px', borderRadius:8,
-                  border: pinSaved === emp.id ? '2px solid var(--success)' : '1.5px solid var(--border-default)',
+                  border: pinSaved === group.primaryId ? '2px solid var(--success)' : '1.5px solid var(--border-default)',
                 }}
               />
               <button
                 className="btn btn-secondary"
-                disabled={pinSaving === emp.id}
-                onClick={() => savePin(emp.id, emp.pin)}
+                disabled={pinSaving === group.primaryId}
+                onClick={() => { group.entries.forEach(emp => savePin(emp.id, group.entries[0].pin)) }}
                 style={{ padding:'5px 10px', fontSize:11, whiteSpace:'nowrap' }}
               >
-                {pinSaving === emp.id ? '...' : pinSaved === emp.id ? '✅' : '💾'}
+                {pinSaving === group.primaryId ? '...' : pinSaved === group.primaryId ? '✅' : '💾'}
               </button>
             </div>
 
             {/* Actions */}
             <div style={{ display:'flex', gap:6, flexShrink:0 }}>
               <button
-                onClick={() => toggleActive(emp)}
-                className={`btn ${emp.is_active ? 'btn-secondary' : 'btn-primary'}`}
-                style={{ padding:'5px 10px', fontSize:11 }}
-              >
-                {emp.is_active ? '🚫' : '✅'}
-              </button>
-              <button
-                onClick={() => deleteEmployee(emp)}
+                onClick={() => { if (confirm(`Eliminare ${group.name} da tutti gli store?`)) group.entries.forEach(emp => deleteEmployee(emp)) }}
                 className="btn btn-secondary"
                 style={{ padding:'5px 10px', fontSize:11, color:'var(--danger)' }}
               >🗑️</button>

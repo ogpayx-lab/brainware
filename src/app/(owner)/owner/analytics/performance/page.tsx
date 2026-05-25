@@ -6,8 +6,9 @@ import { fmt, formatDate } from '@/lib/utils'
 
 interface EmpPerf {
   id: string
+  ids: string[]
   name: string
-  store: string
+  stores: string[]
   revenue: number
   txn: number
   avg: number
@@ -88,40 +89,51 @@ export default function TeamPerformancePage() {
   async function loadTeamData() {
     const days = period === 'month' ? 30 : 7
     const fromDate = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString()
-    const team: EmpPerf[] = []
-
+    // Group employees by name
+    const nameGroups = new Map<string, typeof employees>()
     for (const emp of employees) {
-      const [{ data: sales }, { data: shiftData }, { data: cards }, { data: tasks }, { data: maintenance }, { data: checkins }] = await Promise.all([
-        supabase.from('sales').select('total').eq('user_id', emp.id).eq('movement_type', 'sale').gte('created_at', fromDate),
-        supabase.from('shifts').select('opened_at,closed_at,status').eq('user_id', emp.id).gte('created_at', fromDate),
-        supabase.from('fidelity_cards').select('id').eq('created_by', emp.id).gte('created_at', fromDate),
-        supabase.from('tasks').select('id').eq('assigned_to', emp.id).eq('completed', true).gte('completed_at', fromDate),
-        supabase.from('maintenance_tasks').select('id').eq('completed_by', emp.id).gte('completed_at', fromDate),
-        supabase.from('shift_checkins').select('checked_in_at, store_id').eq('user_id', emp.id).gte('checked_in_at', fromDate),
-      ])
-      const rev = (sales ?? []).reduce((s, x) => s + x.total, 0)
-      const txn = (sales ?? []).length
-      const hours = (shiftData ?? []).reduce((s, sh) => s + (sh.closed_at ? ((new Date(sh.closed_at).getTime() - new Date(sh.opened_at).getTime()) / 3600000) : 0), 0)
-      const closedShifts = (shiftData ?? []).filter(sh => sh.status === 'closed').length
-      const bonus = rev * 0.01 + closedShifts * 5
+      const existing = nameGroups.get(emp.full_name) || []
+      existing.push(emp)
+      nameGroups.set(emp.full_name, existing)
+    }
 
-      // Punctuality: check-ins after scheduled time (simplified: >15min late from shift open)
-      const lateCount = (checkins ?? []).filter((c: any) => {
-        const checkinTime = new Date(c.checked_in_at)
-        const hour = checkinTime.getHours()
-        // Morning shift starts at ~9, evening at ~14 — late if >15min after
-        return (hour >= 9 && hour <= 10) || (hour >= 14 && hour <= 15)
-      }).length
+    for (const [name, emps] of nameGroups) {
+      let totalRev = 0, totalTxn = 0, totalHours = 0, totalCards = 0, totalClosedShifts = 0
+      let totalTasks = 0, totalMaint = 0, totalLate = 0, totalCheckinCount = 0
+      const storeNames: string[] = []
+      const ids: string[] = []
 
+      for (const emp of emps) {
+        ids.push(emp.id)
+        const storeName = (emp.stores as any)?.name?.replace('MamaMary ', '') || ''
+        if (storeName && !storeNames.includes(storeName)) storeNames.push(storeName)
+
+        const [{ data: sales }, { data: shiftData }, { data: cards }, { data: tasks }, { data: maintenance }, { data: checkins }] = await Promise.all([
+          supabase.from('sales').select('total').eq('user_id', emp.id).eq('movement_type', 'sale').gte('created_at', fromDate),
+          supabase.from('shifts').select('opened_at,closed_at,status').eq('user_id', emp.id).gte('created_at', fromDate),
+          supabase.from('fidelity_cards').select('id').eq('created_by', emp.id).gte('created_at', fromDate),
+          supabase.from('tasks').select('id').eq('assigned_to', emp.id).eq('completed', true).gte('completed_at', fromDate),
+          supabase.from('maintenance_tasks').select('id').eq('completed_by', emp.id).gte('completed_at', fromDate),
+          supabase.from('shift_checkins').select('checked_in_at, store_id').eq('user_id', emp.id).gte('checked_in_at', fromDate),
+        ])
+        totalRev += (sales ?? []).reduce((s, x) => s + x.total, 0)
+        totalTxn += (sales ?? []).length
+        totalHours += (shiftData ?? []).reduce((s, sh) => s + (sh.closed_at ? ((new Date(sh.closed_at).getTime() - new Date(sh.opened_at).getTime()) / 3600000) : 0), 0)
+        totalClosedShifts += (shiftData ?? []).filter(sh => sh.status === 'closed').length
+        totalCards += (cards ?? []).length
+        totalTasks += (tasks ?? []).length
+        totalMaint += (maintenance ?? []).length
+        totalCheckinCount += (checkins ?? []).length
+      }
+
+      const bonus = totalRev * 0.01 + totalClosedShifts * 5
       team.push({
-        id: emp.id, name: emp.full_name, store: (emp.stores as any)?.name || '',
-        revenue: rev, txn, avg: txn > 0 ? rev / txn : 0,
-        hours: Math.round(hours), revenuePerHour: hours > 0 ? rev / hours : 0,
-        cards: (cards ?? []).length, shifts: closedShifts, bonus: Math.round(bonus),
-        tasksCompleted: (tasks ?? []).length,
-        maintenanceCompleted: (maintenance ?? []).length,
-        lateCheckins: lateCount,
-        totalCheckins: (checkins ?? []).length,
+        id: ids[0], ids, name, stores: storeNames,
+        revenue: totalRev, txn: totalTxn, avg: totalTxn > 0 ? totalRev / totalTxn : 0,
+        hours: Math.round(totalHours), revenuePerHour: totalHours > 0 ? totalRev / totalHours : 0,
+        cards: totalCards, shifts: totalClosedShifts, bonus: Math.round(bonus),
+        tasksCompleted: totalTasks, maintenanceCompleted: totalMaint,
+        lateCheckins: totalLate, totalCheckins: totalCheckinCount,
       })
     }
     setTeamData(team.sort((a, b) => b.revenue - a.revenue))
@@ -249,10 +261,14 @@ export default function TeamPerformancePage() {
                 </thead>
                 <tbody>
                   {teamData.map((emp, i) => (
-                    <tr key={emp.id} onClick={() => setSelected(employees.find(e => e.id === emp.id))} style={{ cursor: 'pointer', background: selected?.id === emp.id ? 'var(--bg-surface)' : undefined }}>
+                    <tr key={emp.id} onClick={() => setSelected(employees.find(e => emp.ids.includes(e.id)))} style={{ cursor: 'pointer', background: selected && emp.ids.includes(selected.id) ? 'var(--bg-surface)' : undefined }}>
                       <td style={{ fontWeight: 700 }}>{['🥇', '🥈', '🥉'][i] || (i + 1)}</td>
                       <td style={{ fontWeight: 600 }}>{emp.name}</td>
-                      <td style={{ fontSize: 12, color: 'var(--text-secondary)' }}>{emp.store}</td>
+                      <td style={{ fontSize: 11, color: 'var(--text-secondary)' }}>
+                        {emp.stores.map(s => (
+                          <span key={s} style={{ display: 'inline-block', background: 'var(--bg-surface)', border: '1px solid var(--border-subtle)', borderRadius: 4, padding: '1px 6px', marginRight: 3, fontSize: 10 }}>{s}</span>
+                        ))}
+                      </td>
                       <td style={{ fontWeight: 700, color: 'var(--brand-primary)' }}>{fmt(emp.revenue)}</td>
                       <td>{emp.txn}</td>
                       <td>{emp.hours}h</td>
