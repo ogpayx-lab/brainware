@@ -146,6 +146,10 @@ export default function EmployeesPage() {
 
   async function deleteEmployee(emp: any) {
     if (!confirm(`Eliminare ${emp.full_name}? Questa azione è irreversibile.`)) return
+    await removeEmployee(emp)
+  }
+
+  async function removeEmployee(emp: any) {
     const { error } = await supabase.from('users').delete().eq('id', emp.id)
     if (error) {
       // FK constraint — fallback to soft delete
@@ -153,7 +157,7 @@ export default function EmployeesPage() {
       if (deactErr) {
         alert(`❌ Impossibile eliminare: ${deactErr.message}`)
       } else {
-        setFeedback({ type: 'success', msg: `⚠️ ${emp.full_name} disattivato (ha vendite/turni collegati, eliminazione diretta non possibile)` })
+        setFeedback({ type: 'success', msg: `⚠️ ${emp.full_name} disattivato (ha vendite/turni collegati)` })
         setTimeout(() => setFeedback(null), 5000)
       }
     } else {
@@ -495,7 +499,7 @@ export default function EmployeesPage() {
             {/* Actions */}
             <div style={{ display:'flex', gap:6, flexShrink:0 }}>
               <button
-                onClick={() => { if (confirm(`Eliminare ${group.name} da tutti gli store?`)) group.entries.forEach(emp => deleteEmployee(emp)) }}
+                onClick={() => { if (confirm(`Eliminare ${group.name} da tutti gli store?`)) group.entries.forEach(emp => removeEmployee(emp)) }}
                 className="btn btn-secondary"
                 style={{ padding:'5px 10px', fontSize:11, color:'var(--danger)' }}
               >🗑️</button>
