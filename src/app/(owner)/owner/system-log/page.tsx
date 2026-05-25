@@ -58,6 +58,7 @@ const TABS: TabDef[] = [
       { key: 'customer_nationality', label: 'Nazionalità', width: 85, editable: true },
       { key: 'acquisition_channel', label: 'How Found', width: 90, editable: true },
       { key: 'movement_type', label: 'Tipo', width: 55, editable: true },
+      { key: '_products', label: 'Prodotti', width: 200, render: (_, r) => r._products || '' },
     ],
   },
   {
@@ -185,22 +186,6 @@ const TABS: TabDef[] = [
       { key: 'title', label: 'Titolo', width: 160 },
       { key: 'message', label: 'Messaggio', width: 250 },
       { key: 'read', label: 'Letto', width: 50, render: (v) => v ? '✓' : '✗' },
-    ],
-  },
-  {
-    key: 'customers', label: 'Customers', icon: '👤', table: 'sales',
-    select: 'id, created_at, store_id, user_id, total, payment_method, customer_name, customer_nationality, acquisition_channel',
-    orderBy: 'created_at',
-    columns: [
-      { key: '_date', label: 'Data', width: 85, render: (_, r) => new Date(r.created_at).toLocaleDateString('it-IT') },
-      { key: '_time', label: 'Ora', width: 55, render: (_, r) => new Date(r.created_at).toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' }) },
-      { key: '_store', label: 'Negozio', width: 120, render: (_, r) => r._storeName || '' },
-      { key: 'payment_method', label: 'Pagamento', width: 70, editable: true },
-      { key: 'total', label: 'Totale', width: 70, editable: true, type: 'number' },
-      { key: '_employee', label: 'Referente', width: 100, render: (_, r) => r._userName || '' },
-      { key: 'customer_name', label: 'Customer Name', width: 130, editable: true },
-      { key: 'customer_nationality', label: 'Nazionalità', width: 90, editable: true },
-      { key: 'acquisition_channel', label: 'How Found', width: 110, editable: true },
     ],
   },
   {
@@ -549,6 +534,21 @@ export default function SystemLogPage() {
       _userName: userMap.get(r.user_id || r.created_by || r.assigned_to || '') || '',
       _storeName: storeMap.get(r.store_id || '') || '',
     }))
+
+    // Enrich sales/customers tabs with product names
+    if (tab.key === 'sales' && data.length > 0) {
+      const saleIds = data.map(r => r.id).filter(Boolean)
+      if (saleIds.length > 0) {
+        const { data: items } = await supabase.from('sale_items').select('sale_id, product_name, qty').in('sale_id', saleIds)
+        const productMap = new Map<string, string>()
+        for (const it of items ?? []) {
+          const existing = productMap.get(it.sale_id) || ''
+          const entry = `${it.product_name} x${it.qty}`
+          productMap.set(it.sale_id, existing ? `${existing}, ${entry}` : entry)
+        }
+        data = data.map(r => ({ ...r, _products: productMap.get(r.id) || '' }))
+      }
+    }
 
     setRows(data)
     setLoading(false)

@@ -4,20 +4,34 @@ export async function POST(req: NextRequest) {
   try {
     const { messages, context } = await req.json()
 
-    // Try providers in order: Anthropic → OpenAI → Gemini
-    const anthropicKey = process.env.ANTHROPIC_API_KEY
-    const openaiKey = process.env.OPENAI_API_KEY
-    const geminiKey = process.env.GEMINI_API_KEY
+    // Try providers in order with automatic fallback
+    const providers: { name: string; key?: string; fn: (key: string, msgs: any[], ctx: string) => Promise<NextResponse> }[] = [
+      { name: 'Anthropic', key: process.env.ANTHROPIC_API_KEY, fn: callAnthropic },
+      { name: 'OpenAI', key: process.env.OPENAI_API_KEY, fn: callOpenAI },
+      { name: 'Gemini', key: process.env.GEMINI_API_KEY, fn: callGemini },
+    ]
 
-    if (anthropicKey) {
-      return await callAnthropic(anthropicKey, messages, context)
-    } else if (openaiKey) {
-      return await callOpenAI(openaiKey, messages, context)
-    } else if (geminiKey) {
-      return await callGemini(geminiKey, messages, context)
+    let lastError = ''
+    for (const provider of providers) {
+      if (!provider.key) continue
+      try {
+        const result = await provider.fn(provider.key, messages, context)
+        const body = await result.clone().json()
+        // If quota exhausted or error, try next provider
+        if (body.quotaExhausted || (result.status >= 400 && result.status !== 200)) {
+          lastError = body.error || `${provider.name} error ${result.status}`
+          console.log(`[AI] ${provider.name} failed (${result.status}), trying next...`)
+          continue
+        }
+        return result
+      } catch (err: any) {
+        lastError = err.message || `${provider.name} error`
+        console.log(`[AI] ${provider.name} threw error, trying next...`)
+        continue
+      }
     }
 
-    return NextResponse.json({ error: 'Nessuna API key AI configurata. Aggiungi ANTHROPIC_API_KEY, OPENAI_API_KEY o GEMINI_API_KEY nelle variabili d\'ambiente.' }, { status: 500 })
+    return NextResponse.json({ error: lastError || 'Nessuna API key AI configurata.' }, { status: 500 })
   } catch (err: any) {
     return NextResponse.json({ error: err.message || 'Errore interno' }, { status: 500 })
   }
