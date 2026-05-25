@@ -18,14 +18,13 @@ interface TabDef {
 const TABS: TabDef[] = [
   {
     key: 'products', label: 'Prodotti', icon: '📦', table: 'products',
-    select: 'id, name, price, category, stock, unit, barcode, is_active, store_id, created_at',
+    select: 'id, name, price, category, unit, barcode, is_active, store_id, created_at',
     orderBy: 'name',
     columns: [
       { key: '_store', label: 'Negozio', width: 140, render: (_, r) => r._storeName || '' },
       { key: 'name', label: 'Nome', width: 200, editable: true },
       { key: 'price', label: 'Prezzo', width: 70, editable: true, type: 'number' },
       { key: 'category', label: 'Categoria', width: 120, editable: true },
-      { key: 'stock', label: 'Stock', width: 60, editable: true, type: 'number' },
       { key: 'unit', label: 'Unità', width: 60, editable: true },
       { key: 'barcode', label: 'Barcode', width: 100, editable: true },
       { key: 'is_active', label: 'Attivo', width: 50, editable: true, render: (v) => v ? '✓' : '✗' },
@@ -660,7 +659,7 @@ export default function SystemLogPage() {
     switch (tab.table) {
       case 'products': newRow = { name: '', price: 0, category: '', stock: 0, unit: 'pz', barcode: '', is_active: true, store_id: storeId, created_at: now }; break
       case 'users': newRow = { full_name: '', pin: null, role: 'employee', is_active: true, store_id: storeId, created_at: now }; break
-      case 'sales': newRow = { total: 0, payment_method: 'cash', movement_type: 'sale', customer_name: '', customer_nationality: '', acquisition_channel: '', invoice_number: null, store_id: storeId, created_at: now }; break
+      case 'sales': newRow = { total: 0, payment_method: 'cash', movement_type: 'sale', customer_name: null, customer_nationality: null, acquisition_channel: null, invoice_number: null, store_id: storeId, created_at: now }; break
       case 'sale_items': newRow = { product_name: '', qty: 1, unit_price: 0, line_total: 0 }; break
       case 'shifts': newRow = { opened_at: now, period: 'morning', status: 'open', fce: 0, fcu: null, deposit_actual: null, store_id: storeId, created_at: now }; break
       case 'expenses': newRow = { amount: 0, description: '', store_id: storeId, created_at: now }; break
