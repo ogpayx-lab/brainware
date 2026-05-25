@@ -322,17 +322,36 @@ export default function SalesLogPage() {
         </div>
       </div>
 
+      {/* Store Tabs */}
+      <div style={{ display: 'flex', gap: 0, marginBottom: 10, borderBottom: '2px solid #E5E7EB', overflowX: 'auto' }}>
+        <button onClick={() => setSelectedStore('all')}
+          style={{
+            padding: '8px 18px', fontSize: 12, fontWeight: selectedStore === 'all' ? 700 : 500,
+            border: selectedStore === 'all' ? '2px solid #16A34A' : '1px solid #D1D5DB',
+            borderBottom: selectedStore === 'all' ? '2px solid white' : 'none',
+            background: selectedStore === 'all' ? 'white' : '#F9FAFB',
+            color: selectedStore === 'all' ? '#16A34A' : '#6B7280',
+            borderRadius: '6px 6px 0 0', cursor: 'pointer', marginBottom: -2, whiteSpace: 'nowrap',
+          }}>
+          Tutti
+        </button>
+        {stores.map(s => (
+          <button key={s.id} onClick={() => setSelectedStore(s.id)}
+            style={{
+              padding: '8px 18px', fontSize: 12, fontWeight: selectedStore === s.id ? 700 : 500,
+              border: selectedStore === s.id ? '2px solid #16A34A' : '1px solid #D1D5DB',
+              borderBottom: selectedStore === s.id ? '2px solid white' : 'none',
+              background: selectedStore === s.id ? 'white' : '#F9FAFB',
+              color: selectedStore === s.id ? '#16A34A' : '#6B7280',
+              borderRadius: '6px 6px 0 0', cursor: 'pointer', marginBottom: -2, whiteSpace: 'nowrap',
+            }}>
+            {s.name}
+          </button>
+        ))}
+      </div>
+
       {/* Filters — compact bar */}
       <div style={{ display: 'flex', gap: 12, marginBottom: 16, alignItems: 'center', flexWrap: 'wrap', background: '#F9FAFB', border: '1px solid #E5E7EB', borderRadius: 8, padding: '10px 14px' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-          <label style={{ fontSize: 12, fontWeight: 600, color: '#6B7280' }}>Negozio:</label>
-          <select value={selectedStore} onChange={e => setSelectedStore(e.target.value)}
-            style={{ fontSize: 12, padding: '4px 8px', border: '1px solid #D1D5DB', borderRadius: 4, background: 'white' }}>
-            <option value="all">Tutti</option>
-            {stores.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
-          </select>
-        </div>
-        <div style={{ width: 1, height: 20, background: '#D1D5DB' }} />
         <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
           <label style={{ fontSize: 12, fontWeight: 600, color: '#6B7280' }}>Da:</label>
           <input type="date" value={dateFrom} onChange={e => setDateFrom(e.target.value)}

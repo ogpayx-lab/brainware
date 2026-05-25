@@ -667,7 +667,7 @@ export default function SystemLogPage() {
     let newRow: any = {}
     switch (tab.table) {
       case 'products': newRow = { id, name: '', price: 0, category: '', stock: 0, unit: 'pz', barcode: '', is_active: true, store_id: storeId, created_at: now }; break
-      case 'sales': newRow = { id, total: 0, payment_method: 'cash', movement_type: 'sale', customer_name: null, customer_nationality: null, acquisition_channel: null, invoice_number: null, store_id: storeId, user_id: currentUserId, created_at: now }; break
+      case 'sales': newRow = { id, total: 0, subtotal: 0, payment_method: 'cash', movement_type: 'sale', customer_name: null, customer_nationality: null, acquisition_channel: null, invoice_number: null, store_id: storeId, user_id: currentUserId, created_at: now }; break
       case 'sale_items': newRow = { id, product_name: '', qty: 1, unit_price: 0, line_total: 0 }; break
       case 'shifts': newRow = { id, opened_at: now, period: 'morning', status: 'open', fce: 0, fcu: null, deposit_actual: null, store_id: storeId, user_id: currentUserId, created_at: now }; break
       case 'expenses': newRow = { id, amount: 0, description: '', store_id: storeId, user_id: currentUserId, created_at: now }; break
@@ -737,17 +737,36 @@ export default function SystemLogPage() {
         ))}
       </div>
 
+      {/* Store Tabs */}
+      <div style={{ display: 'flex', gap: 0, marginBottom: 10, borderBottom: '2px solid #E5E7EB', overflowX: 'auto' }}>
+        <button onClick={() => setSelectedStore('all')}
+          style={{
+            padding: '8px 18px', fontSize: 12, fontWeight: selectedStore === 'all' ? 700 : 500,
+            border: selectedStore === 'all' ? '2px solid #16A34A' : '1px solid #D1D5DB',
+            borderBottom: selectedStore === 'all' ? '2px solid white' : 'none',
+            background: selectedStore === 'all' ? 'white' : '#F9FAFB',
+            color: selectedStore === 'all' ? '#16A34A' : '#6B7280',
+            borderRadius: '6px 6px 0 0', cursor: 'pointer', marginBottom: -2, whiteSpace: 'nowrap',
+          }}>
+          Tutti
+        </button>
+        {stores.map(s => (
+          <button key={s.id} onClick={() => setSelectedStore(s.id)}
+            style={{
+              padding: '8px 18px', fontSize: 12, fontWeight: selectedStore === s.id ? 700 : 500,
+              border: selectedStore === s.id ? '2px solid #16A34A' : '1px solid #D1D5DB',
+              borderBottom: selectedStore === s.id ? '2px solid white' : 'none',
+              background: selectedStore === s.id ? 'white' : '#F9FAFB',
+              color: selectedStore === s.id ? '#16A34A' : '#6B7280',
+              borderRadius: '6px 6px 0 0', cursor: 'pointer', marginBottom: -2, whiteSpace: 'nowrap',
+            }}>
+            {s.name}
+          </button>
+        ))}
+      </div>
+
       {/* Filters */}
       <div style={{ display: 'flex', gap: 10, marginBottom: 12, alignItems: 'center', flexWrap: 'wrap', background: '#F9FAFB', border: '1px solid #E5E7EB', borderRadius: 6, padding: '6px 10px' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-          <label style={{ fontSize: 10, fontWeight: 700, color: '#6B7280' }}>STORE:</label>
-          <select value={selectedStore} onChange={e => setSelectedStore(e.target.value)}
-            style={{ fontSize: 11, padding: '3px 6px', border: '1px solid #D1D5DB', borderRadius: 4, background: 'white' }}>
-            <option value="all">Tutti</option>
-            {stores.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
-          </select>
-        </div>
-        <div style={{ width: 1, height: 16, background: '#D1D5DB' }} />
         <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
           <label style={{ fontSize: 10, fontWeight: 700, color: '#6B7280' }}>DA:</label>
           <input type="date" value={dateFrom} onChange={e => setDateFrom(e.target.value)}
