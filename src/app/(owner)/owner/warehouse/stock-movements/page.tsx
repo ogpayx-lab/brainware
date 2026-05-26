@@ -4,12 +4,14 @@ import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { fmt, formatDate } from '@/lib/utils'
+import { useT } from '@/lib/i18n'
 
 type TransferType = 'wh_to_store' | 'wh_to_wh' | 'store_to_store'
 
 export default function StockApprovalsPage() {
   const router = useRouter()
   const supabase = createClient()
+  const t = useT()
   const [requests, setRequests] = useState<any[]>([])
   const [history, setHistory] = useState<any[]>([])
   const [restockRequests, setRestockRequests] = useState<any[]>([])
@@ -467,7 +469,7 @@ export default function StockApprovalsPage() {
     loadData()
   }
 
-  if (loading) return <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '60vh' }}>Caricamento...</div>
+  if (loading) return <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '60vh' }}>{t('loading')}</div>
 
   return (
     <div>
@@ -560,7 +562,7 @@ export default function StockApprovalsPage() {
             )}
 
             <div style={{ display: 'flex', gap: 8 }}>
-              <button className="btn btn-secondary" style={{ flex: 1 }} onClick={() => setFulfilling(null)}>Annulla</button>
+              <button className="btn btn-secondary" style={{ flex: 1 }} onClick={() => setFulfilling(null)}>{t('cancel')}</button>
               <button
                 className="btn btn-primary" style={{ flex: 2 }}
                 disabled={fulfillSaving || !fulfillSource || fulfillItems.every(i => !parseInt(i.qty))}
@@ -640,7 +642,7 @@ export default function StockApprovalsPage() {
               </div>
             )}
             <div style={{ display: 'flex', gap: 'var(--space-sm)' }}>
-              <button className="btn btn-secondary" style={{ flex: 1 }} onClick={() => { setShowNewTransfer(false); setTransferItems([]) }}>Annulla</button>
+              <button className="btn btn-secondary" style={{ flex: 1 }} onClick={() => { setShowNewTransfer(false); setTransferItems([]) }}>{t('cancel')}</button>
               <button className="btn btn-primary" style={{ flex: 2 }} onClick={submitTransfer}
                 disabled={transferSaving || !sourceId || !destId || transferItems.every(i => !i.stock_item_id || !(parseInt(i.qty) > 0))}>
                 {transferSaving ? 'Trasferimento...' : '🔄 Trasferisci'}
@@ -652,7 +654,7 @@ export default function StockApprovalsPage() {
 
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 'var(--space-xl)' }}>
         <div>
-          <h2>📦 Movimenti Stock</h2>
+          <h2>{t('wh.movements')}</h2>
           <p style={{ color: 'var(--text-secondary)', fontSize: 14, marginTop: 4 }}>Trasferimenti, ricariche e approvazioni</p>
         </div>
         <button className="btn btn-primary" onClick={() => { setShowNewTransfer(true); addTransferItem() }}>+ Nuovo Trasferimento</button>

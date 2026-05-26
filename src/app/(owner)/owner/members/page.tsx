@@ -2,10 +2,12 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
+import { useT } from '@/lib/i18n'
 
 export default function MembersPage() {
   const router = useRouter()
   const supabase = createClient()
+  const t = useT()
   const [members, setMembers] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
@@ -52,13 +54,13 @@ export default function MembersPage() {
   const totalPoints = members.reduce((s, m) => s + (m.points || 0), 0)
   const totalRewards = members.reduce((s, m) => s + Math.floor((m.points || 0) / 10), 0)
 
-  if (loading) return <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '60vh', color: 'var(--text-secondary)' }}>Caricamento...</div>
+  if (loading) return <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '60vh', color: 'var(--text-secondary)' }}>{t('loading')}</div>
 
   return (
     <div>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 'var(--space-xl)', flexWrap: 'wrap', gap: 12 }}>
         <div>
-          <h2>💳 Members</h2>
+          <h2>{t('members.title')}</h2>
           <p style={{ color: 'var(--text-secondary)', fontSize: 14, marginTop: 4 }}>
             {members.length} membri registrati · {totalPoints} punti totali · {totalRewards} premi maturati
           </p>
@@ -69,7 +71,7 @@ export default function MembersPage() {
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 12, marginBottom: 'var(--space-lg)' }}>
         <div className="card" style={{ textAlign: 'center', padding: 16 }}>
           <div style={{ fontSize: 28, fontWeight: 700 }}>{members.length}</div>
-          <div style={{ fontSize: 12, color: 'var(--text-secondary)' }}>Totale Members</div>
+          <div style={{ fontSize: 12, color: 'var(--text-secondary)' }}>Total {t('sidebar.members')}</div>
         </div>
         <div className="card" style={{ textAlign: 'center', padding: 16 }}>
           <div style={{ fontSize: 28, fontWeight: 700 }}>{members.filter(m => {
@@ -77,7 +79,7 @@ export default function MembersPage() {
             const now = new Date()
             return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear()
           }).length}</div>
-          <div style={{ fontSize: 12, color: 'var(--text-secondary)' }}>Nuovi questo mese</div>
+          <div style={{ fontSize: 12, color: 'var(--text-secondary)' }}>{t('new_')} {t('month')}</div>
         </div>
         <div className="card" style={{ textAlign: 'center', padding: 16 }}>
           <div style={{ fontSize: 28, fontWeight: 700 }}>{members.filter(m => m.is_resident).length}</div>
@@ -96,7 +98,7 @@ export default function MembersPage() {
           style={{ flex: 1, minWidth: 200, height: 38, fontSize: 13 }} />
         {stores.length > 1 && (
           <select className="input" value={storeFilter} onChange={e => setStoreFilter(e.target.value)} style={{ height: 38, fontSize: 13, minWidth: 180 }}>
-            <option value="all">Tutti gli store</option>
+            <option value="all">{t('dash.allStores')}</option>
             {stores.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
           </select>
         )}
@@ -107,16 +109,16 @@ export default function MembersPage() {
         <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
           <thead>
             <tr style={{ borderBottom: '2px solid var(--border-default)', background: 'var(--bg-surface)' }}>
-              <th style={{ textAlign: 'left', padding: '10px 14px', fontWeight: 600, fontSize: 12, color: 'var(--text-secondary)' }}>Nome</th>
-              <th style={{ textAlign: 'left', padding: '10px 14px', fontWeight: 600, fontSize: 12, color: 'var(--text-secondary)' }}>Telefono</th>
+              <th style={{ textAlign: 'left', padding: '10px 14px', fontWeight: 600, fontSize: 12, color: 'var(--text-secondary)' }}>{t('name')}</th>
+              <th style={{ textAlign: 'left', padding: '10px 14px', fontWeight: 600, fontSize: 12, color: 'var(--text-secondary)' }}>{t('phone')}</th>
               <th style={{ textAlign: 'left', padding: '10px 14px', fontWeight: 600, fontSize: 12, color: 'var(--text-secondary)' }}>Email</th>
-              <th style={{ textAlign: 'left', padding: '10px 14px', fontWeight: 600, fontSize: 12, color: 'var(--text-secondary)' }}>Nazionalità</th>
+              <th style={{ textAlign: 'left', padding: '10px 14px', fontWeight: 600, fontSize: 12, color: 'var(--text-secondary)' }}>{t('sales.nationality')}</th>
               <th style={{ textAlign: 'center', padding: '10px 14px', fontWeight: 600, fontSize: 12, color: 'var(--text-secondary)' }}>Residente</th>
-              <th style={{ textAlign: 'center', padding: '10px 14px', fontWeight: 600, fontSize: 12, color: 'var(--text-secondary)' }}>Punti</th>
+              <th style={{ textAlign: 'center', padding: '10px 14px', fontWeight: 600, fontSize: 12, color: 'var(--text-secondary)' }}>{t('members.points')}</th>
               <th style={{ textAlign: 'center', padding: '10px 14px', fontWeight: 600, fontSize: 12, color: 'var(--text-secondary)' }}>🎁</th>
               <th style={{ textAlign: 'left', padding: '10px 14px', fontWeight: 600, fontSize: 12, color: 'var(--text-secondary)' }}>Store</th>
               <th style={{ textAlign: 'left', padding: '10px 14px', fontWeight: 600, fontSize: 12, color: 'var(--text-secondary)' }}>Fonte</th>
-              <th style={{ textAlign: 'left', padding: '10px 14px', fontWeight: 600, fontSize: 12, color: 'var(--text-secondary)' }}>Data</th>
+              <th style={{ textAlign: 'left', padding: '10px 14px', fontWeight: 600, fontSize: 12, color: 'var(--text-secondary)' }}>{t('date')}</th>
             </tr>
           </thead>
           <tbody>

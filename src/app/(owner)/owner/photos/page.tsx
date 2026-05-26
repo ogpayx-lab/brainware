@@ -2,6 +2,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
+import { useT } from '@/lib/i18n'
 
 interface PhotoItem {
   id: string
@@ -18,6 +19,7 @@ interface PhotoItem {
 export default function OwnerPhotosPage() {
   const router = useRouter()
   const supabase = createClient()
+  const t = useT()
   const [photos, setPhotos] = useState<PhotoItem[]>([])
   const [stores, setStores] = useState<any[]>([])
   const [selectedStore, setSelectedStore] = useState('all')
@@ -91,14 +93,14 @@ export default function OwnerPhotosPage() {
     groupedByDate[dateKey].push(p)
   }
 
-  if (loading && stores.length === 0) return <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '60vh', color: 'var(--text-secondary)' }}>Caricamento...</div>
+  if (loading && stores.length === 0) return <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '60vh', color: 'var(--text-secondary)' }}>{t('loading')}</div>
 
   return (
     <div>
       {/* Header */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 16 }}>
         <div>
-          <h2 style={{ marginBottom: 4 }}>📸 Foto Registro</h2>
+          <h2 style={{ marginBottom: 4 }}>{t('sidebar.photoLog')}</h2>
           <p style={{ color: 'var(--text-secondary)', fontSize: 13 }}>Foto del registro cartaceo — per negozio e data</p>
         </div>
         <div style={{ textAlign: 'right' }}>

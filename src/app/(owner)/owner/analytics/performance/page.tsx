@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { fmt, formatDate } from '@/lib/utils'
+import { useT } from '@/lib/i18n'
 
 interface EmpPerf {
   id: string
@@ -26,6 +27,7 @@ interface EmpPerf {
 export default function TeamPerformancePage() {
   const router = useRouter()
   const supabase = createClient()
+  const t = useT()
   const [employees, setEmployees] = useState<any[]>([])
   const [selected, setSelected] = useState<any>(null)
   const [period, setPeriod] = useState('month')
@@ -181,7 +183,7 @@ export default function TeamPerformancePage() {
     setForcingCheckout(false)
   }
 
-  if (loading) return <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '60vh' }}>Caricamento...</div>
+  if (loading) return <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '60vh' }}>{t('loading')}</div>
 
   const totalTeamRev = teamData.reduce((s, e) => s + e.revenue, 0)
 
@@ -189,7 +191,7 @@ export default function TeamPerformancePage() {
     <div>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 'var(--space-xl)' }}>
         <div>
-          <h2>👥 Team Performance</h2>
+          <h2>{t('sidebar.teamPerformance')}</h2>
           <p style={{ color: 'var(--text-secondary)', fontSize: 14, marginTop: 4 }}>Confronto, puntualità, task e analisi dettagliata dipendenti</p>
         </div>
         <div className="toggle-group">

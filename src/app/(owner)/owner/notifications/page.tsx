@@ -2,6 +2,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
+import { useT } from '@/lib/i18n'
 
 const TYPE_CONFIG: Record<string, { icon: string; color: string; route?: string }> = {
   day_off_request:  { icon: '📅', color: '#F59E0B', route: '/owner/notifications' },
@@ -28,6 +29,7 @@ const TYPE_CONFIG: Record<string, { icon: string; color: string; route?: string 
 export default function NotificationsPage() {
   const router = useRouter()
   const supabase = createClient()
+  const t = useT()
   const [notifications, setNotifications] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [filter, setFilter] = useState<'all' | 'unread' | 'day_off_request'>('all')
@@ -112,13 +114,13 @@ export default function NotificationsPage() {
     return true
   })
 
-  if (loading) return <div style={{ display:'flex', alignItems:'center', justifyContent:'center', height:'60vh', color:'var(--text-secondary)' }}>Caricamento...</div>
+  if (loading) return <div style={{ display:'flex', alignItems:'center', justifyContent:'center', height:'60vh', color:'var(--text-secondary)' }}>{t('loading')}</div>
 
   return (
     <div>
       <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', marginBottom:'var(--space-xl)' }}>
         <div>
-          <h2>🔔 Centro Notifiche</h2>
+          <h2>{t('notif.title')}</h2>
           <p style={{ color:'var(--text-secondary)', fontSize:14, marginTop:4 }}>
             Aggiornamento live ogni 15 secondi {unreadCount > 0 && <span style={{ background:'var(--danger)', color:'white', borderRadius:20, padding:'2px 8px', fontSize:12, fontWeight:700, marginLeft:8 }}>{unreadCount} nuove</span>}
           </p>

@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { fmt, formatDate } from '@/lib/utils'
+import { useT } from '@/lib/i18n'
 
 interface DayRow {
   date: string
@@ -18,6 +19,7 @@ interface DayRow {
 export default function LiveReportPage() {
   const router = useRouter()
   const supabase = createClient()
+  const t = useT()
   const [sales, setSales] = useState<any[]>([])
   const [stores, setStores] = useState<any[]>([])
   const [viewMode, setViewMode] = useState<'aggregate'|'per-store'>('aggregate')
@@ -115,14 +117,14 @@ export default function LiveReportPage() {
     URL.revokeObjectURL(url)
   }
 
-  if (loading) return <div style={{ display:'flex', alignItems:'center', justifyContent:'center', height:'60vh' }}>Caricamento...</div>
+  if (loading) return <div style={{ display:'flex', alignItems:'center', justifyContent:'center', height:'60vh' }}>{t('loading')}</div>
 
   return (
     <div>
       {/* Header */}
       <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:'var(--space-xl)' }}>
         <div>
-          <h2>📋 Live Report</h2>
+          <h2>{t('sidebar.dashboard')}</h2>
           <p style={{ color:'var(--text-secondary)', fontSize:14, marginTop:4 }}>Report giornaliero — aggregato e per store</p>
         </div>
         <div style={{ display:'flex', gap:8 }}>

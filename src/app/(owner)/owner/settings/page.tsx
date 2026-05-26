@@ -269,7 +269,7 @@ export default function SettingsPage() {
 
   return (
     <div>
-      <h2 style={{ marginBottom: 'var(--space-lg)' }}>⚙️ Impostazioni</h2>
+      <h2 style={{ marginBottom: 'var(--space-lg)' }}>{t('settings.title')}</h2>
 
       {/* Tab navigation */}
       <div style={{ display: 'flex', gap: 4, marginBottom: 'var(--space-xl)', background: 'var(--bg-surface)', borderRadius: 12, padding: 4 }}>

@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { fmt } from '@/lib/utils'
+import { useT } from '@/lib/i18n'
 
 interface SaleRow {
   saleId: string
@@ -47,6 +48,7 @@ const HEADER_CELL: React.CSSProperties = {
 export default function SalesLogPage() {
   const router = useRouter()
   const supabase = createClient()
+  const t = useT()
   const [rows, setRows] = useState<SaleRow[]>([])
   const [stores, setStores] = useState<any[]>([])
   const [selectedStore, setSelectedStore] = useState('all')
@@ -300,7 +302,7 @@ export default function SalesLogPage() {
   const uniqueSales = new Set(rows.map(r => r.saleId)).size
   const totalRevenue = rows.reduce((s, r) => s + r.lineTotal, 0)
 
-  if (loading && stores.length === 0) return <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '60vh', color: 'var(--text-secondary)' }}>Caricamento...</div>
+  if (loading && stores.length === 0) return <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '60vh', color: 'var(--text-secondary)' }}>{t('loading')}</div>
 
   return (
     <div>
@@ -317,7 +319,7 @@ export default function SalesLogPage() {
           </button>
           <button onClick={exportToExcel} disabled={exporting || rows.length === 0}
             style={{ background: '#16A34A', color: 'white', border: 'none', borderRadius: 6, padding: '8px 18px', fontSize: 13, fontWeight: 600, cursor: 'pointer', opacity: rows.length === 0 ? 0.5 : 1, display: 'flex', alignItems: 'center', gap: 6 }}>
-            📥 {exporting ? 'Esportazione...' : 'Esporta Excel'}
+            📥 {exporting ? t('loading') : t('sales.exportExcel')}
           </button>
         </div>
       </div>
@@ -333,7 +335,7 @@ export default function SalesLogPage() {
             color: selectedStore === 'all' ? '#16A34A' : '#6B7280',
             borderRadius: '6px 6px 0 0', cursor: 'pointer', marginBottom: -2, whiteSpace: 'nowrap',
           }}>
-          Tutti
+          {t('all')}
         </button>
         {stores.map(s => (
           <button key={s.id} onClick={() => setSelectedStore(s.id)}
@@ -353,24 +355,24 @@ export default function SalesLogPage() {
       {/* Filters — compact bar */}
       <div style={{ display: 'flex', gap: 12, marginBottom: 16, alignItems: 'center', flexWrap: 'wrap', background: '#F9FAFB', border: '1px solid #E5E7EB', borderRadius: 8, padding: '10px 14px' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-          <label style={{ fontSize: 12, fontWeight: 600, color: '#6B7280' }}>Da:</label>
+          <label style={{ fontSize: 12, fontWeight: 600, color: '#6B7280' }}>{t('from')}:</label>
           <input type="date" value={dateFrom} onChange={e => setDateFrom(e.target.value)}
             style={{ fontSize: 12, padding: '4px 8px', border: '1px solid #D1D5DB', borderRadius: 4 }} />
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-          <label style={{ fontSize: 12, fontWeight: 600, color: '#6B7280' }}>A:</label>
+          <label style={{ fontSize: 12, fontWeight: 600, color: '#6B7280' }}>{t('to')}:</label>
           <input type="date" value={dateTo} onChange={e => setDateTo(e.target.value)}
             style={{ fontSize: 12, padding: '4px 8px', border: '1px solid #D1D5DB', borderRadius: 4 }} />
         </div>
         <div style={{ width: 1, height: 20, background: '#D1D5DB' }} />
         <span style={{ fontSize: 12, color: '#6B7280' }}>
-          <strong>{uniqueSales}</strong> vendite · <strong>{rows.length}</strong> righe · <strong style={{ color: '#16A34A' }}>{fmt(totalRevenue)}</strong>
+          <strong>{uniqueSales}</strong> {t('orders')} · <strong>{rows.length}</strong> {t('rows')} · <strong style={{ color: '#16A34A' }}>{fmt(totalRevenue)}</strong>
         </span>
       </div>
 
       {/* Excel-style table */}
       {loading ? (
-        <div style={{ textAlign: 'center', padding: 40, color: '#9CA3AF' }}>Caricamento...</div>
+        <div style={{ textAlign: 'center', padding: 40, color: '#9CA3AF' }}>{t('loading')}</div>
       ) : rows.length === 0 ? (
         <div style={{ textAlign: 'center', padding: 60, color: '#9CA3AF', background: 'white', border: '1px solid #E5E7EB', borderRadius: 4 }}>
           <div style={{ fontSize: 32, marginBottom: 8 }}>📋</div>
@@ -383,17 +385,17 @@ export default function SalesLogPage() {
             <table style={{ width: '100%', borderCollapse: 'collapse', fontFamily: "'Segoe UI', Tahoma, Geneva, Verdana, sans-serif" }}>
               <thead>
                 <tr>
-                  <th style={HEADER_CELL}>Data</th>
-                  <th style={HEADER_CELL}>Ora</th>
-                  <th style={HEADER_CELL}>Negozio</th>
-                  <th style={HEADER_CELL}>Prodotto</th>
-                  <th style={{ ...HEADER_CELL, textAlign: 'right' }}>Prezzo</th>
-                  <th style={{ ...HEADER_CELL, textAlign: 'center' }}>Qty</th>
-                  <th style={{ ...HEADER_CELL, textAlign: 'right' }}>Totale</th>
-                  <th style={{ ...HEADER_CELL, textAlign: 'center' }}>Pagamento</th>
-                  <th style={HEADER_CELL}>Cliente</th>
-                  <th style={HEADER_CELL}>Nazionalità</th>
-                  <th style={HEADER_CELL}>Referente</th>
+                  <th style={HEADER_CELL}>{t('date')}</th>
+                  <th style={HEADER_CELL}>{t('time')}</th>
+                  <th style={HEADER_CELL}>{t('sales.store')}</th>
+                  <th style={HEADER_CELL}>{t('products')}</th>
+                  <th style={{ ...HEADER_CELL, textAlign: 'right' }}>{t('price')}</th>
+                  <th style={{ ...HEADER_CELL, textAlign: 'center' }}>{t('qty')}</th>
+                  <th style={{ ...HEADER_CELL, textAlign: 'right' }}>{t('total')}</th>
+                  <th style={{ ...HEADER_CELL, textAlign: 'center' }}>{t('sales.payment')}</th>
+                  <th style={HEADER_CELL}>{t('sales.customerName')}</th>
+                  <th style={HEADER_CELL}>{t('sales.nationality')}</th>
+                  <th style={HEADER_CELL}>{t('sales.employee')}</th>
                 </tr>
               </thead>
               <tbody>
@@ -551,11 +553,11 @@ export default function SalesLogPage() {
             )}
 
             <div style={{ display: 'flex', gap: 8 }}>
-              <button className="btn btn-secondary" style={{ flex: 1 }} onClick={() => setShowManual(false)}>Annulla</button>
+              <button className="btn btn-secondary" style={{ flex: 1 }} onClick={() => setShowManual(false)}>{t('cancel')}</button>
               <button className="btn btn-primary" style={{ flex: 2 }}
                 disabled={savingManual || manualCart.length === 0}
                 onClick={submitManualSale}>
-                {savingManual ? 'Salvataggio...' : `✅ Registra Vendita (${fmt(manualTotal)})`}
+                {savingManual ? t('saving') : `✅ Registra Vendita (${fmt(manualTotal)})`}
               </button>
             </div>
           </div>

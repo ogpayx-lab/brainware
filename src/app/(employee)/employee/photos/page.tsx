@@ -6,6 +6,7 @@ import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import { formatTime } from '@/lib/utils'
 import { BottomNav } from '@/components/employee/BottomNav'
+import { useT } from '@/lib/i18n'
 
 interface Photo {
   id: string
@@ -18,6 +19,7 @@ interface Photo {
 export default function PhotosPage() {
   const router = useRouter()
   const supabase = createClient()
+  const t = useT()
   const fileRef = useRef<HTMLInputElement>(null)
 
   const [photos, setPhotos] = useState<Photo[]>([])
@@ -109,7 +111,7 @@ export default function PhotosPage() {
     if (fileRef.current) fileRef.current.value = ''
   }
 
-  if (loading) return <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100vh' }}>Caricamento...</div>
+  if (loading) return <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100vh' }}>{t('loading')}</div>
 
   return (
     <div className="page" style={{ paddingBottom: 80 }}>
@@ -163,9 +165,9 @@ export default function PhotosPage() {
               />
             </div>
             <div style={{ display: 'flex', gap: 'var(--space-sm)' }}>
-              <button className="btn btn-secondary" style={{ flex: 1 }} onClick={cancelPreview}>Annulla</button>
+              <button className="btn btn-secondary" style={{ flex: 1 }} onClick={cancelPreview}>{t('cancel')}</button>
               <button className="btn btn-primary" style={{ flex: 2 }} onClick={handleUpload} disabled={uploading}>
-                {uploading ? 'Caricamento...' : ' Carica Foto'}
+                {uploading ? t('loading') : ' Carica Foto'}
               </button>
             </div>
           </div>

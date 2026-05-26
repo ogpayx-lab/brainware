@@ -6,12 +6,14 @@ import { createClient } from '@/lib/supabase/client'
 import { categoryLabel } from '@/lib/utils'
 import type { ProductCategory } from '@/types/database'
 import { BottomNav } from '@/components/employee/BottomNav'
+import { useT } from '@/lib/i18n'
 
 const CATEGORIES: ProductCategory[] = ['flowers','hashish','oils','edibles','accessories','cosmetics','clothes','seeds','vape','food']
 
 export default function RichiediRicaricaPage() {
   const router = useRouter()
   const supabase = createClient()
+  const t = useT()
   const [products, setProducts] = useState<any[]>([])
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
   const [storeId, setStoreId] = useState<string | null>(null)
@@ -108,7 +110,7 @@ export default function RichiediRicaricaPage() {
     return matchSearch && matchCat
   })
 
-  if (loading) return <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100vh' }}>Caricamento...</div>
+  if (loading) return <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100vh' }}>{t('loading')}</div>
 
   if (done) return (
     <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 16, padding: 24 }}>

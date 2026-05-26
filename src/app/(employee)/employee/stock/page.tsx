@@ -7,6 +7,7 @@ import { createClient } from '@/lib/supabase/client'
 import { BottomNav } from '@/components/employee/BottomNav'
 import { categoryLabel } from '@/lib/utils'
 import type { Product, ProductCategory } from '@/types/database'
+import { useT } from '@/lib/i18n'
 
 const CATEGORIES: ProductCategory[] = ['flowers','hashish','oils','edibles','accessories','cosmetics','clothes','seeds','vape','food']
 
@@ -15,6 +16,7 @@ type Step = 'count' | 'review'
 export default function StockPage() {
   const router = useRouter()
   const supabase = createClient()
+  const t = useT()
 
   const [products, setProducts] = useState<Product[]>([])
   const [search, setSearch] = useState('')
@@ -235,7 +237,7 @@ export default function StockPage() {
     return matchSearch && matchCat
   })
 
-  if (loading) return <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100vh' }}>Caricamento...</div>
+  if (loading) return <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100vh' }}>{t('loading')}</div>
 
   if (done) return (
     <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 16, padding: 24 }}>

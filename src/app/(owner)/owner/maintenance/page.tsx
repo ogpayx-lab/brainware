@@ -4,10 +4,12 @@ import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { formatDate } from '@/lib/utils'
+import { useT } from '@/lib/i18n'
 
 export default function OwnerMaintenancePage() {
   const router = useRouter()
   const supabase = createClient()
+  const t = useT()
 
   const [templates, setTemplates] = useState<any[]>([])
   const [recentLogs, setRecentLogs] = useState<any[]>([])
@@ -82,7 +84,7 @@ export default function OwnerMaintenancePage() {
   const todayCompletion = todayLogs.length > 0
     ? Math.round((todayLogs.filter(l => l.completed).length / todayLogs.length) * 100) : 0
 
-  if (loading) return <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '60vh' }}>Caricamento...</div>
+  if (loading) return <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '60vh' }}>{t('loading')}</div>
 
   return (
     <div>
@@ -105,9 +107,9 @@ export default function OwnerMaintenancePage() {
               </div>
             </div>
             <div style={{ display: 'flex', gap: 'var(--space-sm)', marginTop: 'var(--space-xl)' }}>
-              <button className="btn btn-secondary" style={{ flex: 1 }} onClick={() => setShowForm(false)}>Annulla</button>
+              <button className="btn btn-secondary" style={{ flex: 1 }} onClick={() => setShowForm(false)}>{t('cancel')}</button>
               <button className="btn btn-primary" style={{ flex: 2 }} onClick={addTemplate} disabled={saving || !form.title}>
-                {saving ? 'Salvataggio...' : 'Aggiungi Task'}
+                {saving ? t('saving') : 'Aggiungi Task'}
               </button>
             </div>
           </div>
@@ -116,7 +118,7 @@ export default function OwnerMaintenancePage() {
 
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--space-xl)' }}>
         <div>
-          <h2>Configurazione Manutenzione</h2>
+          <h2>{t('sidebar.maintenance')}</h2>
           <div style={{ color: 'var(--text-secondary)', fontSize: 14, marginTop: 4 }}>
             Completamento oggi: <strong style={{ color: todayCompletion >= 80 ? 'var(--success)' : todayCompletion >= 50 ? 'var(--warning)' : 'var(--danger)' }}>{todayCompletion}%</strong>
           </div>

@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import * as XLSX from 'xlsx'
+import { useT } from '@/lib/i18n'
 
 type ParsedProduct = { name: string; category: string; stock: number; price?: number; barcode?: string }
 type ParsedWarehouseItem = { product_name: string; qty: number; sku?: string; category?: string }
@@ -11,6 +12,7 @@ type ParsedWarehouseItem = { product_name: string; qty: number; sku?: string; ca
 export default function BulkLoadPage() {
   const router = useRouter()
   const supabase = createClient()
+  const t = useT()
   const fileRef = useRef<HTMLInputElement>(null)
 
   const [tab, setTab] = useState<'store' | 'warehouse'>('store')

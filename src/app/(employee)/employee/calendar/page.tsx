@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { BottomNav } from '@/components/employee/BottomNav'
+import { useT } from '@/lib/i18n'
 
 function getDaysInMonth(year: number, month: number) {
   return new Date(year, month + 1, 0).getDate()
@@ -17,6 +18,7 @@ const DAY_NAMES = ['Lun','Mar','Mer','Gio','Ven','Sab','Dom']
 export default function CalendarioTurni() {
   const router = useRouter()
   const supabase = createClient()
+  const t = useT()
   const today = new Date()
   const [year, setYear] = useState(today.getFullYear())
   const [month, setMonth] = useState(today.getMonth())
@@ -91,7 +93,7 @@ export default function CalendarioTurni() {
     return { dateStr, shift, req }
   }
 
-  if (loading) return <div style={{ display:'flex', alignItems:'center', justifyContent:'center', height:'100vh' }}>Caricamento...</div>
+  if (loading) return <div style={{ display:'flex', alignItems:'center', justifyContent:'center', height:'100vh' }}>{t('loading')}</div>
 
   return (
     <div className="page" style={{ paddingBottom: 80 }}>
@@ -271,7 +273,7 @@ export default function CalendarioTurni() {
               <textarea className="input" rows={3} placeholder="Es. visita medica, impegno personale..." value={requestReason} onChange={e => setRequestReason(e.target.value)} style={{ resize:'none' }} />
             </div>
             <div style={{ display:'flex', gap:8 }}>
-              <button className="btn btn-secondary" style={{ flex:1 }} onClick={() => { setShowRequestModal(false); setRequestDate(''); setRequestReason('') }}>Annulla</button>
+              <button className="btn btn-secondary" style={{ flex:1 }} onClick={() => { setShowRequestModal(false); setRequestDate(''); setRequestReason('') }}>{t('cancel')}</button>
               <button className="btn btn-primary" style={{ flex:2 }} disabled={saving||!requestDate} onClick={submitRequest}>
                 {saving ? 'Invio...' : 'Invia Richiesta'}
               </button>

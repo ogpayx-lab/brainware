@@ -4,12 +4,14 @@ import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { fmt, categoryLabel } from '@/lib/utils'
 import type { ProductCategory } from '@/types/database'
+import { useT } from '@/lib/i18n'
 
 const CATEGORIES: ProductCategory[] = ['flowers', 'hashish', 'oils', 'edibles', 'accessories', 'cosmetics', 'clothes', 'seeds', 'vape', 'food']
 
 export default function WarehouseSecondaryPage() {
   const router = useRouter()
   const supabase = createClient()
+  const t = useT()
   const [warehouses, setWarehouses] = useState<any[]>([])
   const [selectedWh, setSelectedWh] = useState<any>(null)
   const [stock, setStock] = useState<any[]>([])
@@ -123,7 +125,7 @@ export default function WarehouseSecondaryPage() {
   const getStatus = (i: any) => i.qty === 0 ? 'Esaurito' : i.qty <= i.stock_alert ? 'Basso' : 'OK'
   const statusColor: Record<string, string> = { Esaurito: 'badge-danger', Basso: 'badge-warning', OK: 'badge-success' }
 
-  if (loading) return <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '60vh' }}>Caricamento...</div>
+  if (loading) return <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '60vh' }}>{t('loading')}</div>
 
   return (
     <div>
@@ -141,7 +143,7 @@ export default function WarehouseSecondaryPage() {
               <div className="input-group"><label className="input-label">Note</label><input className="input" placeholder="Note opzionali" value={whForm.notes} onChange={e => setWhForm(f => ({ ...f, notes: e.target.value }))} /></div>
             </div>
             <div style={{ display: 'flex', gap: 'var(--space-sm)', marginTop: 'var(--space-xl)' }}>
-              <button className="btn btn-secondary" style={{ flex: 1 }} onClick={() => setShowCreate(false)}>Annulla</button>
+              <button className="btn btn-secondary" style={{ flex: 1 }} onClick={() => setShowCreate(false)}>{t('cancel')}</button>
               <button className="btn btn-primary" style={{ flex: 2 }} onClick={createWarehouse} disabled={saving || !whForm.name}>{saving ? '...' : 'Crea Magazzino'}</button>
             </div>
           </div>
@@ -166,7 +168,7 @@ export default function WarehouseSecondaryPage() {
               </div>
             </div>
             <div style={{ display: 'flex', gap: 'var(--space-sm)', marginTop: 'var(--space-xl)' }}>
-              <button className="btn btn-secondary" style={{ flex: 1 }} onClick={() => setShowAddItem(false)}>Annulla</button>
+              <button className="btn btn-secondary" style={{ flex: 1 }} onClick={() => setShowAddItem(false)}>{t('cancel')}</button>
               <button className="btn btn-primary" style={{ flex: 2 }} onClick={addStockItem} disabled={saving || !newItem.product_name}>{saving ? '...' : 'Aggiungi'}</button>
             </div>
           </div>
@@ -185,7 +187,7 @@ export default function WarehouseSecondaryPage() {
               <div className="input-group"><label className="input-label">Note</label><input className="input" value={movementForm.notes} onChange={e => setMovementForm(f => ({ ...f, notes: e.target.value }))} /></div>
             </div>
             <div style={{ display: 'flex', gap: 'var(--space-sm)', marginTop: 'var(--space-xl)' }}>
-              <button className="btn btn-secondary" style={{ flex: 1 }} onClick={() => setShowMovement(null)}>Annulla</button>
+              <button className="btn btn-secondary" style={{ flex: 1 }} onClick={() => setShowMovement(null)}>{t('cancel')}</button>
               <button className="btn btn-primary" style={{ flex: 2 }} onClick={submitMovement} disabled={saving || !(parseInt(movementForm.qty) > 0)}>{saving ? '...' : showMovement.type === 'in' ? `📥 +${movementForm.qty || 0}` : `📤 -${movementForm.qty || 0}`}</button>
             </div>
           </div>
@@ -195,7 +197,7 @@ export default function WarehouseSecondaryPage() {
       {/* Header */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 'var(--space-xl)' }}>
         <div>
-          <h2>📦 Magazzini Secondari</h2>
+          <h2>{t('wh.secondary')}</h2>
           <p style={{ color: 'var(--text-secondary)', fontSize: 14, marginTop: 4 }}>{warehouses.length} magazzini attivi</p>
         </div>
         <button className="btn btn-primary" onClick={() => setShowCreate(true)}>+ Nuovo Magazzino</button>

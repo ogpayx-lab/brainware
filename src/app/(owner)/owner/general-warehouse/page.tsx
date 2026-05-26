@@ -4,12 +4,14 @@ import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { fmt, formatDate, categoryLabel } from '@/lib/utils'
 import type { ProductCategory } from '@/types/database'
+import { useT } from '@/lib/i18n'
 
 const STATUS_COLOR: Record<string, string> = { Critico: 'badge-danger', Warning: 'badge-warning', OK: 'badge-success' }
 
 export default function GeneralWarehousePage() {
   const router = useRouter()
   const supabase = createClient()
+  const t = useT()
   const [products, setProducts] = useState<any[]>([])
   const [transfers, setTransfers] = useState<any[]>([])
   const [stores, setStores] = useState<any[]>([])
@@ -72,7 +74,7 @@ export default function GeneralWarehousePage() {
 
   const getStatus = (p: any) => p.stock <= 5 ? 'Critico' : p.stock <= p.stock_alert ? 'Warning' : 'OK'
 
-  if (loading) return <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '60vh' }}>Caricamento...</div>
+  if (loading) return <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '60vh' }}>{t('loading')}</div>
 
   return (
     <div>
@@ -122,7 +124,7 @@ export default function GeneralWarehousePage() {
             </div>
 
             <div style={{ display: 'flex', gap: 'var(--space-sm)' }}>
-              <button className="btn btn-secondary" style={{ flex: 1 }} onClick={() => setShowNewTransfer(false)}>Annulla</button>
+              <button className="btn btn-secondary" style={{ flex: 1 }} onClick={() => setShowNewTransfer(false)}>{t('cancel')}</button>
               <button className="btn btn-primary" style={{ flex: 2 }} onClick={submitTransfer} disabled={saving}>
                 {saving ? 'Invio...' : 'Invia Trasferimento'}
               </button>
@@ -134,7 +136,7 @@ export default function GeneralWarehousePage() {
       {/* Header */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 'var(--space-xl)' }}>
         <div>
-          <h2>Magazzino Generale</h2>
+          <h2>{t('wh.central')}</h2>
           <p style={{ color: 'var(--text-secondary)', fontSize: 14, marginTop: 4 }}>01 Mar  {new Date().toLocaleDateString('it-IT', { day: 'numeric', month: 'short', year: 'numeric' })}</p>
         </div>
         <div style={{ display: 'flex', gap: 8 }}>

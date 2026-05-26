@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import { fmt, formatTime } from '@/lib/utils'
 import { playNotificationSound } from '@/lib/useNotificationSound'
+import { useT } from '@/lib/i18n'
 
 const TYPE_ICON: Record<string, string> = {
   day_off_request: '📅', sale: '💰', task_completed: '✅', task_assigned: '📋', low_stock: '⚠️',
@@ -25,6 +26,7 @@ const TYPE_ROUTE: Record<string, string> = {
 export default function OwnerDashboard() {
   const router = useRouter()
   const supabase = createClient()
+  const t = useT()
   const [data, setData] = useState<any>(null)
   const [stores, setStores] = useState<any[]>([])
   const [selectedStore, setSelectedStore] = useState('all')
@@ -464,12 +466,12 @@ export default function OwnerDashboard() {
     XLSX.writeFile(wb, `brainware-report-${dateFrom}.xlsx`)
   }
 
-  if (loading) return <div style={{ display:'flex', alignItems:'center', justifyContent:'center', height:'60vh' }}><div style={{ color:'var(--text-secondary)' }}>Caricamento...</div></div>
+  if (loading) return <div style={{ display:'flex', alignItems:'center', justifyContent:'center', height:'60vh' }}><div style={{ color:'var(--text-secondary)' }}>{t('loading')}</div></div>
   if (!data) return null
 
   const unreadCount = notifications.filter(n => !n.read).length
   const maxHourly = Math.max(...data.hourlyCustomers, 1)
-  const CHANNEL_LABELS: Record<string, string> = { 'walk-in': '🚶 Walk-in', social: '📱 Social', google: '🔍 Google', referral: '🤝 Referral', shopify: '🛍️ Shopify', other: '📋 Altro' }
+  const CHANNEL_LABELS: Record<string, string> = { 'walk-in': t('dash.walkin'), social: t('dash.social'), google: t('dash.google'), referral: t('dash.referral'), shopify: '🛍️ Shopify', other: t('dash.other') }
   const isTodayRange = dateTo === new Date().toISOString().split('T')[0]
   const isSingleDay = dateFrom === dateTo
   const targetPct = Math.min(100, (data.totalRevenue / dailyTarget) * 100)
@@ -479,7 +481,7 @@ export default function OwnerDashboard() {
       {/* ═══════ HEADER ═══════ */}
       <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', marginBottom:'var(--space-lg)' }}>
         <div>
-          <h2>📊 Dashboard</h2>
+          <h2>{t('dash.title')}</h2>
           <p style={{ color:'var(--text-secondary)', fontSize:14, marginTop:4 }}>
             {storeName} — {isSingleDay
               ? new Date(dateFrom + 'T12:00:00').toLocaleDateString('it-IT', { weekday:'long', day:'numeric', month:'long', year:'numeric' })
@@ -492,12 +494,12 @@ export default function OwnerDashboard() {
           <button onClick={exportPDF} className="btn btn-ghost" style={{ fontSize:12, padding:'5px 10px', display:'flex', alignItems:'center', gap:4 }}>📄 PDF</button>
           <button onClick={exportExcel} className="btn btn-ghost" style={{ fontSize:12, padding:'5px 10px', display:'flex', alignItems:'center', gap:4 }}>📊 Excel</button>
           <div style={{ display:'flex', alignItems:'center', gap:4 }}>
-            <label style={{ fontSize:11, color:'var(--text-tertiary)', fontWeight:600 }}>Da</label>
+            <label style={{ fontSize:11, color:'var(--text-tertiary)', fontWeight:600 }}>{t('from')}</label>
             <input type="date" className="input" value={dateFrom} onChange={e => setDateFrom(e.target.value)}
               style={{ fontSize:13, fontWeight:600, padding:'5px 8px' }} />
           </div>
           <div style={{ display:'flex', alignItems:'center', gap:4 }}>
-            <label style={{ fontSize:11, color:'var(--text-tertiary)', fontWeight:600 }}>A</label>
+            <label style={{ fontSize:11, color:'var(--text-tertiary)', fontWeight:600 }}>{t('to')}</label>
             <input type="date" className="input" value={dateTo} onChange={e => setDateTo(e.target.value)}
               style={{ fontSize:13, fontWeight:600, padding:'5px 8px' }} />
           </div>
@@ -506,7 +508,7 @@ export default function OwnerDashboard() {
               <div style={{ fontFamily:'var(--font-heading)', fontSize:22, fontWeight:700, color:'var(--text-primary)', letterSpacing:'-0.02em' }}>
                 {now.toLocaleTimeString('it-IT', { hour:'2-digit', minute:'2-digit' })}
               </div>
-              <div style={{ fontSize:10, color:'var(--text-tertiary)' }}>🟢 Live</div>
+              <div style={{ fontSize:10, color:'var(--text-tertiary)' }}>{t('dash.live')}</div>
             </div>
           )}
         </div>
@@ -515,7 +517,7 @@ export default function OwnerDashboard() {
       {/* ═══════ STORE FILTER ═══════ */}
       <div style={{ display:'flex', gap:6, marginBottom:'var(--space-lg)', flexWrap:'wrap' }}>
         <button onClick={() => setSelectedStore('all')} className={`badge ${selectedStore==='all'?'badge-brand':'badge-gray'}`} style={{ cursor:'pointer', border:'none', padding:'6px 14px', fontSize:13 }}>
-          Tutti gli Store
+          {t('dash.allStores')}
         </button>
         {stores.map(s => (
           <button key={s.id} onClick={() => setSelectedStore(s.id)} className={`badge ${selectedStore===s.id?'badge-brand':'badge-gray'}`} style={{ cursor:'pointer', border:'none', padding:'6px 14px', fontSize:13 }}>
@@ -530,7 +532,7 @@ export default function OwnerDashboard() {
           <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:8 }}>
             <div style={{ display:'flex', alignItems:'center', gap:8 }}>
               <span style={{ fontSize:18 }}>{targetPct >= 100 ? '🎯' : '📈'}</span>
-              <span style={{ fontWeight:700, fontSize:14 }}>Obiettivo Giornaliero</span>
+              <span style={{ fontWeight:700, fontSize:14 }}>{t('dash.dailyTarget')}</span>
             </div>
             <div style={{ fontWeight:800, fontSize:18, color: targetPct >= 100 ? 'var(--success)' : 'var(--brand-primary)' }}>
               {fmt(data.totalRevenue)} / {fmt(dailyTarget)}
@@ -543,9 +545,9 @@ export default function OwnerDashboard() {
             }} />
           </div>
           <div style={{ display:'flex', justifyContent:'space-between', marginTop:4 }}>
-            <span style={{ fontSize:11, color:'var(--text-tertiary)' }}>{targetPct.toFixed(0)}% raggiunto</span>
-            {targetPct < 100 && <span style={{ fontSize:11, color:'var(--text-tertiary)' }}>Mancano {fmt(dailyTarget - data.totalRevenue)}</span>}
-            {targetPct >= 100 && <span style={{ fontSize:11, color:'var(--success)', fontWeight:600 }}>🎉 Obiettivo superato!</span>}
+            <span style={{ fontSize:11, color:'var(--text-tertiary)' }}>{targetPct.toFixed(0)}% {t('reached')}</span>
+            {targetPct < 100 && <span style={{ fontSize:11, color:'var(--text-tertiary)' }}>{t('remaining')} {fmt(dailyTarget - data.totalRevenue)}</span>}
+            {targetPct >= 100 && <span style={{ fontSize:11, color:'var(--success)', fontWeight:600 }}>🎉 {t('exceeded')}</span>}
           </div>
         </div>
       )}
@@ -555,11 +557,11 @@ export default function OwnerDashboard() {
         <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', padding:'12px 18px', borderBottom: showAllNotifs ? '1px solid var(--border-subtle)' : 'none' }}>
           <div style={{ display:'flex', alignItems:'center', gap:10 }}>
             <span style={{ fontSize:18 }}>🔔</span>
-            <h4 style={{ margin:0, fontSize:14 }}>Notifiche</h4>
+            <h4 style={{ margin:0, fontSize:14 }}>{t('dash.notifications')}</h4>
             {unreadCount > 0 && <span style={{ background:'var(--danger)', color:'white', borderRadius:20, padding:'1px 8px', fontSize:11, fontWeight:700 }}>{unreadCount}</span>}
           </div>
           <div style={{ display:'flex', gap:8 }}>
-            {unreadCount > 0 && <button onClick={markAllRead} style={{ background:'none', border:'none', color:'var(--text-secondary)', fontSize:11, cursor:'pointer' }}>✓ Letto tutto</button>}
+            {unreadCount > 0 && <button onClick={markAllRead} style={{ background:'none', border:'none', color:'var(--text-secondary)', fontSize:11, cursor:'pointer' }}>{t('dash.readAll')}</button>}
             <button onClick={() => setShowAllNotifs(!showAllNotifs)} style={{ background:'none', border:'none', color:'var(--brand-primary)', fontSize:12, fontWeight:600, cursor:'pointer' }}>
               {showAllNotifs ? '▲ Chiudi' : `▼ (${notifications.length})`}
             </button>
@@ -567,7 +569,7 @@ export default function OwnerDashboard() {
         </div>
         {showAllNotifs && (
           <div style={{ maxHeight:300, overflowY:'auto' }}>
-            {notifications.length === 0 && <div style={{ padding:'var(--space-lg)', textAlign:'center', color:'var(--text-tertiary)', fontSize:13 }}>Nessuna notifica</div>}
+            {notifications.length === 0 && <div style={{ padding:'var(--space-lg)', textAlign:'center', color:'var(--text-tertiary)', fontSize:13 }}>{t('dash.noNotifications')}</div>}
             {notifications.map((n, i) => (
               <div key={n.id} onClick={() => {
                 markNotifRead(n.id)
@@ -601,22 +603,22 @@ export default function OwnerDashboard() {
       {/* ═══════ KPI ROW 1 — Revenue ═══════ */}
       <div style={{ display:'grid', gridTemplateColumns:'repeat(4,1fr)', gap:'var(--space-md)', marginBottom:'var(--space-md)' }}>
         <div className="kpi-card">
-          <div className="kpi-label">💰 Revenue Totale</div>
+          <div className="kpi-label">{t('dash.totalRevenue')}</div>
           <div className="kpi-value" style={{ color:'var(--brand-primary)' }}>{fmt(data.totalRevenue)}</div>
           <div style={{ fontSize:11, color: data.revenueChange >= 0 ? 'var(--success)' : 'var(--danger)', fontWeight:600, marginTop:2 }}>
-            {data.revenueChange >= 0 ? '▲' : '▼'} {Math.abs(data.revenueChange).toFixed(1)}% vs periodo prec.
+            {data.revenueChange >= 0 ? '▲' : '▼'} {Math.abs(data.revenueChange).toFixed(1)}% {t('vsPrevPeriod')}
           </div>
         </div>
         <div className="kpi-card">
-          <div className="kpi-label">💵 Contanti</div>
+          <div className="kpi-label">{t('dash.cash')}</div>
           <div className="kpi-value">{fmt(data.totalCash)}</div>
         </div>
         <div className="kpi-card">
-          <div className="kpi-label">💳 POS</div>
+          <div className="kpi-label">{t('dash.pos')}</div>
           <div className="kpi-value" style={{ color:'#7C3AED' }}>{fmt(data.totalPos)}</div>
         </div>
         <div className="kpi-card">
-          <div className="kpi-label">🏦 Deposito</div>
+          <div className="kpi-label">{t('dash.deposit')}</div>
           <div className="kpi-value" style={{ color:'var(--success)' }}>{fmt(data.totalDeposit)}</div>
         </div>
       </div>
@@ -624,22 +626,22 @@ export default function OwnerDashboard() {
       {/* ═══════ KPI ROW 2 — Performance ═══════ */}
       <div style={{ display:'grid', gridTemplateColumns:'repeat(4,1fr)', gap:'var(--space-md)', marginBottom:'var(--space-md)' }}>
         <div className="kpi-card">
-          <div className="kpi-label">👥 Clienti</div>
+          <div className="kpi-label">{t('dash.customers')}</div>
           <div className="kpi-value">{data.customerCount}</div>
           <div style={{ fontSize:11, color: data.txnChange >= 0 ? 'var(--success)' : 'var(--danger)', fontWeight:600, marginTop:2 }}>
-            {data.txnChange >= 0 ? '▲' : '▼'} {Math.abs(data.txnChange).toFixed(1)}% vs periodo prec.
+            {data.txnChange >= 0 ? '▲' : '▼'} {Math.abs(data.txnChange).toFixed(1)}% {t('vsPrevPeriod')}
           </div>
         </div>
         <div className="kpi-card">
-          <div className="kpi-label">🧾 Scontrino Medio</div>
+          <div className="kpi-label">{t('dash.avgTicket')}</div>
           <div className="kpi-value">{fmt(data.avgSale)}</div>
         </div>
         <div className="kpi-card">
-          <div className="kpi-label">💸 Spese</div>
+          <div className="kpi-label">{t('dash.expenses')}</div>
           <div className="kpi-value" style={{ color:'var(--danger)' }}>{fmt(data.totalExpenses)}</div>
         </div>
         <div className="kpi-card">
-          <div className="kpi-label">📈 Profitto Netto</div>
+          <div className="kpi-label">{t('dash.netProfit')}</div>
           <div className="kpi-value" style={{ color: data.netProfit >= 0 ? 'var(--success)' : 'var(--danger)' }}>{fmt(data.netProfit)}</div>
         </div>
       </div>
@@ -647,27 +649,27 @@ export default function OwnerDashboard() {
       {/* ═══════ KPI ROW 3 — Extra ═══════ */}
       <div style={{ display:'grid', gridTemplateColumns:'repeat(4,1fr)', gap:'var(--space-md)', marginBottom:'var(--space-xl)' }}>
         <div className="kpi-card">
-          <div className="kpi-label">🏷️ Sconti Concessi</div>
+          <div className="kpi-label">{t('dash.discounts')}</div>
           <div className="kpi-value">{fmt(data.totalDiscounts)}</div>
-          <div style={{ fontSize:11, color:'var(--text-tertiary)', marginTop:2 }}>{data.discountPct.toFixed(1)}% sul totale</div>
+          <div style={{ fontSize:11, color:'var(--text-tertiary)', marginTop:2 }}>{data.discountPct.toFixed(1)}% {t('dash.onTotal')}</div>
         </div>
         <div className="kpi-card">
-          <div className="kpi-label">🛍️ Shopify Online</div>
+          <div className="kpi-label">{t('dash.shopifyOnline')}</div>
           <div className="kpi-value" style={{ color:'#7C3AED' }}>{fmt(data.shopifyRevenue)}</div>
-          <div style={{ fontSize:11, color:'var(--text-tertiary)', marginTop:2 }}>{data.shopifyCount} ordini</div>
+          <div style={{ fontSize:11, color:'var(--text-tertiary)', marginTop:2 }}>{data.shopifyCount} {t('orders')}</div>
         </div>
         <div className="kpi-card">
-          <div className="kpi-label">💳 Fidelity Card</div>
+          <div className="kpi-label">{t('dash.fidelityCards')}</div>
           <div className="kpi-value">{data.totalFidelity}</div>
-          <div style={{ fontSize:11, color:'var(--success)', fontWeight:600, marginTop:2 }}>+{data.newFidelityToday} nuove</div>
+          <div style={{ fontSize:11, color:'var(--success)', fontWeight:600, marginTop:2 }}>+{data.newFidelityToday} {t('new_')}</div>
         </div>
         <Link href="/owner/products" style={{ textDecoration:'none' }}>
           <div className="kpi-card" style={{ border: data.lowStockProducts.length > 0 ? '1px solid var(--danger)' : undefined, background: data.lowStockProducts.length > 0 ? 'rgba(239,68,68,0.04)' : undefined, cursor:'pointer' }}>
-            <div className="kpi-label">⚠️ Low Stock</div>
+            <div className="kpi-label">{t('dash.lowStock')}</div>
             <div className="kpi-value" style={{ color: data.lowStockProducts.length > 0 ? 'var(--danger)' : 'var(--success)' }}>
               {data.lowStockProducts.length}
             </div>
-            <div style={{ fontSize:11, color:'var(--text-tertiary)', marginTop:2 }}>prodotti sotto soglia</div>
+            <div style={{ fontSize:11, color:'var(--text-tertiary)', marginTop:2 }}>{t('products')} {t('belowThreshold')}</div>
           </div>
         </Link>
       </div>
@@ -675,8 +677,8 @@ export default function OwnerDashboard() {
       {/* ═══════ TREND 7 GIORNI ═══════ */}
       <div className="card" style={{ marginBottom:'var(--space-xl)' }}>
         <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:'var(--space-lg)' }}>
-          <h4>📅 Trend Ultimi 7 Giorni</h4>
-          <span style={{ fontSize:12, color:'var(--text-tertiary)' }}>{fmt(data.trend7.reduce((s: number, t: any) => s + t.revenue, 0))} totale</span>
+          <h4>{t('dash.trend7Days')}</h4>
+          <span style={{ fontSize:12, color:'var(--text-tertiary)' }}>{fmt(data.trend7.reduce((s: number, tr: any) => s + tr.revenue, 0))} {t('total')}</span>
         </div>
         <div style={{ display:'flex', alignItems:'flex-end', gap:6, height:120 }}>
           {data.trend7.map((t: any, i: number) => {
@@ -703,9 +705,9 @@ export default function OwnerDashboard() {
       <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:'var(--space-xl)', marginBottom:'var(--space-xl)' }}>
         {/* Top 5 Products */}
         <div className="card">
-          <h4 style={{ marginBottom:'var(--space-lg)' }}>🏆 Top 5 Prodotti</h4>
+          <h4 style={{ marginBottom:'var(--space-lg)' }}>{t('dash.top5Products')}</h4>
           {data.topProducts.length === 0 ? (
-            <p style={{ color:'var(--text-tertiary)', fontSize:14 }}>Nessuna vendita dettaglio</p>
+            <p style={{ color:'var(--text-tertiary)', fontSize:14 }}>{t('dash.noSalesDetail')}</p>
           ) : (
             data.topProducts.map((p: any, i: number) => {
               const maxR = data.topProducts[0]?.revenue || 1
@@ -722,7 +724,7 @@ export default function OwnerDashboard() {
                     <div style={{ flex:1, height:4, background:'var(--bg-surface-alt)', borderRadius:2 }}>
                       <div style={{ height:'100%', width:`${(p.revenue / maxR) * 100}%`, background:'var(--brand-primary)', borderRadius:2 }} />
                     </div>
-                    <span style={{ fontSize:11, color:'var(--text-tertiary)', flexShrink:0 }}>{p.qty.toFixed(p.qty % 1 === 0 ? 0 : 1)} venduti</span>
+                    <span style={{ fontSize:11, color:'var(--text-tertiary)', flexShrink:0 }}>{p.qty.toFixed(p.qty % 1 === 0 ? 0 : 1)} {t('dash.sold')}</span>
                   </div>
                 </div>
               )
@@ -733,15 +735,15 @@ export default function OwnerDashboard() {
         {/* Workers */}
         <div className="card">
           <div style={{ display:'flex', justifyContent:'space-between', marginBottom:'var(--space-md)' }}>
-            <h4>👥 Personale in servizio</h4>
-            <span className="badge badge-gray">{data.workers.length} persone</span>
+            <h4>{t('dash.staffOnDuty')}</h4>
+            <span className="badge badge-gray">{data.workers.length} {t('persons')}</span>
           </div>
           {data.workers.length === 0 ? (
-            <p style={{ color:'var(--text-tertiary)', fontSize:14 }}>Nessun turno registrato</p>
+            <p style={{ color:'var(--text-tertiary)', fontSize:14 }}>{t('dash.noShifts')}</p>
           ) : (
             data.workers.map((w: any, i: number) => {
               const entryTime = new Date(w.openedAt).toLocaleTimeString('it-IT', { hour:'2-digit', minute:'2-digit' })
-              const exitTime = w.closedAt ? new Date(w.closedAt).toLocaleTimeString('it-IT', { hour:'2-digit', minute:'2-digit' }) : 'In corso'
+              const exitTime = w.closedAt ? new Date(w.closedAt).toLocaleTimeString('it-IT', { hour:'2-digit', minute:'2-digit' }) : t('dash.ongoing')
               const isEditing = editingShiftId === w.shiftId
               return (
                 <div key={i} style={{ padding:'10px 0', borderBottom: i < data.workers.length - 1 ? '1px solid var(--border-subtle)' : 'none' }}>
@@ -812,9 +814,9 @@ export default function OwnerDashboard() {
       <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:'var(--space-xl)', marginBottom:'var(--space-xl)' }}>
         {/* Nationality */}
         <div className="card">
-          <h4 style={{ marginBottom:'var(--space-lg)' }}>🌍 Nazionalità Clienti</h4>
+          <h4 style={{ marginBottom:'var(--space-lg)' }}>{t('dash.nationalityBreak')}</h4>
           {data.nationalities.length === 0 ? (
-            <p style={{ color:'var(--text-tertiary)', fontSize:14 }}>Nessun dato</p>
+            <p style={{ color:'var(--text-tertiary)', fontSize:14 }}>{t('noData')}</p>
           ) : (
             data.nationalities.map((n: any, i: number) => {
               const pct = data.customerCount > 0 ? (n.count / data.customerCount * 100) : 0
@@ -834,9 +836,9 @@ export default function OwnerDashboard() {
         {/* Hourly Distribution */}
         <div className="card">
           <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:'var(--space-lg)' }}>
-            <h4>🕐 Distribuzione Oraria</h4>
+            <h4>{t('dash.hourlyDist')}</h4>
             <span style={{ fontSize:12, color:'var(--text-tertiary)' }}>
-              Punta: <strong>{data.peakHour}:00</strong>
+              {t('dash.peakHour')}: <strong>{data.peakHour}:00</strong>
             </span>
           </div>
           <div style={{ display:'flex', alignItems:'flex-end', gap:2, height:120 }}>
@@ -863,7 +865,7 @@ export default function OwnerDashboard() {
       {/* ═══════ CANALE ACQUISIZIONE ═══════ */}
       <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:'var(--space-xl)', marginBottom:'var(--space-xl)' }}>
         <div className="card">
-          <h4 style={{ marginBottom:'var(--space-lg)' }}>📊 Canale Acquisizione</h4>
+          <h4 style={{ marginBottom:'var(--space-lg)' }}>{t('dash.channels')}</h4>
           {Object.keys(data.channelBreakdown).length === 0 ? (
             <p style={{ color:'var(--text-tertiary)', fontSize:14 }}>Nessuna vendita</p>
           ) : (
@@ -889,7 +891,7 @@ export default function OwnerDashboard() {
         {/* Low Stock Alert */}
         <div className="card">
           <div style={{ display:'flex', justifyContent:'space-between', marginBottom:'var(--space-lg)' }}>
-            <h4>⚠️ Prodotti Low Stock</h4>
+            <h4>{t('dash.lowStock')}</h4>
             <Link href="/owner/products" style={{ fontSize:12, color:'var(--brand-primary)', fontWeight:600 }}>Vedi tutti →</Link>
           </div>
           {data.lowStockProducts.length === 0 ? (
@@ -915,12 +917,12 @@ export default function OwnerDashboard() {
       {data.storeBreakdown.length > 0 && (
         <div className="card">
           <div style={{ display:'flex', justifyContent:'space-between', marginBottom:'var(--space-lg)' }}>
-            <h4>🏪 Breakdown per Store</h4>
+            <h4>{t('dash.storeBreakdown')}</h4>
             <span className="badge badge-brand">{stores.length} Store</span>
           </div>
           <div className="table-wrapper">
             <table>
-              <thead><tr><th>Store</th><th>Revenue</th><th>Cash</th><th>POS</th><th>Clienti</th><th>Avg Sale</th></tr></thead>
+              <thead><tr><th>{t('dash.store')}</th><th>{t('dash.revenue')}</th><th>Cash</th><th>POS</th><th>{t('dash.customers')}</th><th>{t('dash.avg')}</th></tr></thead>
               <tbody>
                 {data.storeBreakdown.map((s: any) => (
                   <tr key={s.name}>

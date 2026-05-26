@@ -1,7 +1,9 @@
 'use client'
 import { useRouter } from 'next/navigation'
+import { useT } from '@/lib/i18n'
 export default function POSScanPage() {
   const router = useRouter()
+  const t = useT()
   return (
     <div style={{ minHeight:'100vh', background:'var(--bg-surface)', display:'flex', flexDirection:'column' }}>
       <div style={{ background:'var(--bg-primary)', borderBottom:'1px solid var(--border-subtle)', padding:'var(--space-md) var(--space-lg)', display:'flex', alignItems:'center', justifyContent:'space-between' }}>

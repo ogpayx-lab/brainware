@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { formatDate, categoryLabel } from '@/lib/utils'
 import type { Store, ProductCategory } from '@/types/database'
+import { useT } from '@/lib/i18n'
 
 type Tab = 'audit' | 'config' | 'history' | 'stats'
 
@@ -47,6 +48,7 @@ interface Diagnosis {
 export default function InventoryAuditPage() {
   const router = useRouter()
   const supabase = createClient()
+  const t = useT()
 
   const [tab, setTab] = useState<Tab>('audit')
   const [stores, setStores] = useState<(Store & { inventory_count_opens_at?: string; inventory_manually_opened?: boolean })[]>([])
@@ -456,7 +458,7 @@ export default function InventoryAuditPage() {
     setLoadingStats(false)
   }
 
-  if (loading) return <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '60vh' }}>Caricamento...</div>
+  if (loading) return <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '60vh' }}>{t('loading')}</div>
 
   const accuracy = auditData ? (auditData.total > 0 ? (auditData.matches / auditData.total * 100) : 0) : 0
 
@@ -476,7 +478,7 @@ export default function InventoryAuditPage() {
     <div>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 'var(--space-xl)' }}>
         <div>
-          <h2>🔍 Audit Inventario</h2>
+          <h2>{t('sidebar.inventoryAudit')}</h2>
           <p style={{ color: 'var(--text-secondary)', fontSize: 14, marginTop: 4 }}>
             Monitora conteggi, risolvi discrepanze, configura orari
           </p>
@@ -747,7 +749,7 @@ export default function InventoryAuditPage() {
           </div>
 
           {loadingHistory ? (
-            <div style={{ textAlign: 'center', padding: 'var(--space-2xl)', color: 'var(--text-secondary)' }}>Caricamento...</div>
+            <div style={{ textAlign: 'center', padding: 'var(--space-2xl)', color: 'var(--text-secondary)' }}>{t('loading')}</div>
           ) : historyCounts.length === 0 ? (
             <div style={{ textAlign: 'center', padding: 'var(--space-2xl)', color: 'var(--text-tertiary)' }}>
               <span style={{ fontSize: 48, display: 'block', marginBottom: 12 }}>📅</span>

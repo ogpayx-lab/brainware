@@ -6,6 +6,7 @@ import { createClient } from '@/lib/supabase/client'
 import { categoryLabel } from '@/lib/utils'
 import type { Product, ProductCategory, Store } from '@/types/database'
 import * as XLSX from 'xlsx'
+import { useT } from '@/lib/i18n'
 
 const CATEGORIES: ProductCategory[] = ['flowers', 'hashish', 'oils', 'edibles', 'accessories', 'cosmetics', 'clothes', 'seeds', 'vape', 'food']
 const QUICK_AMOUNTS = [10, 25, 50, 100]
@@ -22,6 +23,7 @@ interface StockEntry {
 export default function InventorySetupPage() {
   const router = useRouter()
   const supabase = createClient()
+  const t = useT()
   const csvRef = useRef<HTMLInputElement>(null)
 
   const [stores, setStores] = useState<Store[]>([])
@@ -233,7 +235,7 @@ export default function InventorySetupPage() {
   const changedCount = entries.filter(e => parseInt(e.new_stock) !== e.current_stock).length
   const totalNewStock = entries.reduce((s, e) => s + (parseInt(e.new_stock) || 0), 0)
 
-  if (loading) return <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '60vh' }}>Caricamento...</div>
+  if (loading) return <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '60vh' }}>{t('loading')}</div>
 
   return (
     <div>
@@ -302,7 +304,7 @@ export default function InventorySetupPage() {
             )}
 
             <div style={{ display: 'flex', gap: 'var(--space-sm)' }}>
-              <button className="btn btn-secondary" style={{ flex: 1 }} onClick={() => { setShowCsvImport(false); setCsvRows([]); setCsvError(null) }}>Chiudi</button>
+              <button className="btn btn-secondary" style={{ flex: 1 }} onClick={() => { setShowCsvImport(false); setCsvRows([]); setCsvError(null) }}>{t('close')}</button>
               {csvRows.length > 0 && csvRows.some(r => r.matched) && (
                 <button className="btn btn-primary" style={{ flex: 2 }} onClick={applyCsvStock}>
                   Applica Stock ({csvRows.filter(r => r.matched).length} prodotti)
@@ -316,7 +318,7 @@ export default function InventorySetupPage() {
       {/* Header */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 'var(--space-xl)' }}>
         <div>
-          <h2>📦 Inventario Iniziale</h2>
+          <h2>{t('sidebar.initialInventory')}</h2>
           <p style={{ color: 'var(--text-secondary)', fontSize: 14, marginTop: 4 }}>
             Imposta le quantità dei prodotti per ogni store o magazzino
           </p>
@@ -563,7 +565,7 @@ export default function InventorySetupPage() {
               className="btn btn-primary btn-lg"
               style={{ minWidth: 220 }}
             >
-              {saving ? 'Salvataggio...' : `💾 Salva Inventario (${changedCount} modifiche)`}
+              {saving ? t('saving') : `💾 Salva Inventario (${changedCount} modifiche)`}
             </button>
           </div>
         </>

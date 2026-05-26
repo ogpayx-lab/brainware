@@ -3,6 +3,7 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import { BottomNav } from '@/components/employee/BottomNav'
+import { useT } from '@/lib/i18n'
 
 const MORE_ACTIONS = [
   { href: '/employee/orders',       icon: '🛍️', label: 'Ordini Shopify', desc: 'Evadi ordini con tracking obbligatorio' },
@@ -19,6 +20,7 @@ const MORE_ACTIONS = [
 export default function MorePage() {
   const router = useRouter()
   const supabase = createClient()
+  const t = useT()
 
   function switchEmployee() {
     localStorage.removeItem('activeEmployeeId')

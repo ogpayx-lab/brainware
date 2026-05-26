@@ -2,6 +2,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
+import { useT } from '@/lib/i18n'
 
 const PRIORITY_CONFIG = {
   urgent: { label: '🔴 Urgente', color: '#EF4444', bg: '#FEF2F2' },
@@ -20,6 +21,7 @@ const EMPTY_FORM = { title: '', description: '', assigned_to: '', priority: 'nor
 export default function TasksPage() {
   const router = useRouter()
   const supabase = createClient()
+  const t = useT()
   const [tasks, setTasks] = useState<any[]>([])
   const [employees, setEmployees] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
@@ -116,14 +118,14 @@ export default function TasksPage() {
     urgent: tasks.filter(t => t.priority === 'urgent' && t.status !== 'done').length,
   }
 
-  if (loading) return <div style={{ display:'flex', alignItems:'center', justifyContent:'center', height:'60vh', color:'var(--text-secondary)' }}>Caricamento...</div>
+  if (loading) return <div style={{ display:'flex', alignItems:'center', justifyContent:'center', height:'60vh', color:'var(--text-secondary)' }}>{t('loading')}</div>
 
   return (
     <div>
       {/* Header */}
       <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', marginBottom:'var(--space-xl)' }}>
         <div>
-          <h2>📋 Gestione Task</h2>
+          <h2>{t('sidebar.tasks')}</h2>
           <p style={{ color:'var(--text-secondary)', fontSize:14, marginTop:4 }}>
             Assegna e monitora i task dei tuoi dipendenti
           </p>
@@ -272,7 +274,7 @@ export default function TasksPage() {
                 Annulla
               </button>
               <button className="btn btn-primary" style={{ flex:2 }} disabled={saving || !form.title} onClick={saveTask}>
-                {saving ? 'Salvataggio...' : editingTask ? 'Salva Modifiche' : '+ Crea Task'}
+                {saving ? t('saving') : editingTask ? 'Salva Modifiche' : '+ Crea Task'}
               </button>
             </div>
           </div>

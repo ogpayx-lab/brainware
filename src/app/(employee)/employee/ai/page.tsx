@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { BottomNav } from '@/components/employee/BottomNav'
+import { useT } from '@/lib/i18n'
 
 interface Message { role: 'user' | 'assistant'; content: string }
 
@@ -22,6 +23,7 @@ const USAGE_KEY = 'bw_emp_ai_usage'
 export default function EmployeeAIPage() {
   const router = useRouter()
   const supabase = createClient()
+  const t = useT()
   const [messages, setMessages] = useState<Message[]>([])
   const [input, setInput] = useState('')
   const [loading, setLoading] = useState(false)
@@ -151,7 +153,7 @@ ${kbText ? `\nKNOWLEDGE BASE DEL NEGOZIO:\n${kbText}` : '\nNessuna FAQ configura
       <div style={{ background: 'var(--bg-primary)', borderBottom: '1px solid var(--border-subtle)', padding: 'var(--space-lg)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexShrink: 0 }}>
         <div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <h3>🤖 Assistente AI</h3>
+            <h3>{t('empApp.aiAssistant')}</h3>
             <span className="badge badge-success" style={{ fontSize: 10 }}>🔒 Modalità Sicura</span>
           </div>
           <div style={{ fontSize: 11, color: 'var(--text-tertiary)', marginTop: 2 }}>Aiuto operativo · Nessun accesso a dati aziendali</div>

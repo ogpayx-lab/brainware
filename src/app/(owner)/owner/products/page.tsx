@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { fmt, categoryLabel, calcMarginPct } from '@/lib/utils'
+import { useT } from '@/lib/i18n'
 import type { Product, ProductCategory } from '@/types/database'
 import * as XLSX from 'xlsx'
 
@@ -16,6 +17,7 @@ const EMPTY_FORM = {
 export default function ProductsPage() {
   const router = useRouter()
   const supabase = createClient()
+  const t = useT()
   const fileRef = useRef<HTMLInputElement>(null)
 
   const [products, setProducts] = useState<Product[]>([])
@@ -292,7 +294,7 @@ export default function ProductsPage() {
 
   const filtered = products.filter(p => (filterCat === 'all' || p.category === filterCat) && (!search || p.name.toLowerCase().includes(search.toLowerCase()) || (p.barcode && p.barcode.includes(search))))
 
-  if (loading) return <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '60vh' }}>Caricamento...</div>
+  if (loading) return <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '60vh' }}>{t('loading')}</div>
 
   return (
     <div>
@@ -300,7 +302,7 @@ export default function ProductsPage() {
       {showForm && (
         <div className="modal-overlay">
           <div className="modal" style={{ maxWidth: 520 }}>
-            <h3 style={{ marginBottom: 'var(--space-xl)' }}>{editId ? 'Modifica Prodotto' : 'Nuovo Prodotto'}</h3>
+            <h3 style={{ marginBottom: 'var(--space-xl)' }}>{editId ? t('edit') + ' ' + t('products') : t('prod.addProduct')}</h3>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-md)' }}>
               {/* Store selector */}
               {allStores.length > 1 && (
@@ -341,8 +343,8 @@ export default function ProductsPage() {
               <div className="input-group"><label className="input-label">Barcode / ID interno</label><input className="input" placeholder="Es. 8901234567890" value={form.barcode} onChange={e => setForm(f => ({ ...f, barcode: e.target.value }))} /></div>
             </div>
             <div style={{ display: 'flex', gap: 'var(--space-sm)', marginTop: 'var(--space-xl)' }}>
-              <button className="btn btn-secondary" style={{ flex: 1 }} onClick={() => setShowForm(false)}>Annulla</button>
-              <button className="btn btn-primary" style={{ flex: 2 }} onClick={handleSave} disabled={saving || !form.name || !form.price}>{saving ? 'Salvataggio...' : 'Salva Prodotto'}</button>
+              <button className="btn btn-secondary" style={{ flex: 1 }} onClick={() => setShowForm(false)}>{t('cancel')}</button>
+              <button className="btn btn-primary" style={{ flex: 2 }} onClick={handleSave} disabled={saving || !form.name || !form.price}>{saving ? t('saving') : t('save')}</button>
             </div>
           </div>
         </div>
@@ -423,9 +425,9 @@ export default function ProductsPage() {
 
       {/* Stats banner */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 'var(--space-md)', marginBottom: 'var(--space-xl)' }}>
-        <div className="kpi-card"><div className="kpi-label">Prodotti Attivi</div><div className="kpi-value">{stats.active}</div></div>
-        <div className="kpi-card" style={{ border: stats.lowStock > 0 ? '1.5px solid var(--warning)' : undefined }}><div className="kpi-label">Stock Basso</div><div className="kpi-value" style={{ color: stats.lowStock > 0 ? 'var(--warning)' : undefined }}>{stats.lowStock}</div></div>
-        <div className="kpi-card"><div className="kpi-label">Disattivati</div><div className="kpi-value">{stats.inactive}</div></div>
+        <div className="kpi-card"><div className="kpi-label">{t('products')} {t('active')}</div><div className="kpi-value">{stats.active}</div></div>
+        <div className="kpi-card" style={{ border: stats.lowStock > 0 ? '1.5px solid var(--warning)' : undefined }}><div className="kpi-label">{t('dash.lowStock')}</div><div className="kpi-value" style={{ color: stats.lowStock > 0 ? 'var(--warning)' : undefined }}>{stats.lowStock}</div></div>
+        <div className="kpi-card"><div className="kpi-label">{t('disabled')}</div><div className="kpi-value">{stats.inactive}</div></div>
       </div>
 
       {/* Copy-to modal */}
@@ -517,11 +519,11 @@ export default function ProductsPage() {
 
       {/* Header */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--space-xl)', flexWrap: 'wrap', gap: 8 }}>
-        <h2>Gestione Prodotti</h2>
+        <h2>{t('prod.title')}</h2>
         <div style={{ display: 'flex', gap: 'var(--space-sm)', flexWrap: 'wrap' }}>
-          <button className="btn btn-secondary" onClick={() => { setShowCopyTo(true); setCopyResult(null) }} style={{ fontSize: 12 }}>📋 Copia a...</button>
+          <button className="btn btn-secondary" onClick={() => { setShowCopyTo(true); setCopyResult(null) }} style={{ fontSize: 12 }}>📋 Copy...</button>
           <button className="btn btn-secondary" onClick={() => setShowImport(true)}>📥 Import CSV</button>
-          <button className="btn btn-primary" onClick={openAdd}>+ Nuovo Prodotto</button>
+          <button className="btn btn-primary" onClick={openAdd}>+ {t('prod.addProduct')}</button>
         </div>
       </div>
 
@@ -562,9 +564,9 @@ export default function ProductsPage() {
 
       {/* Filters */}
       <div style={{ display: 'flex', gap: 'var(--space-md)', marginBottom: 'var(--space-lg)', flexWrap: 'wrap' }}>
-        <input className="input" placeholder="Cerca prodotto per nome o barcode..." value={search} onChange={e => setSearch(e.target.value)} style={{ width: 300 }} />
+        <input className="input" placeholder={t('search') + '...'} value={search} onChange={e => setSearch(e.target.value)} style={{ width: 300 }} />
         <div style={{ display: 'flex', gap: 'var(--space-sm)' }}>
-          <button onClick={() => setFilterCat('all')} className={`badge ${filterCat === 'all' ? 'badge-brand' : 'badge-gray'}`} style={{ cursor: 'pointer', border: 'none', padding: '6px 14px' }}>Tutte le categorie</button>
+          <button onClick={() => setFilterCat('all')} className={`badge ${filterCat === 'all' ? 'badge-brand' : 'badge-gray'}`} style={{ cursor: 'pointer', border: 'none', padding: '6px 14px' }}>{t('all')}</button>
           {CATEGORIES.map(c => (
             <button key={c} onClick={() => setFilterCat(c)} className={`badge ${filterCat === c ? 'badge-brand' : 'badge-gray'}`} style={{ cursor: 'pointer', border: 'none', padding: '6px 14px' }}>
               {categoryLabel[c]}
@@ -580,7 +582,7 @@ export default function ProductsPage() {
             <th style={{ width: 36 }}>
               <input type="checkbox" checked={filtered.length > 0 && selectedIds.size === filtered.length} onChange={toggleSelectAll} style={{ cursor: 'pointer', width: 16, height: 16 }} />
             </th>
-            <th>Nome</th><th>Categoria</th><th>Prezzo</th><th>Costo</th><th>Margine</th><th>Barcode</th><th>Stock</th><th>Stato</th><th>Azioni</th>
+            <th>{t('name')}</th><th>{t('category')}</th><th>{t('price')}</th><th>{t('prod.costPrice')}</th><th>Margin</th><th>Barcode</th><th>Stock</th><th>{t('status')}</th><th>{t('actions')}</th>
           </tr></thead>
           <tbody>
             {filtered.length === 0 && (
@@ -613,11 +615,11 @@ export default function ProductsPage() {
                     <span style={{ fontWeight: 700, color: p.stock === 0 ? 'var(--danger)' : p.stock <= p.stock_alert ? 'var(--warning)' : 'var(--text-primary)' }}>{p.stock}</span>
                     <span style={{ fontSize: 11, color: 'var(--text-tertiary)', marginLeft: 4 }}>/ {p.stock_alert}</span>
                   </td>
-                  <td><span className={`badge ${p.is_active ? 'badge-success' : 'badge-gray'}`}>{p.is_active ? 'Attivo' : 'Inattivo'}</span></td>
+                  <td><span className={`badge ${p.is_active ? 'badge-success' : 'badge-gray'}`}>{p.is_active ? t('active') : t('inactive')}</span></td>
                   <td>
                     <div style={{ display: 'flex', gap: 6 }}>
-                      <button onClick={() => openEdit(p)} className="btn btn-secondary" style={{ padding: '4px 10px', fontSize: 12 }}>Modifica</button>
-                      <button onClick={() => toggleActive(p)} className="btn btn-ghost" style={{ padding: '4px 10px', fontSize: 12 }}>{p.is_active ? 'Disabilita' : 'Abilita'}</button>
+                      <button onClick={() => openEdit(p)} className="btn btn-secondary" style={{ padding: '4px 10px', fontSize: 12 }}>{t('edit')}</button>
+                      <button onClick={() => toggleActive(p)} className="btn btn-ghost" style={{ padding: '4px 10px', fontSize: 12 }}>{p.is_active ? t('prod.deactivate') : t('prod.activate')}</button>
                       <button onClick={() => deleteProduct(p)} className="btn btn-ghost" style={{ padding: '4px 10px', fontSize: 12, color: 'var(--danger)' }} title="Elimina prodotto">🗑️</button>
                     </div>
                   </td>

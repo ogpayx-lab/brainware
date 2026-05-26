@@ -7,6 +7,7 @@ import { createClient } from '@/lib/supabase/client'
 import { formatTime } from '@/lib/utils'
 import { BottomNav } from '@/components/employee/BottomNav'
 import type { FidelityCard } from '@/types/database'
+import { useT } from '@/lib/i18n'
 
 interface CardCreated {
   card_number: string
@@ -20,6 +21,7 @@ interface CardCreated {
 export default function FidelityPage() {
   const router = useRouter()
   const supabase = createClient()
+  const t = useT()
 
   const [cards, setCards] = useState<any[]>([])
   const [stats, setStats] = useState({ total: 0, active: 0, pointsToday: 0 })
@@ -146,7 +148,7 @@ export default function FidelityPage() {
     await loadData()
   }
 
-  if (loading) return <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100vh' }}>Caricamento...</div>
+  if (loading) return <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100vh' }}>{t('loading')}</div>
 
   // Success screen
   if (created) return (
@@ -442,7 +444,7 @@ export default function FidelityPage() {
             </div>
             <div style={{ display: 'flex', gap: 8, marginTop: 'var(--space-lg)' }}>
               <button onClick={saveEdit} disabled={editSaving || !editForm.customer_name} className="btn btn-primary" style={{ flex: 2 }}>
-                {editSaving ? 'Salvataggio...' : '✅ Salva Modifiche'}
+                {editSaving ? t('saving') : '✅ Salva Modifiche'}
               </button>
             </div>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginTop: 'var(--space-md)' }}>

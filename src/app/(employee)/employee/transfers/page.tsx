@@ -7,6 +7,7 @@ import { createClient } from '@/lib/supabase/client'
 import { formatDate, fmt, categoryLabel } from '@/lib/utils'
 import { BottomNav } from '@/components/employee/BottomNav'
 import type { Product, ProductCategory, Store } from '@/types/database'
+import { useT } from '@/lib/i18n'
 
 const CATEGORIES: ProductCategory[] = ['flowers', 'hashish', 'oils', 'edibles', 'accessories', 'cosmetics', 'clothes', 'seeds', 'vape', 'food']
 
@@ -15,6 +16,7 @@ interface TransferItem { product: Product; qty: number }
 export default function TransfersPage() {
   const router = useRouter()
   const supabase = createClient()
+  const t = useT()
 
   const [products, setProducts] = useState<Product[]>([])
   const [stores, setStores] = useState<Store[]>([])
@@ -131,7 +133,7 @@ export default function TransfersPage() {
     cancelled: 'Annullato',
   }
 
-  if (loading) return <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100vh' }}>Caricamento...</div>
+  if (loading) return <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100vh' }}>{t('loading')}</div>
 
   if (done) return (
     <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 'var(--space-lg)', padding: 'var(--space-lg)' }}>

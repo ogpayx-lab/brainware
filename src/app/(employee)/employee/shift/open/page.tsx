@@ -5,10 +5,12 @@ import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { formatDate } from '@/lib/utils'
 import type { ShiftPeriod } from '@/types/database'
+import { useT } from '@/lib/i18n'
 
 export default function ShiftOpenPage() {
   const router = useRouter()
   const supabase = createClient()
+  const t = useT()
   const today = new Date()
 
   const [loading, setLoading] = useState(true)
@@ -211,7 +213,7 @@ export default function ShiftOpenPage() {
   }
 
   if (loading) {
-    return <div style={{ display:'flex', alignItems:'center', justifyContent:'center', height:'100vh', fontSize:16 }}>Caricamento...</div>
+    return <div style={{ display:'flex', alignItems:'center', justifyContent:'center', height:'100vh', fontSize:16 }}>{t('loading')}</div>
   }
 
   // ════════════════════════════════════════

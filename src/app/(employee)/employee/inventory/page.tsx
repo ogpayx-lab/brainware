@@ -7,6 +7,7 @@ import { createClient } from '@/lib/supabase/client'
 import { categoryLabel } from '@/lib/utils'
 import { BottomNav } from '@/components/employee/BottomNav'
 import type { Product, ProductCategory } from '@/types/database'
+import { useT } from '@/lib/i18n'
 
 interface CountRow extends Product {
   counted: string
@@ -20,6 +21,7 @@ interface CountRow extends Product {
 export default function InventoryPage() {
   const router = useRouter()
   const supabase = createClient()
+  const t = useT()
 
   const [rows, setRows] = useState<CountRow[]>([])
   const [activeCategory, setActiveCategory] = useState<ProductCategory | 'all'>('all')
@@ -242,7 +244,7 @@ export default function InventoryPage() {
   const mismatchCount = counted.filter(r => r.status === 'mismatch' || r.status === 'escalated').length
   const canFinalize = counted.length > 0
 
-  if (loading) return <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100vh' }}>Caricamento...</div>
+  if (loading) return <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100vh' }}>{t('loading')}</div>
 
   // Time-lock screen
   if (locked) {

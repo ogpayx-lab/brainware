@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { fmt, formatDateTime } from '@/lib/utils'
+import { useT } from '@/lib/i18n'
 
 const STATUS_CONFIG: Record<string, { label: string; badge: string }> = {
   pending:    { label: 'Da evadere',  badge: 'badge-warning' },
@@ -15,6 +16,7 @@ const STATUS_CONFIG: Record<string, { label: string; badge: string }> = {
 export default function EcommercePage() {
   const router = useRouter()
   const supabase = createClient()
+  const t = useT()
 
   const [orders, setOrders] = useState<any[]>([])
   const [storeId, setStoreId] = useState<string | null>(null)
@@ -53,12 +55,12 @@ export default function EcommercePage() {
   const pendingCount = orders.filter(o => o.status === 'pending').length
   const totalRevenue = orders.filter(o => o.status === 'completed').reduce((s, o) => s + o.total, 0)
 
-  if (loading) return <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '60vh' }}>Caricamento...</div>
+  if (loading) return <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '60vh' }}>{t('loading')}</div>
 
   return (
     <div>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--space-xl)' }}>
-        <h2>E-commerce Orders Hub</h2>
+        <h2>{t('sidebar.ecommerce')}</h2>
         {pendingCount > 0 && <span className="badge badge-danger" style={{ fontSize: 14, padding: '6px 16px' }}>{pendingCount} da evadere</span>}
       </div>
 

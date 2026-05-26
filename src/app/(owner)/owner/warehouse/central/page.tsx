@@ -5,12 +5,14 @@ import { createClient } from '@/lib/supabase/client'
 import { fmt, categoryLabel } from '@/lib/utils'
 import type { ProductCategory } from '@/types/database'
 import * as XLSX from 'xlsx'
+import { useT } from '@/lib/i18n'
 
 const CATEGORIES: ProductCategory[] = ['flowers', 'hashish', 'oils', 'edibles', 'accessories', 'cosmetics', 'clothes', 'seeds', 'vape', 'food']
 
 export default function WarehouseCentralPage() {
   const router = useRouter()
   const supabase = createClient()
+  const t = useT()
   const [warehouse, setWarehouse] = useState<any>(null)
   const [stock, setStock] = useState<any[]>([])
   const [movements, setMovements] = useState<any[]>([])
@@ -257,7 +259,7 @@ export default function WarehouseCentralPage() {
   const getStatus = (i: any) => i.qty === 0 ? 'Esaurito' : i.qty <= i.stock_alert ? 'Basso' : 'OK'
   const statusColor: Record<string, string> = { Esaurito: 'badge-danger', Basso: 'badge-warning', OK: 'badge-success' }
 
-  if (loading) return <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '60vh' }}>Caricamento...</div>
+  if (loading) return <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '60vh' }}>{t('loading')}</div>
 
   return (
     <div>
@@ -329,8 +331,8 @@ export default function WarehouseCentralPage() {
               </div>
             </div>
             <div style={{ display: 'flex', gap: 'var(--space-sm)', marginTop: 'var(--space-xl)' }}>
-              <button className="btn btn-secondary" style={{ flex: 1 }} onClick={() => setShowAddItem(false)}>Annulla</button>
-              <button className="btn btn-primary" style={{ flex: 2 }} onClick={addStockItem} disabled={saving || !newItem.product_name}>{saving ? 'Salvataggio...' : 'Aggiungi Prodotto'}</button>
+              <button className="btn btn-secondary" style={{ flex: 1 }} onClick={() => setShowAddItem(false)}>{t('cancel')}</button>
+              <button className="btn btn-primary" style={{ flex: 2 }} onClick={addStockItem} disabled={saving || !newItem.product_name}>{saving ? t('saving') : 'Aggiungi Prodotto'}</button>
             </div>
           </div>
         </div>
@@ -361,7 +363,7 @@ export default function WarehouseCentralPage() {
               </div>
             </div>
             <div style={{ display: 'flex', gap: 'var(--space-sm)', marginTop: 'var(--space-xl)' }}>
-              <button className="btn btn-secondary" style={{ flex: 1 }} onClick={() => setShowMovement(null)}>Annulla</button>
+              <button className="btn btn-secondary" style={{ flex: 1 }} onClick={() => setShowMovement(null)}>{t('cancel')}</button>
               <button className="btn btn-primary" style={{ flex: 2 }} onClick={submitMovement} disabled={saving || !(parseInt(movementForm.qty) > 0)}>
                 {saving ? '...' : showMovement.type === 'in' ? `📥 Carica +${movementForm.qty || 0}` : `📤 Scarica -${movementForm.qty || 0}`}
               </button>
@@ -380,7 +382,7 @@ export default function WarehouseCentralPage() {
               <input className="input" value={renameTo} onChange={e => setRenameTo(e.target.value)} autoFocus />
             </div>
             <div style={{ display: 'flex', gap: 'var(--space-sm)', marginTop: 'var(--space-xl)' }}>
-              <button className="btn btn-secondary" style={{ flex: 1 }} onClick={() => setShowRename(false)}>Annulla</button>
+              <button className="btn btn-secondary" style={{ flex: 1 }} onClick={() => setShowRename(false)}>{t('cancel')}</button>
               <button className="btn btn-primary" style={{ flex: 2 }} onClick={renameWarehouse} disabled={saving || !renameTo.trim()}>{saving ? '...' : 'Salva'}</button>
             </div>
           </div>
@@ -440,7 +442,7 @@ export default function WarehouseCentralPage() {
             )}
 
             <div style={{ display: 'flex', gap: 'var(--space-sm)' }}>
-              <button className="btn btn-secondary" style={{ flex: 1 }} onClick={() => { setShowImport(false); setCsvRows([]); setCsvError(null) }}>Chiudi</button>
+              <button className="btn btn-secondary" style={{ flex: 1 }} onClick={() => { setShowImport(false); setCsvRows([]); setCsvError(null) }}>{t('close')}</button>
               {csvRows.length > 0 && (
                 <button className="btn btn-primary" style={{ flex: 2 }} onClick={applyImport} disabled={saving}>
                   {saving ? 'Importazione...' : `📥 Importa ${csvRows.length} prodotti`}

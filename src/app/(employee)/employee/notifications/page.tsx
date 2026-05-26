@@ -5,10 +5,12 @@ import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import { BottomNav } from '@/components/employee/BottomNav'
 import { playNotificationSound } from '@/lib/useNotificationSound'
+import { useT } from '@/lib/i18n'
 
 export default function EmployeeNotificationsPage() {
   const router = useRouter()
   const supabase = createClient()
+  const t = useT()
   const [notifications, setNotifications] = useState<any[]>([])
   const [tasks, setTasks] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
@@ -84,7 +86,7 @@ export default function EmployeeNotificationsPage() {
   const priorityColor: Record<string, string> = { urgent: 'var(--danger)', high: 'var(--warning)', normal: 'var(--text-secondary)', low: 'var(--text-tertiary)' }
   const statusLabel: Record<string, string> = { pending: '⏳ Da fare', in_progress: '🔄 In corso', done: '✅ Fatto' }
 
-  if (loading) return <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100vh' }}>Caricamento...</div>
+  if (loading) return <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100vh' }}>{t('loading')}</div>
 
   return (
     <div className="page" style={{ paddingBottom: 80 }}>

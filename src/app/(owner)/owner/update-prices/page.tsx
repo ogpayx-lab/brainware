@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
+import { useT } from '@/lib/i18n'
 
 const PRICE_DATA = [
   { name: "Accendino MM", price: 2 },
@@ -225,6 +226,7 @@ const PRICE_DATA = [
 export default function UpdatePricesPage() {
   const router = useRouter()
   const supabase = createClient()
+  const t = useT()
   const [storeId, setStoreId] = useState<string | null>(null)
   const [storeName, setStoreName] = useState('')
   const [status, setStatus] = useState<'idle' | 'loading' | 'done' | 'error'>('idle')

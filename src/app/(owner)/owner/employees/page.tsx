@@ -2,10 +2,12 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
+import { useT } from '@/lib/i18n'
 
 export default function EmployeesPage() {
   const router = useRouter()
   const supabase = createClient()
+  const t = useT()
   const [employees, setEmployees] = useState<any[]>([])
   const [allStores, setAllStores] = useState<any[]>([])
   const [selectedStoreId, setSelectedStoreId] = useState<string>('all')
@@ -193,7 +195,7 @@ export default function EmployeesPage() {
     setFormStoreIds(prev => prev.includes(sid) ? prev.filter(id => id !== sid) : [...prev, sid])
   }
 
-  if (loading) return <div style={{ display:'flex', alignItems:'center', justifyContent:'center', height:'60vh' }}>Caricamento...</div>
+  if (loading) return <div style={{ display:'flex', alignItems:'center', justifyContent:'center', height:'60vh' }}>{t('loading')}</div>
 
   // Filter employees by selected store
   const filtered = selectedStoreId === 'all' ? employees : employees.filter(e => e.store_id === selectedStoreId)
@@ -292,9 +294,9 @@ export default function EmployeesPage() {
               </div>
             </div>
             <div style={{ display:'flex', gap:'var(--space-sm)', marginTop:'var(--space-xl)' }}>
-              <button className="btn btn-secondary" style={{ flex:1 }} onClick={() => { setShowForm(false); setFormStoreIds([]) }}>Annulla</button>
+              <button className="btn btn-secondary" style={{ flex:1 }} onClick={() => { setShowForm(false); setFormStoreIds([]) }}>{t('cancel')}</button>
               <button className="btn btn-primary" style={{ flex:2 }} onClick={addEmployee} disabled={saving || !form.full_name.trim() || formStoreIds.length === 0}>
-                {saving ? 'Salvataggio...' : `✅ Aggiungi${formStoreIds.length > 1 ? ` (${formStoreIds.length} negozi)` : ''}`}
+                {saving ? t('saving') : `✅ Aggiungi${formStoreIds.length > 1 ? ` (${formStoreIds.length} negozi)` : ''}`}
               </button>
             </div>
           </div>
@@ -329,7 +331,7 @@ export default function EmployeesPage() {
               </div>
             </div>
             <div style={{ display:'flex', gap:'var(--space-sm)', marginTop:'var(--space-xl)' }}>
-              <button className="btn btn-secondary" style={{ flex:1 }} onClick={() => setShowStoreForm(false)}>Annulla</button>
+              <button className="btn btn-secondary" style={{ flex:1 }} onClick={() => setShowStoreForm(false)}>{t('cancel')}</button>
               <button className="btn btn-primary" style={{ flex:2 }} onClick={createStoreAccount}
                 disabled={saving || !storeForm.email || !storeForm.storeId || storeForm.password.length < 6}>
                 {saving ? 'Creazione...' : '🏪 Crea Account Store'}
@@ -342,7 +344,7 @@ export default function EmployeesPage() {
       {/* ═══ PAGE HEADER ═══ */}
       <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', marginBottom:'var(--space-lg)', flexWrap:'wrap', gap:12 }}>
         <div>
-          <h2>Gestione Dipendenti</h2>
+          <h2>{t('emp.title')}</h2>
           <p style={{ color:'var(--text-secondary)', fontSize:14, marginTop:4 }}>{displayed.length} referenti{selectedStoreId !== 'all' ? ` in ${allStores.find(s => s.id === selectedStoreId)?.name}` : ' totali'}</p>
         </div>
         <div style={{ display:'flex', gap:8, flexWrap:'wrap' }}>

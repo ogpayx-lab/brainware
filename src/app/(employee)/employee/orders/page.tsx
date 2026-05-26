@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { BottomNav } from '@/components/employee/BottomNav'
+import { useT } from '@/lib/i18n'
 
 type ShopifyOrder = {
   id: number
@@ -26,6 +27,7 @@ type ShopifyOrder = {
 export default function EmployeeOrdersPage() {
   const router = useRouter()
   const supabase = createClient()
+  const t = useT()
   const [orders, setOrders] = useState<ShopifyOrder[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -428,7 +430,7 @@ export default function EmployeeOrdersPage() {
                 )}
 
                 <div style={{ display: 'flex', gap: 10 }}>
-                  <button className="btn btn-secondary" style={{ flex: 1 }} onClick={() => { setFulfillModal(null); setFulfillError('') }}>Annulla</button>
+                  <button className="btn btn-secondary" style={{ flex: 1 }} onClick={() => { setFulfillModal(null); setFulfillError('') }}>{t('cancel')}</button>
                   <button
                     className="btn btn-primary"
                     style={{ flex: 2 }}

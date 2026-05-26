@@ -4,6 +4,7 @@ import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { fmt, categoryLabel } from '@/lib/utils'
 import type { Product, ProductCategory, Store } from '@/types/database'
+import { useT } from '@/lib/i18n'
 
 const CATEGORIES: ProductCategory[] = ['flowers', 'hashish', 'oils', 'edibles', 'accessories', 'cosmetics', 'clothes', 'seeds', 'vape', 'food']
 const QUICK_AMOUNTS = [10, 25, 50, 100]
@@ -15,6 +16,7 @@ interface StockEntry {
 export default function WarehouseStoresPage() {
   const router = useRouter()
   const supabase = createClient()
+  const t = useT()
   const [stores, setStores] = useState<Store[]>([])
   const [selectedStore, setSelectedStore] = useState('')
   const [entries, setEntries] = useState<StockEntry[]>([])
@@ -108,14 +110,14 @@ export default function WarehouseStoresPage() {
     return matchSearch && matchCat && matchStock
   })
 
-  if (loading) return <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '60vh' }}>Caricamento...</div>
+  if (loading) return <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '60vh' }}>{t('loading')}</div>
 
   return (
     <div>
       {/* Header */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 'var(--space-xl)' }}>
         <div>
-          <h2>🏪 Stock per Store</h2>
+          <h2>{t('wh.storeStock')}</h2>
           <p style={{ color: 'var(--text-secondary)', fontSize: 14, marginTop: 4 }}>Imposta e gestisci le quantità dei prodotti per ogni punto vendita</p>
         </div>
         {stores.length > 1 && (
@@ -267,7 +269,7 @@ export default function WarehouseStoresPage() {
               <div style={{ fontSize: 12, color: 'var(--text-secondary)' }}>Stock totale: {totalNewStock} · {zeroStockCount > 0 ? `⚠️ ${zeroStockCount} esauriti` : '✅ OK'}</div>
             </div>
             <button onClick={handleSave} disabled={saving || changedCount === 0} className="btn btn-primary btn-lg" style={{ minWidth: 200 }}>
-              {saving ? 'Salvataggio...' : `💾 Salva (${changedCount} modifiche)`}
+              {saving ? t('saving') : `💾 Salva (${changedCount} modifiche)`}
             </button>
           </div>
         </>

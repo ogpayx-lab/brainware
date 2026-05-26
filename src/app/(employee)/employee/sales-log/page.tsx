@@ -5,10 +5,12 @@ import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { fmt, formatTime } from '@/lib/utils'
 import { BottomNav } from '@/components/employee/BottomNav'
+import { useT } from '@/lib/i18n'
 
 export default function EmployeeSalesLog() {
   const router = useRouter()
   const supabase = createClient()
+  const t = useT()
   const [sales, setSales] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [filter, setFilter] = useState<'all' | 'cash' | 'pos'>('all')
@@ -69,7 +71,7 @@ export default function EmployeeSalesLog() {
 
   if (loading) return (
     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100vh' }}>
-      <div style={{ color: 'var(--text-secondary)' }}>Caricamento...</div>
+      <div style={{ color: 'var(--text-secondary)' }}>{t('loading')}</div>
     </div>
   )
 

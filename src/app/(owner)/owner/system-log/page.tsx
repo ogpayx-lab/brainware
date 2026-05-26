@@ -2,6 +2,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
+import { useT } from '@/lib/i18n'
 
 // ─── Tab definitions ───
 interface TabDef {
@@ -302,6 +303,7 @@ const HEADER: React.CSSProperties = {
 export default function SystemLogPage() {
   const router = useRouter()
   const supabase = createClient()
+  const t = useT()
   const [activeTab, setActiveTab] = useState('products')
   const [rows, setRows] = useState<any[]>([])
   const [stores, setStores] = useState<any[]>([])
@@ -695,14 +697,14 @@ export default function SystemLogPage() {
     return v.toString()
   }
 
-  if (loading && stores.length === 0) return <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '60vh' }}>Caricamento...</div>
+  if (loading && stores.length === 0) return <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '60vh' }}>{t('loading')}</div>
 
   return (
     <div>
       {/* Header */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12 }}>
         <div>
-          <h2 style={{ marginBottom: 4 }}>📊 Database</h2>
+          <h2 style={{ marginBottom: 4 }}>{t('db.title')}</h2>
           <p style={{ color: '#6B7280', fontSize: 12 }}>Gestione completa dati — stile foglio di calcolo · Clicca cella per modificare</p>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>

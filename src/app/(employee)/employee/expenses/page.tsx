@@ -7,10 +7,12 @@ import { createClient } from '@/lib/supabase/client'
 import { fmt, formatTime } from '@/lib/utils'
 import { BottomNav } from '@/components/employee/BottomNav'
 import type { Expense } from '@/types/database'
+import { useT } from '@/lib/i18n'
 
 export default function ExpensesPage() {
   const router = useRouter()
   const supabase = createClient()
+  const t = useT()
 
   const [expenses, setExpenses] = useState<Expense[]>([])
   const [total, setTotal] = useState(0)
@@ -99,7 +101,7 @@ export default function ExpensesPage() {
     setSaving(false)
   }
 
-  if (loading) return <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100vh' }}>Caricamento...</div>
+  if (loading) return <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100vh' }}>{t('loading')}</div>
 
   return (
     <div className="page" style={{ paddingBottom: 80 }}>
@@ -237,7 +239,7 @@ export default function ExpensesPage() {
             disabled={saving || !amount || !description.trim()}
             className="btn btn-primary btn-full"
           >
-            {saving ? 'Salvataggio...' : 'Registra Spesa'}
+            {saving ? t('saving') : 'Registra Spesa'}
           </button>
         </div>
 

@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
+import { useT } from '@/lib/i18n'
 
 interface KBItem {
   id?: string
@@ -25,6 +26,7 @@ const DEFAULT_FAQS: KBItem[] = [
 export default function ManageAIPage() {
   const router = useRouter()
   const supabase = createClient()
+  const t = useT()
 
   const [items, setItems] = useState<KBItem[]>([])
   const [storeId, setStoreId] = useState<string | null>(null)
@@ -180,7 +182,7 @@ export default function ManageAIPage() {
     return true
   })
 
-  if (loading) return <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '60vh' }}>Caricamento...</div>
+  if (loading) return <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '60vh' }}>{t('loading')}</div>
 
   return (
     <div>
@@ -216,9 +218,9 @@ export default function ManageAIPage() {
               </div>
             </div>
             <div style={{ display: 'flex', gap: 'var(--space-sm)', marginTop: 'var(--space-xl)' }}>
-              <button className="btn btn-secondary" style={{ flex: 1 }} onClick={() => setShowForm(false)}>Annulla</button>
+              <button className="btn btn-secondary" style={{ flex: 1 }} onClick={() => setShowForm(false)}>{t('cancel')}</button>
               <button className="btn btn-primary" style={{ flex: 2 }} onClick={saveItem} disabled={saving || !form.answer.trim()}>
-                {saving ? 'Salvataggio...' : 'Salva'}
+                {saving ? t('saving') : 'Salva'}
               </button>
             </div>
           </div>
@@ -258,9 +260,9 @@ export default function ManageAIPage() {
               </div>
             </div>
             <div style={{ display: 'flex', gap: 'var(--space-sm)', marginTop: 'var(--space-xl)' }}>
-              <button className="btn btn-secondary" style={{ flex: 1 }} onClick={() => { setShowUpload(false); setUploadFile(null) }}>Annulla</button>
+              <button className="btn btn-secondary" style={{ flex: 1 }} onClick={() => { setShowUpload(false); setUploadFile(null) }}>{t('cancel')}</button>
               <button className="btn btn-primary" style={{ flex: 2 }} onClick={uploadDocument} disabled={uploading || !uploadFile || !uploadTitle.trim()}>
-                {uploading ? 'Caricamento...' : '📤 Carica Documento'}
+                {uploading ? t('loading') : '📤 Carica Documento'}
               </button>
             </div>
           </div>
@@ -270,7 +272,7 @@ export default function ManageAIPage() {
       {/* Header */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 'var(--space-xl)' }}>
         <div>
-          <h2>Gestione AI Dipendente</h2>
+          <h2>{t('sidebar.aiManagement')}</h2>
           <p style={{ color: 'var(--text-secondary)', fontSize: 14, marginTop: 4 }}>Configura la knowledge base dell'assistente AI per i tuoi dipendenti</p>
         </div>
         <div style={{ display: 'flex', gap: 'var(--space-sm)' }}>
@@ -351,7 +353,7 @@ export default function ManageAIPage() {
                   {!item.is_active && <span className="badge badge-gray" style={{ fontSize: 10 }}>Disattiva</span>}
                 </div>
                 <div style={{ display: 'flex', gap: 6 }}>
-                  {item.type !== 'document' && <button onClick={() => { setForm(item as any); setShowForm(true) }} className="btn btn-secondary" style={{ padding: '4px 10px', fontSize: 12 }}>Modifica</button>}
+                  {item.type !== 'document' && <button onClick={() => { setForm(item as any); setShowForm(true) }} className="btn btn-secondary" style={{ padding: '4px 10px', fontSize: 12 }}>{t('edit')}</button>}
                   {(item as any).file_url && <a href={(item as any).file_url} target="_blank" rel="noreferrer" className="btn btn-secondary" style={{ padding: '4px 10px', fontSize: 12, textDecoration: 'none' }}>⬇ Scarica</a>}
                   <button onClick={() => toggleItem(item.id!, item.is_active)} className="btn btn-ghost" style={{ fontSize: 12, color: 'var(--text-tertiary)', padding: '4px 8px' }}>
                     {item.is_active ? 'Disattiva' : 'Attiva'}

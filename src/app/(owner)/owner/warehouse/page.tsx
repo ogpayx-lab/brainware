@@ -3,10 +3,12 @@ import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { fmt, formatDate } from '@/lib/utils'
+import { useT } from '@/lib/i18n'
 
 export default function MultiStorePage() {
   const router = useRouter()
   const supabase = createClient()
+  const t = useT()
   const [stores, setStores] = useState<any[]>([])
   const [storeStats, setStoreStats] = useState<Record<string,any>>({})
   const [allProducts, setAllProducts] = useState<any[]>([])
@@ -91,7 +93,7 @@ export default function MultiStorePage() {
     loadData()
   }
 
-  if (loading) return <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '60vh' }}>Caricamento...</div>
+  if (loading) return <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '60vh' }}>{t('loading')}</div>
 
   return (
     <div>
@@ -107,7 +109,7 @@ export default function MultiStorePage() {
               </div>
             </div>
             <div style={{ display: 'flex', gap: 'var(--space-sm)', marginTop: 'var(--space-xl)' }}>
-              <button className="btn btn-secondary" style={{ flex: 1 }} onClick={() => setShowAddStore(false)}>Annulla</button>
+              <button className="btn btn-secondary" style={{ flex: 1 }} onClick={() => setShowAddStore(false)}>{t('cancel')}</button>
               <button className="btn btn-primary" style={{ flex: 2 }} onClick={addStore} disabled={saving || !storeForm.name}>{saving ? 'Creazione...' : 'Aggiungi Negozio'}</button>
             </div>
           </div>
@@ -140,7 +142,7 @@ export default function MultiStorePage() {
               <div className="input-group"><label className="input-label">Quantita</label><input className="input" type="number" min="1" value={transfer.qty} onChange={e => setTransfer(t => ({ ...t, qty: e.target.value }))} /></div>
             </div>
             <div style={{ display: 'flex', gap: 'var(--space-sm)', marginTop: 'var(--space-xl)' }}>
-              <button className="btn btn-secondary" style={{ flex: 1 }} onClick={() => setShowTransfer(false)}>Annulla</button>
+              <button className="btn btn-secondary" style={{ flex: 1 }} onClick={() => setShowTransfer(false)}>{t('cancel')}</button>
               <button className="btn btn-primary" style={{ flex: 2 }} onClick={doTransfer} disabled={saving || !transfer.src || !transfer.dest || !transfer.product_id}>{saving ? 'Trasferimento...' : 'Trasferisci'}</button>
             </div>
           </div>
@@ -149,7 +151,7 @@ export default function MultiStorePage() {
 
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 'var(--space-xl)' }}>
         <div>
-          <h2>Gestione Multi-Store</h2>
+          <h2>{t('sidebar.multistore')}</h2>
           <p style={{ color: 'var(--text-secondary)', fontSize: 14, marginTop: 4 }}>{stores.length} negozi nella tua organizzazione</p>
         </div>
         <div style={{ display: 'flex', gap: 8 }}>

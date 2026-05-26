@@ -8,6 +8,7 @@ import { fmt, calcDepositExpected, calcVariance, periodLabel } from '@/lib/utils
 import { printShiftReport, exportShiftCSV } from '@/lib/utils/reports'
 import type { ShiftCashSummary, SaleWithItems, Expense, BanconoteMap } from '@/types/database'
 import { calcFCU } from '@/types/database'
+import { useT } from '@/lib/i18n'
 
 const BANCONOTE: { value: keyof BanconoteMap; label: string }[] = [
   { value: 50, label: '50' },
@@ -21,6 +22,7 @@ const BANCONOTE: { value: keyof BanconoteMap; label: string }[] = [
 export default function ShiftClosePage() {
   const router = useRouter()
   const supabase = createClient()
+  const t = useT()
 
   const [summary, setSummary] = useState<ShiftCashSummary | null>(null)
   const [sales, setSales] = useState<SaleWithItems[]>([])

@@ -2,6 +2,7 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
+import { useT } from '@/lib/i18n'
 
 type ShopifyOrder = {
   id: number
@@ -34,6 +35,7 @@ const FULFILLMENT_COLORS: Record<string, string> = {
 export default function ShopifyOrdersPage() {
   const router = useRouter()
   const supabase = createClient()
+  const t = useT()
   const [orders, setOrders] = useState<ShopifyOrder[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -290,7 +292,7 @@ export default function ShopifyOrdersPage() {
     <div>
       <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', marginBottom:'var(--space-xl)' }}>
         <div>
-          <h2>🛍️ Ordini Shopify</h2>
+          <h2>{t('sidebar.shopify')}</h2>
           <p style={{ color:'var(--text-secondary)', fontSize:14, marginTop:4 }}>
             {shopifyConfig?.shopify_domain || 'mamamarycannabis.myshopify.com'}
           </p>
@@ -628,7 +630,7 @@ export default function ShopifyOrdersPage() {
                 {fulfillError && <div style={{ background:'#FEF2F2', border:'1px solid var(--danger)', borderRadius:8, padding:10, marginBottom:12, fontSize:13, color:'var(--danger)' }}>⚠️ {fulfillError}</div>}
 
                 <div style={{ display:'flex', gap:10 }}>
-                  <button className="btn btn-secondary" style={{ flex:1 }} onClick={() => setFulfillModal(null)}>Annulla</button>
+                  <button className="btn btn-secondary" style={{ flex:1 }} onClick={() => setFulfillModal(null)}>{t('cancel')}</button>
                   <button className="btn btn-primary" style={{ flex:2, background:'var(--brand-primary)' }} onClick={fulfillOrder} disabled={fulfilling}>
                     {fulfilling ? '⏳ Evasione in corso...' : '✅ Conferma Evasione'}
                   </button>

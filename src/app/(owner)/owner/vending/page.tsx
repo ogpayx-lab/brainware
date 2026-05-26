@@ -4,6 +4,7 @@ import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { fmt, categoryLabel } from '@/lib/utils'
 import type { VendingMachine, VendingStatus, Product } from '@/types/database'
+import { useT } from '@/lib/i18n'
 
 const STATUS_CONFIG: Record<VendingStatus, { label: string; color: string; bg: string }> = {
   online: { label: 'Online', color: 'var(--success)', bg: 'var(--success-light)' },
@@ -25,6 +26,7 @@ interface VendingProduct {
 export default function VendingPage() {
   const router = useRouter()
   const supabase = createClient()
+  const t = useT()
   const [machines, setMachines] = useState<VendingMachine[]>([])
   const [showAddMachine, setShowAddMachine] = useState(false)
   const [showEditMachine, setShowEditMachine] = useState<VendingMachine | null>(null)
@@ -287,7 +289,7 @@ export default function VendingPage() {
     if (selectedMachine) openMachineDetail(selectedMachine)
   }
 
-  if (loading) return <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '60vh' }}>Caricamento...</div>
+  if (loading) return <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '60vh' }}>{t('loading')}</div>
 
   // Se una macchina è selezionata, mostra il dettaglio prodotti
   if (selectedMachine) {
@@ -331,9 +333,9 @@ export default function VendingPage() {
                 </div>
               </div>
               <div style={{ display: 'flex', gap: 8, marginTop: 'var(--space-xl)' }}>
-                <button className="btn btn-secondary" style={{ flex: 1 }} onClick={() => { setShowAddProduct(false); setAddForm({ product_id: '', qty: '', price: '' }) }}>Annulla</button>
+                <button className="btn btn-secondary" style={{ flex: 1 }} onClick={() => { setShowAddProduct(false); setAddForm({ product_id: '', qty: '', price: '' }) }}>{t('cancel')}</button>
                 <button className="btn btn-primary" style={{ flex: 2 }} disabled={!addForm.product_id || !addForm.qty || saving} onClick={addProductToMachine}>
-                  {saving ? 'Salvataggio...' : '📦 Carica nella Macchina'}
+                  {saving ? t('saving') : '📦 Carica nella Macchina'}
                 </button>
               </div>
             </div>
@@ -629,9 +631,9 @@ export default function VendingPage() {
                 </div>
               </div>
               <div style={{ display: 'flex', gap: 8, marginTop: 'var(--space-xl)' }}>
-                <button className="btn btn-secondary" style={{ flex: 1 }} onClick={() => { setShowAddCollection(false); setCollectionForm({ amount: '', notes: '' }) }}>Annulla</button>
+                <button className="btn btn-secondary" style={{ flex: 1 }} onClick={() => { setShowAddCollection(false); setCollectionForm({ amount: '', notes: '' }) }}>{t('cancel')}</button>
                 <button className="btn btn-primary" style={{ flex: 2 }} disabled={!collectionForm.amount || saving} onClick={addCollection}>
-                  {saving ? 'Salvataggio...' : '💰 Registra Incasso'}
+                  {saving ? t('saving') : '💰 Registra Incasso'}
                 </button>
               </div>
             </div>
@@ -660,9 +662,9 @@ export default function VendingPage() {
               </div>
             </div>
             <div style={{ display: 'flex', gap: 8, marginTop: 'var(--space-xl)' }}>
-              <button className="btn btn-secondary" style={{ flex: 1 }} onClick={() => { setShowAddMachine(false); setMachineForm({ name: '', location: '', status: 'offline' }) }}>Annulla</button>
+              <button className="btn btn-secondary" style={{ flex: 1 }} onClick={() => { setShowAddMachine(false); setMachineForm({ name: '', location: '', status: 'offline' }) }}>{t('cancel')}</button>
               <button className="btn btn-primary" style={{ flex: 2 }} disabled={!machineForm.name || saving} onClick={addMachine}>
-                {saving ? 'Salvataggio...' : 'Aggiungi Macchina'}
+                {saving ? t('saving') : 'Aggiungi Macchina'}
               </button>
             </div>
           </div>
@@ -693,9 +695,9 @@ export default function VendingPage() {
               </div>
             </div>
             <div style={{ display: 'flex', gap: 8, marginTop: 'var(--space-xl)' }}>
-              <button className="btn btn-secondary" style={{ flex: 1 }} onClick={() => { setShowEditMachine(null); setMachineForm({ name: '', location: '', status: 'offline' }) }}>Annulla</button>
+              <button className="btn btn-secondary" style={{ flex: 1 }} onClick={() => { setShowEditMachine(null); setMachineForm({ name: '', location: '', status: 'offline' }) }}>{t('cancel')}</button>
               <button className="btn btn-primary" style={{ flex: 2 }} disabled={!machineForm.name || saving} onClick={saveEdit}>
-                {saving ? 'Salvataggio...' : 'Salva Modifiche'}
+                {saving ? t('saving') : 'Salva Modifiche'}
               </button>
             </div>
           </div>
@@ -705,7 +707,7 @@ export default function VendingPage() {
       {/* Header */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 'var(--space-xl)' }}>
         <div>
-          <h2>🏪 Macchine H24</h2>
+          <h2>{t('sidebar.vending')}</h2>
           <p style={{ color: 'var(--text-secondary)', fontSize: 14, marginTop: 4 }}>{machines.length} macchine registrate</p>
         </div>
         <div style={{ display: 'flex', gap: 8 }}>

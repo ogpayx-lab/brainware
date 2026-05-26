@@ -3,10 +3,12 @@ import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { fmt, formatDate } from '@/lib/utils'
+import { useT } from '@/lib/i18n'
 
 export default function MultistorePage() {
   const router = useRouter()
   const supabase = createClient()
+  const t = useT()
   const [storeId, setStoreId] = useState<string | null>(null)
   const [orgId, setOrgId] = useState<string | null>(null)
   const [stores, setStores] = useState<any[]>([])
@@ -71,7 +73,7 @@ export default function MultistorePage() {
     loadData()
   }
 
-  if (loading) return <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '60vh' }}>Caricamento...</div>
+  if (loading) return <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '60vh' }}>{t('loading')}</div>
 
   return (
     <div>
@@ -95,7 +97,7 @@ export default function MultistorePage() {
               </div>
             </div>
             <div style={{ display: 'flex', gap: 'var(--space-sm)', marginTop: 'var(--space-xl)' }}>
-              <button className="btn btn-secondary" style={{ flex: 1 }} onClick={() => setShowForm(false)}>Annulla</button>
+              <button className="btn btn-secondary" style={{ flex: 1 }} onClick={() => setShowForm(false)}>{t('cancel')}</button>
               <button className="btn btn-primary" style={{ flex: 2 }} onClick={addStore} disabled={saving || !form.name}>{saving ? 'Creazione...' : '🏪 Crea Store'}</button>
             </div>
           </div>
@@ -104,7 +106,7 @@ export default function MultistorePage() {
 
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 'var(--space-xl)' }}>
         <div>
-          <h2>🏪 Multistore</h2>
+          <h2>{t('sidebar.multistore')}</h2>
           <p style={{ color: 'var(--text-secondary)', fontSize: 14, marginTop: 4 }}>{stores.length} store nella tua organizzazione</p>
         </div>
         <button className="btn btn-primary" onClick={() => setShowForm(true)}>+ Aggiungi Store</button>

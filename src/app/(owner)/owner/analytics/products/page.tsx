@@ -3,10 +3,12 @@ import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { fmt, formatDate, categoryLabel } from '@/lib/utils'
+import { useT } from '@/lib/i18n'
 
 export default function ProductsAnalyticsPage() {
   const router = useRouter()
   const supabase = createClient()
+  const t = useT()
   const [data, setData] = useState<any>(null)
   const [stores, setStores] = useState<any[]>([])
   const [selectedStore, setSelectedStore] = useState('all')
@@ -146,7 +148,7 @@ export default function ProductsAnalyticsPage() {
     setLoading(false)
   }
 
-  if (loading) return <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '60vh' }}>Caricamento...</div>
+  if (loading) return <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '60vh' }}>{t('loading')}</div>
   if (!data) return null
 
   const acqLabel: Record<string, string> = { 'walk-in': '🚶 Passaggio', 'social': '📱 Social', 'google': '🔍 Google', 'referral': '🗣️ Passaparola', 'shopify': '🛍️ Shopify', 'other': '❓ Altro' }
@@ -156,7 +158,7 @@ export default function ProductsAnalyticsPage() {
       {/* Header */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 'var(--space-xl)' }}>
         <div>
-          <h2>📈 Prodotti & Inventario</h2>
+          <h2>{t('sidebar.productAnalytics')}</h2>
           <p style={{ color: 'var(--text-secondary)', fontSize: 14, marginTop: 4 }}>Analisi vendite prodotto, stock e conteggi inventario</p>
         </div>
         <div style={{ display: 'flex', gap: 8 }}>

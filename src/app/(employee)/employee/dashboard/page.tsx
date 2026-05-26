@@ -6,6 +6,7 @@ import { createClient } from '@/lib/supabase/client'
 import { fmt, formatTime, periodLabel } from '@/lib/utils'
 import { BottomNav } from '@/components/employee/BottomNav'
 import { playNotificationSound } from '@/lib/useNotificationSound'
+import { useT } from '@/lib/i18n'
 
 const PRIORITY_COLOR: Record<string, string> = {
   urgent: '#EF4444', high: '#F59E0B', normal: '#22C55E', low: '#9CA3AF'
@@ -17,6 +18,7 @@ const PRIORITY_LABEL: Record<string, string> = {
 export default function EmployeeDashboard() {
   const router = useRouter()
   const supabase = createClient()
+  const t = useT()
   const [summary, setSummary] = useState<any>(null)
   const [sales, setSales] = useState<any[]>([])
   const [name, setName] = useState('')
@@ -149,7 +151,7 @@ export default function EmployeeDashboard() {
     setLoading(false)
   }
 
-  if (loading) return <div style={{ display:'flex', alignItems:'center', justifyContent:'center', height:'100vh' }}><div style={{ color:'var(--text-secondary)' }}>Caricamento...</div></div>
+  if (loading) return <div style={{ display:'flex', alignItems:'center', justifyContent:'center', height:'100vh' }}><div style={{ color:'var(--text-secondary)' }}>{t('loading')}</div></div>
   if (!summary) return null
 
   const depositExpected = summary.fce + summary.total_cash - summary.total_expenses - fcuDefault
@@ -389,7 +391,7 @@ export default function EmployeeDashboard() {
               )}
             </div>
             <div style={{ marginTop:16, textAlign:'center' }}>
-              <button onClick={() => setKpiModal(null)} className="btn btn-secondary">Chiudi</button>
+              <button onClick={() => setKpiModal(null)} className="btn btn-secondary">{t('close')}</button>
             </div>
           </div>
         </div>
@@ -406,7 +408,7 @@ export default function EmployeeDashboard() {
               Il turno resterà aperto per il prossimo dipendente.
             </p>
             <div style={{ display:'flex', gap:10 }}>
-              <button className="btn btn-secondary" style={{ flex:1 }} onClick={() => setShowCheckout(false)}>Annulla</button>
+              <button className="btn btn-secondary" style={{ flex:1 }} onClick={() => setShowCheckout(false)}>{t('cancel')}</button>
               <button className="btn btn-primary" style={{ flex:1, background:'#F59E0B' }} disabled={checkingOut}
                 onClick={async () => {
                   setCheckingOut(true)

@@ -2,10 +2,12 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
+import { useT } from '@/lib/i18n'
 
 export default function PromoCodesPage() {
   const router = useRouter()
   const supabase = createClient()
+  const t = useT()
   const [codes, setCodes] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [storeId, setStoreId] = useState<string|null>(null)
@@ -55,13 +57,13 @@ export default function PromoCodesPage() {
     setCodes(prev => prev.filter(c => c.id !== id))
   }
 
-  if (loading) return <div style={{ display:'flex', alignItems:'center', justifyContent:'center', height:'60vh', color:'var(--text-secondary)' }}>Caricamento...</div>
+  if (loading) return <div style={{ display:'flex', alignItems:'center', justifyContent:'center', height:'60vh', color:'var(--text-secondary)' }}>{t('loading')}</div>
 
   return (
     <div>
       <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', marginBottom:'var(--space-xl)' }}>
         <div>
-          <h2>🎟️ Codici Promo</h2>
+          <h2>{t('sidebar.promoCodes')}</h2>
           <p style={{ color:'var(--text-secondary)', fontSize:14, marginTop:4 }}>
             Crea e gestisci i codici sconto da usare nel POS
           </p>
@@ -158,9 +160,9 @@ export default function PromoCodesPage() {
               </div>
             </div>
             <div style={{ display:'flex', gap:8, marginTop:'var(--space-xl)' }}>
-              <button className="btn btn-secondary" style={{ flex:1 }} onClick={() => setShowForm(false)}>Annulla</button>
+              <button className="btn btn-secondary" style={{ flex:1 }} onClick={() => setShowForm(false)}>{t('cancel')}</button>
               <button className="btn btn-primary" style={{ flex:2 }} disabled={saving||!form.code||!form.value} onClick={saveCode}>
-                {saving ? 'Salvataggio...' : '+ Crea Codice'}
+                {saving ? t('saving') : '+ Crea Codice'}
               </button>
             </div>
           </div>

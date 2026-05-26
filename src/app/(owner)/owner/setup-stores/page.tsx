@@ -1,5 +1,6 @@
 'use client'
 import { useState } from 'react'
+import { useT } from '@/lib/i18n'
 
 const STORE_ACCOUNTS = [
   { email: 'cavour.mamamary@gmail.com', full_name: '[STORE] Cavour', store_match: 'cavour' },
@@ -18,6 +19,7 @@ export default function SetupStoresPage() {
   async function loadStores() {
     const { createClient } = await import('@/lib/supabase/client')
     const supabase = createClient()
+  const t = useT()
     const { data } = await supabase.from('stores').select('id, name')
     setStores(data ?? [])
     return data ?? []

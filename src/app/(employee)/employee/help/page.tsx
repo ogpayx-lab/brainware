@@ -3,8 +3,10 @@ import { useState } from 'react'
 import Link from 'next/link'
 import { HELP_CATEGORIES, HELP_ARTICLES, HelpArticle } from '@/lib/help-articles'
 import { BottomNav } from '@/components/employee/BottomNav'
+import { useT } from '@/lib/i18n'
 
 export default function EmployeeHelpPage() {
+  const t = useT()
   const [search, setSearch] = useState('')
   const [selectedCategory, setSelectedCategory] = useState('all')
   const [expandedArticle, setExpandedArticle] = useState<string | null>(null)

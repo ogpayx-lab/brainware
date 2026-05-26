@@ -1,8 +1,10 @@
 'use client'
 import { useState } from 'react'
 import { HELP_CATEGORIES, HELP_ARTICLES, HelpArticle } from '@/lib/help-articles'
+import { useT } from '@/lib/i18n'
 
 export default function OwnerHelpPage() {
+  const t = useT()
   const [search, setSearch] = useState('')
   const [selectedCategory, setSelectedCategory] = useState('all')
   const [expandedArticle, setExpandedArticle] = useState<string | null>(null)

@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { fmt } from '@/lib/utils'
+import { useT } from '@/lib/i18n'
 
 interface Message { role: 'user' | 'assistant'; content: string }
 
@@ -20,6 +21,7 @@ const USAGE_KEY = 'bw_ai_usage'
 export default function OwnerIntelligencePage() {
   const router = useRouter()
   const supabase = createClient()
+  const t = useT()
   const [messages, setMessages] = useState<Message[]>([])
   const [input, setInput] = useState('')
   const [loading, setLoading] = useState(false)
@@ -274,9 +276,9 @@ DIPENDENTI: ${(allEmployees ?? []).map(e => `${e.full_name} (${(e.stores as any)
     <div style={{ display: 'flex', flexDirection: 'column', height: 'calc(100vh - 100px)' }}>
       <div style={{ marginBottom: 20 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 4 }}>
-          <h2>Intelligence AI</h2>
+          <h2>{t('ai.title')}</h2>
           <span className="badge badge-brand" style={{ fontSize: 10 }}>BETA</span>
-          <span className="badge badge-gray" style={{ fontSize: 11 }}>{contextLoading ? 'Caricamento...' : '✅ Dati caricati'}</span>
+          <span className="badge badge-gray" style={{ fontSize: 11 }}>{contextLoading ? t('loading') : '✅ Dati caricati'}</span>
           <span className={`badge ${remaining <= 10 ? 'badge-warning' : 'badge-gray'}`} style={{ fontSize: 10, marginLeft: 'auto' }}>
             {remaining}/{DAILY_FREE_LIMIT} richieste gratuite
           </span>
