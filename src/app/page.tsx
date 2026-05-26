@@ -57,15 +57,17 @@ export default function LandingPage() {
   return (
     <div className="landing">
       {/* JSON-LD */}
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify({
-        '@context': 'https://schema.org', '@type': 'SoftwareApplication', name: 'BrainWare',
-        applicationCategory: 'BusinessApplication', operatingSystem: 'Web',
-        offers: [
-          { '@type': 'Offer', name: 'Starter', price: '49', priceCurrency: 'EUR' },
-          { '@type': 'Offer', name: 'Growth', price: '99', priceCurrency: 'EUR' },
-          { '@type': 'Offer', name: 'Business', price: '149', priceCurrency: 'EUR' },
-        ],
-      }) }} />
+      <script type="application/ld+json" dangerouslySetInnerHTML={{
+        __html: JSON.stringify({
+          '@context': 'https://schema.org', '@type': 'SoftwareApplication', name: 'BrainWare',
+          applicationCategory: 'BusinessApplication', operatingSystem: 'Web',
+          offers: [
+            { '@type': 'Offer', name: 'Starter', price: '49', priceCurrency: 'EUR' },
+            { '@type': 'Offer', name: 'Growth', price: '99', priceCurrency: 'EUR' },
+            { '@type': 'Offer', name: 'Business', price: '149', priceCurrency: 'EUR' },
+          ],
+        })
+      }} />
 
       {/* ═══ NAV ═══ */}
       <header>
@@ -99,68 +101,68 @@ export default function LandingPage() {
           <div className="l-hero-grid" />
 
           <div className="l-hero-inner">
-          <div className="l-hero-content">
-            <div className="l-hero-badge l-animate">⚡ {t('hero_badge')}</div>
-            <h1 className="l-animate l-animate-d1">
-              {ht.pre}<br/>{ht.br} <span className="l-gradient-text">{ht.accent}</span>
-            </h1>
-            <p className="l-hero-sub l-animate l-animate-d2">{t('hero_subtitle')}</p>
-            <div className="l-hero-buttons l-animate l-animate-d3">
-              <Link href="/signup" className="l-btn l-btn-primary l-btn-lg">{t('hero_cta')}</Link>
-              <Link href="/demo" className="l-btn l-btn-secondary l-btn-lg" style={{ background: 'rgba(99,102,241,0.15)', borderColor: '#6366F1', color: '#A5B4FC' }}>🚀 {lang === 'it' ? 'Prova la Demo' : lang === 'de' ? 'Demo testen' : lang === 'fr' ? 'Essayer la démo' : lang === 'es' ? 'Probar demo' : 'Try the Demo'}</Link>
+            <div className="l-hero-content">
+              <div className="l-hero-badge l-animate">⚡ {t('hero_badge')}</div>
+              <h1 className="l-animate l-animate-d1">
+                {ht.pre}<br />{ht.br} <span className="l-gradient-text">{ht.accent}</span>
+              </h1>
+              <p className="l-hero-sub l-animate l-animate-d2">{t('hero_subtitle')}</p>
+              <div className="l-hero-buttons l-animate l-animate-d3">
+                <Link href="/signup" className="l-btn l-btn-primary l-btn-lg">{t('hero_cta')}</Link>
+                <Link href="/demo" className="l-btn l-btn-secondary l-btn-lg" style={{ background: 'rgba(99,102,241,0.15)', borderColor: '#6366F1', color: '#A5B4FC' }}>🚀 {lang === 'it' ? 'Prova la Demo' : lang === 'de' ? 'Demo testen' : lang === 'fr' ? 'Essayer la démo' : lang === 'es' ? 'Probar demo' : 'Try the Demo'}</Link>
+              </div>
+              <div className="l-hero-note l-animate l-animate-d4">{t('hero_no_cc')}</div>
             </div>
-            <div className="l-hero-note l-animate l-animate-d4">{t('hero_no_cc')}</div>
-          </div>
 
-          {/* ── Platform Video Demo ── */}
-          <div className="l-hero-visual l-animate l-animate-d5">
-            <div className="l-video-container">
-              <div className="l-video-toolbar">
-                <div className="l-dash-dots">
-                  <div className="l-dash-dot" style={{ background: '#EF4444' }} />
-                  <div className="l-dash-dot" style={{ background: '#F59E0B' }} />
-                  <div className="l-dash-dot" style={{ background: '#22C55E' }} />
-                </div>
-                <div className="l-dash-url">
-                  <span style={{ marginRight: 6, fontSize: 10, color: '#22C55E' }}>🔒</span>
-                  app.brainware.io
-                </div>
-              </div>
-              <div className="l-video-content">
-                <video
-                  autoPlay
-                  loop
-                  muted
-                  playsInline
-                  poster="/demo-poster.jpg"
-                  style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '0 0 20px 20px' }}
-                >
-                  <source src="/demo.mp4" type="video/mp4" />
-                  <source src="/demo.webm" type="video/webm" />
-                </video>
-                {/* Fallback: shown until you add /public/demo.mp4 */}
-                <div className="l-video-fallback">
-                  <div className="l-video-fallback-grid">
-                    {[
-                      { icon: '📊', label: 'Dashboard', desc: 'Real-time KPIs' },
-                      { icon: '🛒', label: 'POS', desc: 'Smart checkout' },
-                      { icon: '📦', label: 'Inventory', desc: 'Live tracking' },
-                      { icon: '🤖', label: 'AI Insights', desc: 'Auto reports' },
-                    ].map(f => (
-                      <div key={f.label} className="l-video-fallback-item">
-                        <div className="l-video-fallback-icon">{f.icon}</div>
-                        <div className="l-video-fallback-label">{f.label}</div>
-                        <div className="l-video-fallback-desc">{f.desc}</div>
-                      </div>
-                    ))}
+            {/* ── Platform Video Demo ── */}
+            <div className="l-hero-visual l-animate l-animate-d5">
+              <div className="l-video-container">
+                <div className="l-video-toolbar">
+                  <div className="l-dash-dots">
+                    <div className="l-dash-dot" style={{ background: '#EF4444' }} />
+                    <div className="l-dash-dot" style={{ background: '#F59E0B' }} />
+                    <div className="l-dash-dot" style={{ background: '#22C55E' }} />
                   </div>
-                  <div className="l-video-fallback-note">
-                    Interactive platform demo — coming soon
+                  <div className="l-dash-url">
+                    <span style={{ marginRight: 6, fontSize: 10, color: '#22C55E' }}>🔒</span>
+                    app.brainware.io
+                  </div>
+                </div>
+                <div className="l-video-content">
+                  <video
+                    autoPlay
+                    loop
+                    muted
+                    playsInline
+                    poster="/demo-poster.jpg"
+                    style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '0 0 20px 20px' }}
+                  >
+                    <source src="/demo.mp4" type="video/mp4" />
+                    <source src="/demo.webm" type="video/webm" />
+                  </video>
+                  {/* Fallback: shown until you add /public/demo.mp4 */}
+                  <div className="l-video-fallback">
+                    <div className="l-video-fallback-grid">
+                      {[
+                        { icon: '📊', label: 'Dashboard', desc: 'Real-time KPIs' },
+                        { icon: '🛒', label: 'POS', desc: 'Smart checkout' },
+                        { icon: '📦', label: 'Inventory', desc: 'Live tracking' },
+                        { icon: '🤖', label: 'AI Insights', desc: 'Auto reports' },
+                      ].map(f => (
+                        <div key={f.label} className="l-video-fallback-item">
+                          <div className="l-video-fallback-icon">{f.icon}</div>
+                          <div className="l-video-fallback-label">{f.label}</div>
+                          <div className="l-video-fallback-desc">{f.desc}</div>
+                        </div>
+                      ))}
+                    </div>
+                    <div className="l-video-fallback-note">
+                      Interactive platform demo — coming soon
+                    </div>
                   </div>
                 </div>
               </div>
             </div>
-          </div>
           </div>
         </section>
 
