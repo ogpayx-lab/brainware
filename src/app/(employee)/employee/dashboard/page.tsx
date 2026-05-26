@@ -183,20 +183,20 @@ export default function EmployeeDashboard() {
 
         {/* ═══ STATS GIORNALIERE (come screenshot) ═══ */}
         <div style={{ background:'var(--bg-primary)', borderRadius:16, padding:'16px', border:'1px solid var(--border-subtle)' }}>
-          <h4 style={{ margin:'0 0 4px', fontSize:15 }}>📅 Statistiche Giornata</h4>
+          <h4 style={{ margin:'0 0 4px', fontSize:15 }}>{t('empApp.dailyStats')}</h4>
           <div style={{ fontSize:11, color:'var(--text-tertiary)', marginBottom:12 }}>{new Date().toLocaleDateString('it-IT', { weekday:'long', day:'numeric', month:'long', year:'numeric' })}</div>
 
           {/* Average Sales Card */}
           <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:8, marginBottom:8 }}>
-            <div style={{ background:'var(--bg-surface)', borderRadius:12, padding:'12px', cursor:'pointer' }} onClick={() => setKpiModal({ type: 'sales', title: 'Vendite Oggi' })}>
-              <div style={{ fontSize:11, color:'var(--text-secondary)', fontWeight:600, marginBottom:6 }}>Vendite Oggi</div>
+            <div style={{ background:'var(--bg-surface)', borderRadius:12, padding:'12px', cursor:'pointer' }} onClick={() => setKpiModal({ type: 'sales', title: t('empApp.salesToday') })}>
+              <div style={{ fontSize:11, color:'var(--text-secondary)', fontWeight:600, marginBottom:6 }}>{t('empApp.salesToday')}</div>
               <div style={{ fontSize:22, fontWeight:700, color:'var(--brand-primary)' }}>{fmt(todayStats.totalSales)}</div>
-              <div style={{ fontSize:11, color:'var(--text-tertiary)', marginTop:4 }}>{todayStats.customers} clienti</div>
+              <div style={{ fontSize:11, color:'var(--text-tertiary)', marginTop:4 }}>{todayStats.customers} {t('empApp.clients')}</div>
             </div>
             <div style={{ background:'var(--bg-surface)', borderRadius:12, padding:'12px' }}>
-              <div style={{ fontSize:11, color:'var(--text-secondary)', fontWeight:600, marginBottom:6 }}>Media per Cliente</div>
+              <div style={{ fontSize:11, color:'var(--text-secondary)', fontWeight:600, marginBottom:6 }}>{t('empApp.avgPerCustomer')}</div>
               <div style={{ fontSize:22, fontWeight:700 }}>{fmt(todayStats.avgPerCustomer)}</div>
-              <div style={{ fontSize:11, color:'var(--text-tertiary)', marginTop:4 }}>scontrino medio</div>
+              <div style={{ fontSize:11, color:'var(--text-tertiary)', marginTop:4 }}>{t('empApp.avgReceipt')}</div>
             </div>
           </div>
 
@@ -205,7 +205,7 @@ export default function EmployeeDashboard() {
             {[
               { label:'Cash', value:summary.total_cash, color:'#3B82F6', type:'cash' },
               { label:'POS', value:summary.total_pos, color:'#8B5CF6', type:'pos' },
-              { label:'Depositi', value:todayStats.deposits, color:'#22C55E', type:'deposits' },
+              { label: t('empApp.deposits'), value:todayStats.deposits, color:'#22C55E', type:'deposits' },
             ].map(c => (
               <div key={c.label} style={{ background:'var(--bg-surface)', borderRadius:12, padding:'10px', textAlign:'center', cursor:'pointer' }} onClick={() => setKpiModal({ type: c.type, title: c.label })}>
                 <div style={{ fontSize:11, color:'var(--text-secondary)', fontWeight:600, marginBottom:4 }}>{c.label}</div>
@@ -217,12 +217,12 @@ export default function EmployeeDashboard() {
 
           <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:8, marginTop:8 }}>
             <div style={{ background:'var(--bg-surface)', borderRadius:12, padding:'10px', textAlign:'center' }}>
-              <div style={{ fontSize:11, color:'var(--text-secondary)', fontWeight:600, marginBottom:4 }}>Spese Giornata</div>
+              <div style={{ fontSize:11, color:'var(--text-secondary)', fontWeight:600, marginBottom:4 }}>{t('empApp.dailyExpenses')}</div>
               <MiniBar value={summary.total_expenses} max={todayStats.totalSales || 1} color="#EF4444" />
               <div style={{ fontSize:13, fontWeight:700, marginTop:4, color:'var(--danger)' }}>{fmt(summary.total_expenses)}</div>
             </div>
             <div style={{ background:'var(--bg-surface)', borderRadius:12, padding:'10px', textAlign:'center' }}>
-              <div style={{ fontSize:11, color:'var(--text-secondary)', fontWeight:600, marginBottom:4 }}>Online Sales</div>
+              <div style={{ fontSize:11, color:'var(--text-secondary)', fontWeight:600, marginBottom:4 }}>{t('empApp.onlineSales')}</div>
               <MiniBar value={todayStats.onlineSales} max={todayStats.totalSales || 1} color="#06B6D4" />
               <div style={{ fontSize:13, fontWeight:700, marginTop:4 }}>{fmt(todayStats.onlineSales)}</div>
             </div>
@@ -231,12 +231,12 @@ export default function EmployeeDashboard() {
 
         {/* ═══ RIEPILOGO CASSA ═══ */}
         <div style={{ background:'var(--bg-primary)', borderRadius:16, padding:'16px', border:'1px solid var(--border-subtle)' }}>
-          <h4 style={{ margin:'0 0 10px', fontSize:14 }}>💰 Riepilogo Cassa</h4>
+          <h4 style={{ margin:'0 0 10px', fontSize:14 }}>{t('empApp.cashSummary')}</h4>
           {[
-            { label:'FCE (Fondo Cassa Entrata)', value:`+${fmt(summary.fce)}`, color:'var(--text-primary)' },
-            { label:'+ Vendite Cash', value:`+${fmt(summary.total_cash)}`, color:'var(--success)' },
-            { label:'− Spese', value:`−${fmt(summary.total_expenses)}`, color:'var(--danger)' },
-            { label:'− FCU', value:`−${fmt(fcuDefault)}`, color:'var(--text-secondary)' },
+            { label: t('empApp.fce'), value:`+${fmt(summary.fce)}`, color:'var(--text-primary)' },
+            { label: t('empApp.cashSales'), value:`+${fmt(summary.total_cash)}`, color:'var(--success)' },
+            { label: t('empApp.minusExpenses'), value:`−${fmt(summary.total_expenses)}`, color:'var(--danger)' },
+            { label: t('empApp.minusFcu'), value:`−${fmt(fcuDefault)}`, color:'var(--text-secondary)' },
           ].map(row => (
             <div key={row.label} style={{ display:'flex', justifyContent:'space-between', padding:'5px 0', borderBottom:'1px solid var(--border-subtle)', fontSize:13 }}>
               <span style={{ color:'var(--text-secondary)' }}>{row.label}</span>
@@ -244,17 +244,17 @@ export default function EmployeeDashboard() {
             </div>
           ))}
           <div style={{ display:'flex', justifyContent:'space-between', padding:'10px 0 0', marginTop:4 }}>
-            <span style={{ fontWeight:700, fontSize:15 }}>Deposito Atteso</span>
+            <span style={{ fontWeight:700, fontSize:15 }}>{t('empApp.expectedDeposit')}</span>
             <span style={{ fontWeight:700, fontSize:18, color: depositExpected >= 0 ? 'var(--brand-primary)' : 'var(--danger)' }}>{fmt(depositExpected)}</span>
           </div>
         </div>
 
         {/* ═══ OBIETTIVI & PERFORMANCE ═══ */}
         <div style={{ background:'var(--bg-primary)', borderRadius:16, padding:'16px', border:'1px solid var(--border-subtle)' }}>
-          <h4 style={{ margin:'0 0 10px', fontSize:14 }}>🎯 Obiettivi</h4>
+          <h4 style={{ margin:'0 0 10px', fontSize:14 }}>{t('empApp.objectives')}</h4>
           <div style={{ marginBottom:10 }}>
             <div style={{ display:'flex', justifyContent:'space-between', marginBottom:4 }}>
-              <span style={{ fontSize:13, fontWeight:600 }}>Vendite Giornaliere</span>
+              <span style={{ fontSize:13, fontWeight:600 }}>{t('empApp.dailySales')}</span>
               <span style={{ fontSize:12, color:'var(--text-secondary)' }}>{fmt(summary.total_sales)} / {fmt(objectives.sales_target)}</span>
             </div>
             <div style={{ height:8, background:'var(--bg-surface-alt)', borderRadius:4, overflow:'hidden' }}>
@@ -266,19 +266,19 @@ export default function EmployeeDashboard() {
             <div style={{ background:'var(--brand-primary-light)', borderRadius:10, padding:'10px 12px', display:'flex', alignItems:'center', gap:10, marginBottom:14 }}>
               <span style={{ fontSize:22 }}>🔥</span>
               <div style={{ flex:1, fontSize:12, color:'var(--brand-primary-dark)' }}>
-                <strong>{objectives.streak} giorni</strong> consecutivi sopra target! Rank #{objectives.rank}
+                <strong>{objectives.streak}</strong> {t('empApp.daysAbove')} Rank #{objectives.rank}
               </div>
             </div>
           )}
 
           <div style={{ height:1, background:'var(--border-subtle)', margin:'14px 0' }} />
 
-          <h4 style={{ margin:'0 0 10px', fontSize:14 }}>📊 Performance</h4>
+          <h4 style={{ margin:'0 0 10px', fontSize:14 }}>{t('empApp.performance')}</h4>
           <div style={{ display:'flex', flexDirection:'column', gap:10 }}>
             {[
-              { label: '⏰ Puntualità', value: perf.punctualityTotal > 0 ? Math.round((perf.punctuality / perf.punctualityTotal) * 100) : 0, sub: `${perf.punctuality}/${perf.punctualityTotal} turni puntuali`, color: 'var(--success)' },
-              { label: '📋 Match Inventario', value: perf.invTotal > 0 ? Math.round((perf.invMatch / perf.invTotal) * 100) : 0, sub: `${perf.invMatch}/${perf.invTotal} corrispondenti`, color: 'var(--accent-blue)' },
-              { label: '🔧 Task Giornalieri', value: perf.tasksTotal > 0 ? Math.round((perf.tasksCompleted / perf.tasksTotal) * 100) : 0, sub: `${perf.tasksCompleted}/${perf.tasksTotal} completati`, color: 'var(--accent-indigo)' },
+              { label: t('empApp.punctuality'), value: perf.punctualityTotal > 0 ? Math.round((perf.punctuality / perf.punctualityTotal) * 100) : 0, sub: `${perf.punctuality}/${perf.punctualityTotal} ${t('empApp.punctualShifts')}`, color: 'var(--success)' },
+              { label: t('empApp.invMatch'), value: perf.invTotal > 0 ? Math.round((perf.invMatch / perf.invTotal) * 100) : 0, sub: `${perf.invMatch}/${perf.invTotal} ${t('empApp.matching')}`, color: 'var(--accent-blue)' },
+              { label: t('empApp.dailyTasks'), value: perf.tasksTotal > 0 ? Math.round((perf.tasksCompleted / perf.tasksTotal) * 100) : 0, sub: `${perf.tasksCompleted}/${perf.tasksTotal} ${t('empApp.completed')}`, color: 'var(--accent-indigo)' },
             ].map(m => (
               <div key={m.label}>
                 <div style={{ display:'flex', justifyContent:'space-between', marginBottom:4 }}>
@@ -297,7 +297,7 @@ export default function EmployeeDashboard() {
         {/* ═══ TASK ═══ */}
         {tasks.length > 0 && (
           <div>
-            <h4 style={{ margin:'0 0 10px', fontSize:14 }}>📋 I Tuoi Task ({tasks.length})</h4>
+            <h4 style={{ margin:'0 0 10px', fontSize:14 }}>{t('empApp.yourTasks')} ({tasks.length})</h4>
             <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
               {tasks.map(task => (
                 <div key={task.id} className="card" style={{ padding:'12px 14px', display:'flex', justifyContent:'space-between', alignItems:'flex-start' }}>
@@ -311,7 +311,7 @@ export default function EmployeeDashboard() {
                     <button onClick={async () => {
                       await supabase.from('tasks').update({ status:'done', completed_at: new Date().toISOString() }).eq('id', task.id)
                       setTasks(prev => prev.filter(t => t.id !== task.id))
-                    }} style={{ fontSize:11, padding:'4px 10px', background:'var(--success)', color:'white', border:'none', borderRadius:6, cursor:'pointer', fontWeight:600 }}>✓ Fatto</button>
+                    }} style={{ fontSize:11, padding:'4px 10px', background:'var(--success)', color:'white', border:'none', borderRadius:6, cursor:'pointer', fontWeight:600 }}>{t('empApp.done')}</button>
                   </div>
                 </div>
               ))}
@@ -321,13 +321,13 @@ export default function EmployeeDashboard() {
 
         {/* ═══ ULTIME VENDITE ═══ */}
         <div>
-          <h4 style={{ margin:'0 0 10px', fontSize:14 }}>🧾 Ultime Vendite</h4>
+          <h4 style={{ margin:'0 0 10px', fontSize:14 }}>{t('empApp.recentSales')}</h4>
           <div className="card" style={{ padding:0, overflow:'hidden' }}>
-            {sales.length === 0 && <div style={{ padding:'30px', textAlign:'center', color:'var(--text-tertiary)', fontSize:13 }}>Nessuna vendita in questo turno</div>}
+            {sales.length === 0 && <div style={{ padding:'30px', textAlign:'center', color:'var(--text-tertiary)', fontSize:13 }}>{t('empApp.noSalesThisShift')}</div>}
             {sales.map((sale, i) => (
               <div key={sale.id} style={{ display:'flex', alignItems:'center', gap:12, padding:'10px 14px', borderBottom:i<sales.length-1?'1px solid var(--border-subtle)':'none' }}>
                 <div style={{ flex:1 }}>
-                  <div style={{ fontSize:14, fontWeight:600 }}>{sale.customer_name || 'Anonimo'}</div>
+                  <div style={{ fontSize:14, fontWeight:600 }}>{sale.customer_name || t('empApp.anonymous')}</div>
                   <div style={{ fontSize:11, color:'var(--text-tertiary)' }}>{sale.invoice_number} · {formatTime(sale.created_at)}</div>
                 </div>
                 <div style={{ display:'flex', flexDirection:'column', alignItems:'flex-end', gap:3 }}>
@@ -354,7 +354,7 @@ export default function EmployeeDashboard() {
             <div style={{ flex:1, overflowY:'auto', display:'flex', flexDirection:'column', gap:8 }}>
               {kpiModal.type === 'deposits' ? (
                 todayDepositsData.length === 0 ? (
-                  <div style={{ textAlign:'center', padding:30, color:'var(--text-tertiary)', fontSize:13 }}>Nessun deposito oggi</div>
+                  <div style={{ textAlign:'center', padding:30, color:'var(--text-tertiary)', fontSize:13 }}>{t('empApp.noDepositsToday')}</div>
                 ) : todayDepositsData.map(d => (
                   <div key={d.id} style={{ padding:12, background:'var(--bg-surface)', borderRadius:10, display:'flex', justifyContent:'space-between', alignItems:'center' }}>
                     <div>
@@ -372,7 +372,7 @@ export default function EmployeeDashboard() {
                     ? todaySalesData.filter(s => s.payment_method === 'pos')
                     : todaySalesData
                   return filteredSales.length === 0 ? (
-                    <div style={{ textAlign:'center', padding:30, color:'var(--text-tertiary)', fontSize:13 }}>Nessuna vendita</div>
+                    <div style={{ textAlign:'center', padding:30, color:'var(--text-tertiary)', fontSize:13 }}>{t('empApp.noSales')}</div>
                   ) : filteredSales.map(s => (
                     <div key={s.id} style={{ padding:12, background:'var(--bg-surface)', borderRadius:10, display:'flex', justifyContent:'space-between', alignItems:'center' }}>
                       <div>
@@ -402,10 +402,10 @@ export default function EmployeeDashboard() {
         <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.6)', display:'flex', alignItems:'center', justifyContent:'center', zIndex:200, padding:20 }}>
           <div style={{ background:'var(--bg-primary)', borderRadius:20, padding:28, width:'100%', maxWidth:380, textAlign:'center' }}>
             <div style={{ fontSize:48, marginBottom:12 }}>🚪</div>
-            <h3 style={{ marginBottom:8 }}>Check Out</h3>
+            <h3 style={{ marginBottom:8 }}>{t('empApp.checkOut')}</h3>
             <p style={{ color:'var(--text-secondary)', fontSize:14, marginBottom:20, lineHeight:1.6 }}>
-              Stai per uscire <strong>senza chiudere il turno</strong>.<br/>
-              Il turno resterà aperto per il prossimo dipendente.
+              {t('empApp.checkOutDesc')}<br/>
+              {t('empApp.checkOutNote')}
             </p>
             <div style={{ display:'flex', gap:10 }}>
               <button className="btn btn-secondary" style={{ flex:1 }} onClick={() => setShowCheckout(false)}>{t('cancel')}</button>
@@ -417,7 +417,7 @@ export default function EmployeeDashboard() {
                   router.push('/employee/shift/open')
                 }}
               >
-                {checkingOut ? '⏳ Uscita...' : '🚪 Check Out'}
+                {checkingOut ? `⏳ ${t('empApp.exitMsg')}` : `🚪 ${t('empApp.checkOut')}`}
               </button>
             </div>
           </div>
