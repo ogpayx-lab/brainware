@@ -5,6 +5,7 @@ import { usePathname, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import { useT } from '@/lib/i18n'
+import { useIsDemo } from '@/components/DemoBanner'
 
 export function EmployeeSidebar() {
   const [open, setOpen] = useState(false)
@@ -17,6 +18,8 @@ export function EmployeeSidebar() {
   const pathname = usePathname()
   const router = useRouter()
   const t = useT()
+  const isDemo = useIsDemo()
+  const topOffset = isDemo ? 46 : 12
 
   const MENU_SECTIONS = [
     {
@@ -123,17 +126,18 @@ export function EmployeeSidebar() {
   return (
     <>
       <button id="sidebar-toggle" onClick={() => setOpen(true)} aria-label={t('empSidebar.openMenu')} style={{
-        position: 'fixed', top: 12, left: 12, zIndex: 150, width: 40, height: 40, borderRadius: 12,
-        background: 'var(--bg-primary)', border: '1px solid var(--border-subtle)',
+        position: 'fixed', top: topOffset, left: 12, zIndex: 10000, width: 56, height: 56, borderRadius: 16,
+        background: 'linear-gradient(135deg, #6366F1, #8B5CF6)', border: 'none',
         display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
-        gap: 4, cursor: 'pointer', boxShadow: '0 2px 8px rgba(0,0,0,0.08)', transition: 'transform 0.15s, box-shadow 0.15s',
+        gap: 5, cursor: 'pointer', boxShadow: '0 6px 24px rgba(99,102,241,0.5)', transition: 'all 0.2s',
       }}
-        onMouseEnter={e => { e.currentTarget.style.transform = 'scale(1.05)'; e.currentTarget.style.boxShadow = '0 4px 16px rgba(0,0,0,0.12)' }}
-        onMouseLeave={e => { e.currentTarget.style.transform = 'scale(1)'; e.currentTarget.style.boxShadow = '0 2px 8px rgba(0,0,0,0.08)' }}
+        onMouseEnter={e => { e.currentTarget.style.transform = 'scale(1.08)'; e.currentTarget.style.boxShadow = '0 8px 32px rgba(99,102,241,0.6)' }}
+        onMouseLeave={e => { e.currentTarget.style.transform = 'scale(1)'; e.currentTarget.style.boxShadow = '0 6px 24px rgba(99,102,241,0.5)' }}
       >
-        <span style={{ width: 18, height: 2, background: 'var(--text-primary)', borderRadius: 2 }} />
-        <span style={{ width: 14, height: 2, background: 'var(--text-secondary)', borderRadius: 2 }} />
-        <span style={{ width: 18, height: 2, background: 'var(--text-primary)', borderRadius: 2 }} />
+        <span style={{ width: 22, height: 2.5, background: 'white', borderRadius: 2 }} />
+        <span style={{ width: 16, height: 2.5, background: 'rgba(255,255,255,0.8)', borderRadius: 2 }} />
+        <span style={{ width: 22, height: 2.5, background: 'white', borderRadius: 2 }} />
+        <span style={{ fontSize: 8, color: 'rgba(255,255,255,0.9)', fontWeight: 700, letterSpacing: '0.05em', marginTop: -1 }}>MENU</span>
       </button>
 
       {open && <div onClick={() => setOpen(false)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 998, animation: 'fadeIn 0.2s ease-out' }} />}
