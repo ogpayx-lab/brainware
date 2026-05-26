@@ -3,7 +3,7 @@ import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { useT } from '@/lib/i18n'
+import { useT, useLanguage, LANGUAGES } from '@/lib/i18n'
 
 const NAV_MAIN = [
   { href: '/owner/dashboard',             icon: '📊',  key: 'sidebar.dashboard' },
@@ -47,6 +47,7 @@ export function OwnerSidebar() {
   const [brand, setBrand] = useState({ name: 'BrainWare', letter: 'B', color: '#22C55E' })
   const [open, setOpen] = useState(false)
   const [unreadCount, setUnreadCount] = useState(0)
+  const { lang, setLang } = useLanguage()
 
   useEffect(() => {
     loadBrand()
@@ -145,10 +146,30 @@ export function OwnerSidebar() {
           <div className="sidebar-section-label">{t('sidebar.management')}</div>
           {NAV_GESTIONE.map(item => <NavItem key={item.href} href={item.href} icon={item.icon} label={t(item.key)} />)}
         </nav>
-        <div style={{ padding: '12px 16px', borderTop: '1px solid var(--border-subtle)', flexShrink: 0 }}>
+        <div style={{ padding: '8px 16px', borderTop: '1px solid var(--border-subtle)', flexShrink: 0 }}>
+          {/* Language picker — compact flags */}
+          <div style={{ display: 'flex', justifyContent: 'center', gap: 2, marginBottom: 8 }}>
+            {LANGUAGES.map(l => (
+              <button
+                key={l.code}
+                onClick={() => setLang(l.code)}
+                title={l.label}
+                style={{
+                  background: lang === l.code ? 'var(--brand-primary-light)' : 'transparent',
+                  border: lang === l.code ? '1.5px solid var(--brand-primary)' : '1.5px solid transparent',
+                  borderRadius: 6, padding: '4px 6px', cursor: 'pointer',
+                  fontSize: 16, lineHeight: 1, transition: 'all 0.15s',
+                  opacity: lang === l.code ? 1 : 0.6,
+                }}
+              >
+                {l.flag}
+              </button>
+            ))}
+          </div>
           <button onClick={() => supabase.auth.signOut().then(() => router.push('/login'))} style={{ width: '100%', padding: 8, background: 'var(--bg-surface)', border: '1px solid var(--border-subtle)', borderRadius: 8, color: 'var(--text-secondary)', fontSize: 12, cursor: 'pointer', fontFamily: 'var(--font-body)' }}>{t('logout')}</button>
         </div>
       </aside>
     </>
   )
 }
+
