@@ -3,45 +3,47 @@ import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
+import { useT } from '@/lib/i18n'
 
 const NAV_MAIN = [
-  { href: '/owner/dashboard',             icon: '📊',  label: 'Dashboard' },
-  { href: '/owner/sales-log',             icon: '🧾', label: 'Registro Vendite' },
-  { href: '/owner/photos',                icon: '📸', label: 'Foto Registro' },
-  { href: '/owner/products',              icon: '📦', label: 'Prodotti' },
-  { href: '/owner/analytics/products',    icon: '📈', label: 'Prodotti Analytics' },
-  { href: '/owner/analytics/team',        icon: '👥', label: 'Team Performance' },
-  { href: '/owner/members',               icon: '💳', label: 'Members' },
+  { href: '/owner/dashboard',             icon: '📊',  key: 'sidebar.dashboard' },
+  { href: '/owner/sales-log',             icon: '🧾', key: 'sidebar.salesLog' },
+  { href: '/owner/photos',                icon: '📸', key: 'sidebar.photoLog' },
+  { href: '/owner/products',              icon: '📦', key: 'sidebar.products' },
+  { href: '/owner/analytics/products',    icon: '📈', key: 'sidebar.productAnalytics' },
+  { href: '/owner/analytics/team',        icon: '👥', key: 'sidebar.teamPerformance' },
+  { href: '/owner/members',               icon: '💳', key: 'sidebar.members' },
 ]
 const NAV_MAGAZZINO = [
-  { href: '/owner/warehouse/central',          icon: '🏭', label: 'Centrale' },
-  { href: '/owner/warehouse/secondary',        icon: '📦', label: 'Secondari' },
-  { href: '/owner/warehouse/stores',           icon: '🏪', label: 'Stock Store' },
-  { href: '/owner/warehouse/stock-movements',  icon: '📋', label: 'Movimenti Stock' },
-  { href: '/owner/bulk-load',                  icon: '📤', label: 'Bulk Upload' },
-  { href: '/owner/inventory-setup',            icon: '📥', label: 'Inventario Iniziale' },
-  { href: '/owner/inventory-audit',            icon: '🔍', label: 'Audit Inventario' },
+  { href: '/owner/warehouse/central',          icon: '🏭', key: 'sidebar.central' },
+  { href: '/owner/warehouse/secondary',        icon: '📦', key: 'sidebar.secondary' },
+  { href: '/owner/warehouse/stores',           icon: '🏪', key: 'sidebar.storeStock' },
+  { href: '/owner/warehouse/stock-movements',  icon: '📋', key: 'sidebar.stockMovements' },
+  { href: '/owner/bulk-load',                  icon: '📤', key: 'sidebar.bulkUpload' },
+  { href: '/owner/inventory-setup',            icon: '📥', key: 'sidebar.initialInventory' },
+  { href: '/owner/inventory-audit',            icon: '🔍', key: 'sidebar.inventoryAudit' },
 ]
 const NAV_GESTIONE = [
-  { href: '/owner/multistore',        icon: '🏪', label: 'Multistore' },
-  { href: '/owner/tasks',             icon: '📋', label: 'Task' },
-  { href: '/owner/promo',             icon: '🎟️', label: 'Codici Promo' },
-  { href: '/owner/employees',         icon: '👤', label: 'Dipendenti' },
-  { href: '/owner/shopify',           icon: '🛍️', label: 'Shopify' },
-  { href: '/owner/ecommerce',         icon: '🌐', label: 'E-commerce' },
-  { href: '/owner/vending',           icon: '🏧', label: 'H24 Vending' },
-  { href: '/owner/maintenance',       icon: '🔧', label: 'Manutenzione' },
-  { href: '/owner/intelligence',      icon: '🧠', label: 'Intelligence AI' },
-  { href: '/owner/ai-management',     icon: '🤖', label: 'Gestione AI' },
-  { href: '/owner/system-log',        icon: '📊', label: 'Database' },
-  { href: '/owner/help',              icon: '📖', label: 'Help Center' },
-  { href: '/owner/settings',          icon: '⚙️', label: 'Impostazioni' },
+  { href: '/owner/multistore',        icon: '🏪', key: 'sidebar.multistore' },
+  { href: '/owner/tasks',             icon: '📋', key: 'sidebar.tasks' },
+  { href: '/owner/promo',             icon: '🎟️', key: 'sidebar.promoCodes' },
+  { href: '/owner/employees',         icon: '👤', key: 'sidebar.employees' },
+  { href: '/owner/shopify',           icon: '🛍️', key: 'sidebar.shopify' },
+  { href: '/owner/ecommerce',         icon: '🌐', key: 'sidebar.ecommerce' },
+  { href: '/owner/vending',           icon: '🏧', key: 'sidebar.vending' },
+  { href: '/owner/maintenance',       icon: '🔧', key: 'sidebar.maintenance' },
+  { href: '/owner/intelligence',      icon: '🧠', key: 'sidebar.intelligenceAI' },
+  { href: '/owner/ai-management',     icon: '🤖', key: 'sidebar.aiManagement' },
+  { href: '/owner/system-log',        icon: '📊', key: 'sidebar.database' },
+  { href: '/owner/help',              icon: '📖', key: 'sidebar.helpCenter' },
+  { href: '/owner/settings',          icon: '⚙️', key: 'sidebar.settings' },
 ]
 
 export function OwnerSidebar() {
   const pathname = usePathname()
   const router = useRouter()
   const supabase = createClient()
+  const t = useT()
   const [brand, setBrand] = useState({ name: 'BrainWare', letter: 'B', color: '#22C55E' })
   const [open, setOpen] = useState(false)
   const [unreadCount, setUnreadCount] = useState(0)
@@ -135,16 +137,16 @@ export function OwnerSidebar() {
         </div>
         <nav>
           {/* Notifications first — always on top */}
-          <NavItem href="/owner/notifications" icon="🔔" label="Notifiche" badge={unreadCount} />
+          <NavItem href="/owner/notifications" icon="🔔" label={t('sidebar.notifications')} badge={unreadCount} />
           <div style={{ height: 1, background: 'var(--border-subtle)', margin: '4px 16px' }} />
-          {NAV_MAIN.map(item => <NavItem key={item.href} {...item} />)}
-          <div className="sidebar-section-label">MAGAZZINO</div>
-          {NAV_MAGAZZINO.map(item => <NavItem key={item.href} {...item} />)}
-          <div className="sidebar-section-label">GESTIONE</div>
-          {NAV_GESTIONE.map(item => <NavItem key={item.href} {...item} />)}
+          {NAV_MAIN.map(item => <NavItem key={item.href} href={item.href} icon={item.icon} label={t(item.key)} />)}
+          <div className="sidebar-section-label">{t('sidebar.warehouse')}</div>
+          {NAV_MAGAZZINO.map(item => <NavItem key={item.href} href={item.href} icon={item.icon} label={t(item.key)} />)}
+          <div className="sidebar-section-label">{t('sidebar.management')}</div>
+          {NAV_GESTIONE.map(item => <NavItem key={item.href} href={item.href} icon={item.icon} label={t(item.key)} />)}
         </nav>
         <div style={{ padding: '12px 16px', borderTop: '1px solid var(--border-subtle)', flexShrink: 0 }}>
-          <button onClick={() => supabase.auth.signOut().then(() => router.push('/login'))} style={{ width: '100%', padding: 8, background: 'var(--bg-surface)', border: '1px solid var(--border-subtle)', borderRadius: 8, color: 'var(--text-secondary)', fontSize: 12, cursor: 'pointer', fontFamily: 'var(--font-body)' }}>Logout</button>
+          <button onClick={() => supabase.auth.signOut().then(() => router.push('/login'))} style={{ width: '100%', padding: 8, background: 'var(--bg-surface)', border: '1px solid var(--border-subtle)', borderRadius: 8, color: 'var(--text-secondary)', fontSize: 12, cursor: 'pointer', fontFamily: 'var(--font-body)' }}>{t('logout')}</button>
         </div>
       </aside>
     </>

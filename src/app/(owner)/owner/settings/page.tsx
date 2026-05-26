@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { fmt } from '@/lib/utils'
+import { useLanguage, LANGUAGES, Lang } from '@/lib/i18n'
 
 export default function SettingsPage() {
   const router = useRouter()
@@ -292,6 +293,8 @@ export default function SettingsPage() {
       {/* ═══════════════ TAB: GENERALE ═══════════════ */}
       {activeTab === 'general' && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-xl)' }}>
+          {/* Language Selector */}
+          <LanguageSelector />
           {/* Branding */}
           <div className="card" style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-lg)' }}>
             <div style={{ display: 'flex', alignItems: 'center' }}>
@@ -551,6 +554,36 @@ export default function SettingsPage() {
           </div>
         </div>
       )}
+    </div>
+  )
+}
+
+function LanguageSelector() {
+  const { lang, setLang } = useLanguage()
+  return (
+    <div className="card" style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-md)' }}>
+      <h3>🌐 Lingua / Language</h3>
+      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+        {LANGUAGES.map(l => (
+          <button
+            key={l.code}
+            onClick={() => setLang(l.code)}
+            style={{
+              display: 'flex', alignItems: 'center', gap: 8,
+              padding: '10px 18px', borderRadius: 10,
+              border: lang === l.code ? '2px solid var(--brand-primary)' : '1px solid var(--border-default)',
+              background: lang === l.code ? 'var(--brand-primary-light)' : 'var(--bg-surface)',
+              fontWeight: lang === l.code ? 700 : 400,
+              fontSize: 14, cursor: 'pointer',
+              transition: 'all 0.15s',
+              color: lang === l.code ? 'var(--brand-primary)' : 'var(--text-secondary)',
+            }}
+          >
+            <span style={{ fontSize: 20 }}>{l.flag}</span>
+            {l.label}
+          </button>
+        ))}
+      </div>
     </div>
   )
 }
