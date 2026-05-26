@@ -4,6 +4,7 @@ import { OwnerNotificationListener } from '@/components/owner/NotificationListen
 import { HelpTooltip } from '@/components/HelpTooltip'
 import { DemoBanner } from '@/components/DemoBanner'
 import { LanguageProvider } from '@/lib/i18n'
+import { LanguagePicker } from '@/components/LanguagePicker'
 export default function OwnerLayout({ children }: { children: React.ReactNode }) {
   return (
     <LanguageProvider>
@@ -12,9 +13,9 @@ export default function OwnerLayout({ children }: { children: React.ReactNode })
         <OwnerSidebar />
         <OwnerNotificationListener />
         <HelpTooltip />
+        <LanguagePicker />
         <main className="owner-main">{children}</main>
       </div>
     </LanguageProvider>
   )
 }
-
