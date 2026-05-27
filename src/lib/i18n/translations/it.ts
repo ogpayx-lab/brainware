@@ -91,6 +91,7 @@ const it = {
     intelligenceAI: 'Intelligence AI',
     aiManagement: 'Gestione AI',
     database: 'Database',
+    billing: 'Billing',
     helpCenter: 'Help Center',
     settings: 'Impostazioni',
     notifications: 'Notifiche',

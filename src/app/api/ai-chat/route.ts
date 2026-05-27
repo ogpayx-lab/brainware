@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { createClient } from '@supabase/supabase-js'
 
 export async function POST(req: NextRequest) {
   try {
-    const { messages, context } = await req.json()
+    const { messages, context, userId } = await req.json()
 
     // Try providers in order with automatic fallback
     const providers: { name: string; key?: string; fn: (key: string, msgs: any[], ctx: string) => Promise<NextResponse> }[] = [
@@ -23,6 +24,10 @@ export async function POST(req: NextRequest) {
           console.log(`[AI] ${provider.name} failed (${result.status}), trying next...`)
           continue
         }
+
+        // Track AI usage for billing (fire and forget)
+        if (userId) trackAiUsage(userId).catch(err => console.error('[AI Billing]', err.message))
+
         return result
       } catch (err: any) {
         lastError = err.message || `${provider.name} error`
@@ -36,6 +41,46 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: err.message || 'Errore interno' }, { status: 500 })
   }
 }
+
+async function trackAiUsage(userId: string) {
+  const supabase = createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+  )
+
+  // Increment counter in DB
+  const { data: sub } = await supabase
+    .from('subscriptions')
+    .select('id, stripe_subscription_id, ai_requests_count')
+    .eq('user_id', userId)
+    .single()
+
+  if (sub) {
+    await supabase.from('subscriptions')
+      .update({ ai_requests_count: (sub.ai_requests_count || 0) + 1 })
+      .eq('id', sub.id)
+
+    // Report usage to Stripe metered billing
+    if (sub.stripe_subscription_id && process.env.STRIPE_SECRET_KEY) {
+      try {
+        const Stripe = (await import('stripe')).default
+        const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!)
+        const subscription = await stripe.subscriptions.retrieve(sub.stripe_subscription_id)
+        const meteredItem = subscription.items.data.find(
+          (item: any) => item.price?.recurring?.usage_type === 'metered'
+        )
+        if (meteredItem) {
+          await stripe.subscriptionItems.createUsageRecord(meteredItem.id, {
+            quantity: 1, timestamp: 'now', action: 'increment',
+          })
+        }
+      } catch (e: any) {
+        console.error('[Stripe Usage]', e.message)
+      }
+    }
+  }
+}
+
 
 async function callAnthropic(apiKey: string, messages: any[], context: string) {
   const response = await fetch('https://api.anthropic.com/v1/messages', {

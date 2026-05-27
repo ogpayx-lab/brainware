@@ -89,6 +89,7 @@ const en = {
     intelligenceAI: 'Intelligence AI',
     aiManagement: 'AI Management',
     database: 'Database',
+    billing: 'Billing',
     helpCenter: 'Help Center',
     settings: 'Settings',
     notifications: 'Notifications',

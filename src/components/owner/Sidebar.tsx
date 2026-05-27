@@ -35,6 +35,7 @@ const NAV_GESTIONE = [
   { href: '/owner/intelligence',      icon: '🧠', key: 'sidebar.intelligenceAI' },
   { href: '/owner/ai-management',     icon: '🤖', key: 'sidebar.aiManagement' },
   { href: '/owner/system-log',        icon: '📊', key: 'sidebar.database' },
+  { href: '/owner/billing',           icon: '💳', key: 'sidebar.billing' },
   { href: '/owner/help',              icon: '📖', key: 'sidebar.helpCenter' },
   { href: '/owner/settings',          icon: '⚙️', key: 'sidebar.settings' },
 ]
