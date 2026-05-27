@@ -53,13 +53,20 @@ export async function POST(req: Request) {
       metadata: { plan: 'business' },
     })
 
-    // 3. AI metered price — €0.10 per request
+    // 3. Create Billing Meter for AI usage
+    const meter = await (stripe as any).billing.meters.create({
+      display_name: 'AI Requests',
+      event_name: 'ai_request',
+      default_aggregation: { formula: 'sum' },
+    })
+
+    // 4. AI metered price — €0.10 per request, backed by meter
     const aiPrice = await stripe.prices.create({
       product: aiProduct.id,
       unit_amount: 10, currency: 'eur',
-      recurring: { interval: 'month', usage_type: 'metered' },
+      recurring: { interval: 'month', meter: meter.id, usage_type: 'metered' },
       metadata: { plan: 'ai_usage' },
-    })
+    } as any)
 
     return NextResponse.json({
       success: true,

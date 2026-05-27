@@ -60,22 +60,17 @@ async function trackAiUsage(userId: string) {
       .update({ ai_requests_count: (sub.ai_requests_count || 0) + 1 })
       .eq('id', sub.id)
 
-    // Report usage to Stripe metered billing
-    if (sub.stripe_subscription_id && process.env.STRIPE_SECRET_KEY) {
+    // Report usage to Stripe via Billing Meter events
+    if (sub.stripe_customer_id && process.env.STRIPE_SECRET_KEY) {
       try {
         const Stripe = (await import('stripe')).default
         const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!)
-        const subscription = await stripe.subscriptions.retrieve(sub.stripe_subscription_id)
-        const meteredItem = subscription.items.data.find(
-          (item: any) => item.price?.recurring?.usage_type === 'metered'
-        )
-        if (meteredItem) {
-          await stripe.subscriptionItems.createUsageRecord(meteredItem.id, {
-            quantity: 1, timestamp: 'now', action: 'increment',
-          })
-        }
+        await (stripe as any).billing.meterEvents.create({
+          event_name: 'ai_request',
+          payload: { value: '1', stripe_customer_id: sub.stripe_customer_id },
+        })
       } catch (e: any) {
-        console.error('[Stripe Usage]', e.message)
+        console.error('[Stripe Meter]', e.message)
       }
     }
   }
