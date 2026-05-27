@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { stripe } from '@/lib/stripe'
+import { getStripe } from '@/lib/stripe'
 
 // One-time setup: creates Stripe products and prices
 // POST /api/stripe/setup?secret=brainware-stripe-setup
@@ -10,6 +10,7 @@ export async function POST(req: Request) {
   }
 
   try {
+    const stripe = getStripe()
     // 1. Create Products
     const starterProduct = await stripe.products.create({
       name: 'BrainWare Starter',

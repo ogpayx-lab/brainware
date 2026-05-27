@@ -1,8 +1,16 @@
 import Stripe from 'stripe'
 
-export const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
-  typescript: true,
-})
+let _stripe: Stripe | null = null
+
+export function getStripe(): Stripe {
+  if (!_stripe) {
+    if (!process.env.STRIPE_SECRET_KEY) {
+      throw new Error('STRIPE_SECRET_KEY not configured')
+    }
+    _stripe = new Stripe(process.env.STRIPE_SECRET_KEY, { typescript: true })
+  }
+  return _stripe
+}
 
 // Plan configuration
 export const PLANS = {
