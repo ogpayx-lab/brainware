@@ -650,15 +650,15 @@ tr:hover td { background: var(--bg-surface); }
    POS Mobile Cart — Bottom Sheet Pattern
    ============================================================ */
 
-/* Desktop: show side panel, hide mobile cart */
-@media (min-width: 769px) {
+/* Desktop + Tablet: show side panel, hide mobile cart */
+@media (min-width: 601px) {
   .pos-cart-desktop { display: flex !important; }
   .pos-cart-mobile-bar { display: none !important; }
   .pos-cart-mobile-sheet { display: none !important; }
 }
 
-/* Mobile: hide side panel, show mobile cart */
-@media (max-width: 768px) {
+/* Phone only: hide side panel, show mobile cart */
+@media (max-width: 600px) {
   .pos-cart-desktop { display: none !important; }
   .pos-cart-mobile-bar { display: flex !important; }
   .pos-cart-mobile-sheet { display: flex !important; }

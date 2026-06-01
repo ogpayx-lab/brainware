@@ -45,6 +45,7 @@ export default function POSContent() {
   const [loading, setLoading] = useState(true)
   const [destStore, setDestStore] = useState('')
   const [transferReason, setTransferReason] = useState('')
+  const [autoconsumoNotes, setAutoconsumoNotes] = useState('')
   const [stores, setStores] = useState<any[]>([])
   const [shipping, setShipping] = useState({ type: 'delivery' as 'delivery' | 'long_distance', name: '', address: '', city: '', cap: '', phone: '', courier: 'GLS', tracking: '', notes: '' })
   const [shippingCost, setShippingCost] = useState(5)
@@ -261,7 +262,7 @@ export default function POSContent() {
       customer_name: customer.name || null, customer_nationality: customer.nationality || null,
       acquisition_channel: channel as any,
       customer_email: customer.email || null,
-      notes: customer.notes || null,
+      notes: mode === 'autoconsumo' ? (autoconsumoNotes || null) : (customer.notes || null),
     }).select('id').single()
 
     if (saleError || !sale) {
@@ -295,7 +296,7 @@ export default function POSContent() {
         store_id: storeId,
         type: mode === 'autoconsumo' ? 'autoconsumo' : 'sale',
         title: mode === 'autoconsumo' ? '🍽 Autoconsumo registrato' : '💰 Nuova vendita',
-        message: `${msgType}${msgTotal} — ${mode === 'autoconsumo' ? `Prodotti: ${cart.map(i => `${i.product.name} ×${i.qty}`).join(', ')}` : `Cliente: ${customer.name || 'Anonimo'}`}`,
+        message: `${msgType}${msgTotal} — ${mode === 'autoconsumo' ? `Prodotti: ${cart.map(i => `${i.product.name} ×${i.qty}`).join(', ')}${autoconsumoNotes ? ` | Note: ${autoconsumoNotes}` : ''}` : `Cliente: ${customer.name || 'Anonimo'}`}`,
         user_id: userId,
       })
     } catch { }
@@ -559,6 +560,12 @@ export default function POSContent() {
             <input className="input" placeholder="Motivo trasferimento" value={transferReason} onChange={e => setTransferReason(e.target.value)} style={{ height: 34, fontSize: 12 }} />
           </div>
         )}
+        {mode === 'autoconsumo' && (
+          <div style={{ marginTop: 12 }}>
+            <div style={{ fontSize: 12, fontWeight: 600, marginBottom: 8 }}>📝 Note Autoconsumo</div>
+            <textarea className="input" placeholder="Es: campione per cliente, test qualità, degustazione staff..." value={autoconsumoNotes} onChange={e => setAutoconsumoNotes(e.target.value)} rows={2} style={{ fontSize: 13, resize: 'none' }} />
+          </div>
+        )}
       </>
     )
   }
@@ -749,13 +756,22 @@ export default function POSContent() {
                 {recentSales.map((s, i) => (
                   <div key={s.id} style={{ padding: 12, background: 'var(--bg-surface)', borderRadius: 10, border: i === 0 ? '1.5px solid var(--brand-primary)' : '1px solid var(--border-subtle)' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
-                      <span style={{ fontSize: 13, fontWeight: 700, color: i === 0 ? 'var(--brand-primary)' : 'var(--text-primary)' }}>
-                        {i === 0 ? '🆕 ' : ''}{fmt(s.total)}
-                      </span>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                        <span style={{ fontSize: 13, fontWeight: 700, color: i === 0 ? 'var(--brand-primary)' : 'var(--text-primary)' }}>
+                          {i === 0 ? '🆕 ' : ''}{fmt(s.total)}
+                        </span>
+                        <span style={{
+                          fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 12,
+                          background: s.payment_method === 'cash' ? '#DCFCE7' : s.payment_method === 'split' ? '#EDE9FE' : '#DBEAFE',
+                          color: s.payment_method === 'cash' ? '#16A34A' : s.payment_method === 'split' ? '#7C3AED' : '#2563EB',
+                        }}>
+                          {s.payment_method === 'cash' ? '💵 CASH' : s.payment_method === 'split' ? '💵+💳 SPLIT' : '💳 POS'}
+                        </span>
+                      </div>
                       <span style={{ fontSize: 11, color: 'var(--text-tertiary)' }}>{new Date(s.created_at).toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' })}</span>
                     </div>
                     <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginBottom: 4 }}>
-                      Cliente: {s.customer_name || 'Anonimo'} · {s.payment_method === 'cash' ? '💵 Contanti' : s.payment_method === 'split' ? '💵+💳 Split' : '💳 POS'}
+                      Cliente: {s.customer_name || 'Anonimo'}
                     </div>
                     <div style={{ fontSize: 11, color: 'var(--text-tertiary)', marginBottom: 6 }}>
                       {s.sale_items?.map(it => `${it.product_name} ×${it.qty}`).join(' · ')}
