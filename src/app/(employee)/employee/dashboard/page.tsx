@@ -91,8 +91,10 @@ export default function EmployeeDashboard() {
 
     if (!openShift) { router.push('/employee/shift/open'); return }
 
-    const { data: salesData } = await supabase.from('sales').select('*').eq('shift_id', openShift.id).order('created_at', { ascending: false }).limit(8)
-    setSales(salesData ?? [])
+    // Load ALL sales for calculations (no limit)
+    const { data: allSalesData } = await supabase.from('sales').select('*').eq('shift_id', openShift.id).order('created_at', { ascending: false })
+    const allSales = allSalesData ?? []
+    setSales(allSales.slice(0, 8)) // Only show last 8 in UI list
 
     let expensesList: any[] = []
     try {
@@ -100,16 +102,25 @@ export default function EmployeeDashboard() {
       expensesList = expensesData ?? []
     } catch {}
 
-    const allSales = salesData ?? []
     const totalSales = allSales.reduce((s: number, r: any) => s + (parseFloat(r.total) || 0), 0)
-    const totalCash = allSales.filter((r: any) => r.payment_method === 'cash').reduce((s: number, r: any) => s + (parseFloat(r.total) || 0), 0)
+    // Cash = pagamenti cash + parte cash degli split
+    const totalCash = allSales.reduce((s: number, r: any) => {
+      if (r.payment_method === 'cash') return s + (parseFloat(r.total) || 0)
+      if (r.payment_method === 'split') return s + (parseFloat(r.split_cash_amount) || 0)
+      return s
+    }, 0)
+    const totalPos = allSales.reduce((s: number, r: any) => {
+      if (r.payment_method === 'pos') return s + (parseFloat(r.total) || 0)
+      if (r.payment_method === 'split') return s + ((parseFloat(r.total) || 0) - (parseFloat(r.split_cash_amount) || 0))
+      return s
+    }, 0)
     const totalExpenses = expensesList.reduce((s: number, r: any) => s + (parseFloat(r.amount) || 0), 0)
 
     setSummary({
       shift_id: openShift.id, user_id: user.id, status: 'open',
       fce: openShift.fce ?? 0, period: openShift.period,
       total_sales: totalSales, total_cash: totalCash,
-      total_pos: totalSales - totalCash, total_expenses: totalExpenses,
+      total_pos: totalPos, total_expenses: totalExpenses,
       total_transactions: allSales.length, created_at: openShift.created_at, opened_at: openShift.created_at,
     })
 
