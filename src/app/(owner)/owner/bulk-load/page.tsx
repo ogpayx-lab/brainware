@@ -150,7 +150,7 @@ export default function BulkLoadPage() {
           for (const p of parsedRows as ParsedProduct[]) {
             const { error } = await supabase.from('products').insert({
               store_id: selectedId, name: p.name.trim(), category: p.category || 'other',
-              stock: p.stock, price: p.price || 0, barcode: p.barcode || null, is_active: true,
+              stock: p.stock, price: p.price || 0, barcode: p.barcode || null, is_active: true, unit: 'pz',
             })
             if (error) errors++; else created++
           }
@@ -183,7 +183,7 @@ export default function BulkLoadPage() {
               // Prodotto nuovo: crea
               const { error } = await supabase.from('products').insert({
                 store_id: selectedId, name: p.name.trim(), category: p.category || 'other',
-                stock: p.stock, price: p.price || 0, barcode: p.barcode || null, is_active: true,
+                stock: p.stock, price: p.price || 0, barcode: p.barcode || null, is_active: true, unit: 'pz',
               })
               if (error) errors++; else created++
             }
