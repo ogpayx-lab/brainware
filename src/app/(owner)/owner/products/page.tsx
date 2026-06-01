@@ -50,7 +50,7 @@ export default function ProductsPage() {
 
   useEffect(() => { loadData() }, [])
 
-  async function loadData() {
+  async function loadData(forceStoreId?: string) {
     const { data: { session } } = await supabase.auth.getSession(); const user = session?.user
     if (!user) { router.push('/login'); return }
     const { data: profile } = await supabase.from('users').select('store_id, role, stores(organization_id, name)').eq('id', user.id).single()
@@ -67,7 +67,8 @@ export default function ProductsPage() {
       setOrgStores((storeList ?? []).filter(s => s.id !== profile.store_id))
     }
     setAllStores(storesList)
-    if (!viewStore) setViewStore(storesList[0]?.id || profile.store_id)
+    const defaultStore = forceStoreId || storesList[0]?.id || profile.store_id
+    if (!viewStore || forceStoreId) setViewStore(defaultStore)
 
     // Load warehouses
     if (oid) {
@@ -76,7 +77,7 @@ export default function ProductsPage() {
     }
 
     // Load products for currently viewed store
-    const targetSid = viewStore || profile.store_id
+    const targetSid = forceStoreId || defaultStore || profile.store_id
     const { data: prods } = await supabase.from('products').select('*').eq('store_id', targetSid).order('name')
     const p = prods ?? []
     setProducts(p)
@@ -552,7 +553,7 @@ export default function ProductsPage() {
           {allStores.map(s => (
             <button
               key={s.id}
-              onClick={() => { setViewStore(s.id); setLoading(true); setTimeout(() => loadData(), 50) }}
+              onClick={() => { setViewStore(s.id); setLoading(true); loadData(s.id) }}
               className={`badge ${viewStore === s.id ? 'badge-brand' : 'badge-gray'}`}
               style={{ cursor:'pointer', border:'none', padding:'6px 14px', fontSize:13 }}
             >
