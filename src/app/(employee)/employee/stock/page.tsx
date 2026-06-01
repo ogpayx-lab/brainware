@@ -133,7 +133,7 @@ export default function StockPage() {
             const prod = products.find(p => p.name.toLowerCase() === item.product_name?.toLowerCase() || p.id === item.product_id)
             const counted = prod ? (countedQtys[prod.id] ?? 0) : 0
             await supabase.from('stock_request_items').update({ qty_delivered: counted }).eq('id', item.id)
-            if (prod) await supabase.from('products').update({ stock: prod.stock + counted }).eq('id', prod.id)
+            if (prod) await supabase.rpc('increment_stock', { product_id: prod.id, qty: counted })
           }
           await supabase.from('stock_requests').update({
             status: 'approved', approved_at: new Date().toISOString(),
@@ -207,9 +207,7 @@ export default function StockPage() {
 
         for (const item of items) {
           if (item.qty_delivered > 0) {
-            await supabase.from('products').update({
-              stock: (products.find(p => p.id === item.product_id)?.stock || 0) + item.qty_delivered,
-            }).eq('id', item.product_id)
+            await supabase.rpc('increment_stock', { product_id: item.product_id, qty: item.qty_delivered })
           }
         }
 
