@@ -70,13 +70,29 @@ export default function BulkLoadPage() {
     if (tab === 'store') {
       const nameCol = headers.find(h => ['name', 'nome', 'prodotto', 'product'].includes(h))
       if (!nameCol) { setParseError('Colonna "name" o "nome" non trovata. Intestazioni trovate: ' + headers.join(', ')); return [] }
-      return rows.map(r => ({
-        name: r[nameCol],
-        category: r['category'] || r['categoria'] || 'other',
-        stock: parseInt(r['stock'] || r['qty'] || r['quantita'] || '0') || 0,
-        price: parseFloat(r['price'] || r['prezzo'] || '0') || 0,
-        barcode: r['barcode'] || r['sku'] || '',
-      })).filter(r => r.name)
+      return rows.map(r => {
+        const rawCat = (r['category'] || r['categoria'] || 'other').trim().toLowerCase()
+        // Map to valid enum values
+        const catMap: Record<string, string> = {
+          flowers: 'flowers', flower: 'flowers', fiori: 'flowers', cannabis: 'flowers', cbd: 'flowers', weed: 'flowers',
+          hashish: 'hashish', hash: 'hashish', resina: 'hashish',
+          oils: 'oils', oil: 'oils', olio: 'oils', cbd_oil: 'oils',
+          edibles: 'edibles', edible: 'edibles', food: 'edibles', cibo: 'edibles',
+          accessories: 'accessories', accessory: 'accessories', accessori: 'accessories', accessorio: 'accessories',
+          seeds: 'accessories', semi: 'accessories',
+          cosmetics: 'accessories', cosmetici: 'accessories',
+          clothes: 'accessories', abbigliamento: 'accessories',
+          vape: 'accessories', vaping: 'accessories',
+          other: 'accessories',
+        }
+        return {
+          name: r[nameCol],
+          category: catMap[rawCat] || 'accessories',
+          stock: parseInt(r['stock'] || r['qty'] || r['quantita'] || '0') || 0,
+          price: parseFloat(r['price'] || r['prezzo'] || '0') || 0,
+          barcode: r['barcode'] || r['sku'] || '',
+        }
+      }).filter(r => r.name)
     } else {
       const nameCol = headers.find(h => ['product_name', 'name', 'nome', 'prodotto'].includes(h))
       const qtyCol = headers.find(h => ['qty', 'stock', 'quantita', 'quantity'].includes(h))
