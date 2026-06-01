@@ -30,7 +30,7 @@ export default function POSContent() {
   const [activeCat, setActiveCat] = useState<ProductCategory | 'all'>('all')
   const [search, setSearch] = useState('')
   const [discount, setDiscount] = useState({ type: 'pct' as 'pct' | 'fixed' | 'promo', value: '', applied: false, promoCode: '', promoId: '', promoDiscount: 0 })
-  const [customer, setCustomer] = useState({ name: '', nationality: 'Italia', channel: 'Walk-in', email: '' })
+  const [customer, setCustomer] = useState({ name: '', nationality: 'Italia', channel: 'Walk-in', email: '', notes: '' })
   const [natSearch, setNatSearch] = useState(false)
   const [showCash, setShowCash] = useState(false)
   const [showPOS, setShowPOS] = useState(false)
@@ -261,6 +261,7 @@ export default function POSContent() {
       customer_name: customer.name || null, customer_nationality: customer.nationality || null,
       acquisition_channel: channel as any,
       customer_email: customer.email || null,
+      notes: customer.notes || null,
     }).select('id').single()
 
     if (saleError || !sale) {
@@ -303,7 +304,7 @@ export default function POSContent() {
     } catch { }
 
     setCart([])
-    setCustomer({ name: '', nationality: 'Italia', channel: 'Walk-in', email: '' })
+    setCustomer({ name: '', nationality: 'Italia', channel: 'Walk-in', email: '', notes: '' })
     setDiscount({ type: 'pct', value: '', applied: false, promoCode: '', promoId: '', promoDiscount: 0 })
     setCashReceived(''); setPosRef(''); setSplitCash(''); setShowCash(false); setShowPOS(false); setShowSplit(false)
     setSaving(false)
@@ -429,7 +430,7 @@ export default function POSContent() {
         {/* Sconto */}
         {mode !== 'trasferimento' && mode !== 'autoconsumo' && (
           <div style={{ marginTop: 12, padding: 12, background: 'var(--bg-surface)', borderRadius: 10 }}>
-            <div style={{ fontSize: 12, fontWeight: 600, marginBottom: 8 }}>🏷️ Sconto & Promo</div>
+            <div style={{ fontSize: 12, fontWeight: 600, marginBottom: 8 }}>🏷️ Sconto / Maggiorazione</div>
             <div style={{ display: 'flex', gap: 6, marginBottom: 8 }}>
               {(['pct', 'fixed', 'promo'] as const).map(t => (
                 <button key={t} onClick={() => setDiscount(d => ({ ...d, type: t, applied: false, promoDiscount: 0 }))} style={{ flex: 1, padding: '5px', borderRadius: 6, fontSize: 11, border: `1px solid ${discount.type === t ? 'var(--brand-primary)' : 'var(--border-default)'}`, background: discount.type === t ? 'var(--brand-primary-light)' : 'transparent', color: discount.type === t ? 'var(--brand-primary)' : 'var(--text-secondary)', cursor: 'pointer' }}>
@@ -439,7 +440,7 @@ export default function POSContent() {
             </div>
             {discount.type !== 'promo' ? (
               <div style={{ display: 'flex', gap: 8 }}>
-                <input className="input" type="number" min="0" placeholder={discount.type === 'pct' ? 'Es: 10 (%)' : 'Es: 5.00 (€)'} value={discount.value} onChange={e => setDiscount(d => ({ ...d, value: e.target.value, applied: false }))} style={{ flex: 1, height: 34, fontSize: 13 }} />
+                <input className="input" type="number" placeholder={discount.type === 'pct' ? 'Es: 10 (sconto) o -10 (upsell)' : 'Es: 5 (sconto) o -5 (upsell)'} value={discount.value} onChange={e => setDiscount(d => ({ ...d, value: e.target.value, applied: false }))} style={{ flex: 1, height: 34, fontSize: 13 }} />
                 <button onClick={() => setDiscount(d => ({ ...d, applied: !!d.value }))} className={`btn ${discount.applied ? 'btn-danger' : 'btn-secondary'}`} style={{ padding: '0 12px', fontSize: 12 }}>{discount.applied ? 'Rimuovi' : 'Applica'}</button>
               </div>
             ) : (
@@ -463,9 +464,9 @@ export default function POSContent() {
               </div>
             )}
             {promoError && <div style={{ fontSize: 12, color: 'var(--danger)', marginTop: 4 }}>⚠️ {promoError}</div>}
-            {discount.applied && discAmt > 0 && (
-              <div style={{ fontSize: 12, color: 'var(--success)', marginTop: 4, fontWeight: 600 }}>
-                ✅ Sconto applicato: -{fmt(discAmt)}
+            {discount.applied && discAmt !== 0 && (
+              <div style={{ fontSize: 12, color: discAmt > 0 ? 'var(--success)' : 'var(--warning)', marginTop: 4, fontWeight: 600 }}>
+                {discAmt > 0 ? `✅ Sconto: -${fmt(discAmt)}` : `📈 Maggiorazione: +${fmt(Math.abs(discAmt))}`}
               </div>
             )}
           </div>
@@ -485,6 +486,7 @@ export default function POSContent() {
                     style={{ height: 34, fontSize: 12 }} />
                   {natSearch && customer.nationality && (() => {
                     const countries = [
+                      'Unknown',
                       'Afghanistan','Albania','Algeria','Andorra','Angola','Arabia Saudita','Argentina','Armenia','Australia',
                       'Austria','Azerbaigian','Bahamas','Bahrain','Bangladesh','Belgio','Bielorussia','Bolivia','Bosnia ed Erzegovina',
                       'Botswana','Brasile','Bulgaria','Burkina Faso','Cambogia','Camerun','Canada','Ciad','Cile','Cina','Cipro',
@@ -524,6 +526,7 @@ export default function POSContent() {
                 </select>
               </div>
               <input className="input" type="email" placeholder="Email (opzionale)" value={customer.email} onChange={e => setCustomer(c => ({ ...c, email: e.target.value }))} style={{ height: 34, fontSize: 13 }} />
+              <textarea className="input" placeholder="Note sul cliente (opzionale)" value={customer.notes} onChange={e => setCustomer(c => ({ ...c, notes: e.target.value }))} rows={2} style={{ fontSize: 13, resize: 'none' }} />
             </div>
           </div>
         )}
@@ -583,10 +586,10 @@ export default function POSContent() {
             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
               <span style={{ fontSize: 13, color: 'var(--text-secondary)' }}>Subtotale</span><span style={{ fontSize: 13 }}>{fmt(subtotal)}</span>
             </div>
-            {discount.applied && discAmt > 0 && (
+            {discount.applied && discAmt !== 0 && (
               <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
-                <span style={{ fontSize: 13, color: 'var(--text-secondary)' }}>Sconto</span>
-                <span style={{ fontSize: 13, color: 'var(--danger)' }}>-{fmt(discAmt)}</span>
+                <span style={{ fontSize: 13, color: 'var(--text-secondary)' }}>{discAmt > 0 ? 'Sconto' : 'Maggiorazione'}</span>
+                <span style={{ fontSize: 13, color: discAmt > 0 ? 'var(--danger)' : 'var(--warning)' }}>{discAmt > 0 ? `-${fmt(discAmt)}` : `+${fmt(Math.abs(discAmt))}`}</span>
               </div>
             )}
             {mode === 'online' && (

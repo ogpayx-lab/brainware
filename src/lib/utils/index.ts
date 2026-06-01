@@ -13,8 +13,8 @@ export function fmt(amount: number | null | undefined): string {
 // ============================================================
 export function calcCart(items: CartItem[], discountPct = 0, discountAmt = 0) {
   const subtotal = items.reduce((s, i) => s + i.line_total, 0)
-  const discount = discountAmt > 0 ? discountAmt : subtotal * (discountPct / 100)
-  const total = Math.max(0, subtotal - discount)
+  const discount = discountAmt !== 0 ? discountAmt : subtotal * (discountPct / 100)
+  const total = subtotal - discount
   return { subtotal, discount, total }
 }
 
