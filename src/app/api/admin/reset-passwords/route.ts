@@ -15,7 +15,7 @@ export async function POST(req: Request) {
     { auth: { autoRefreshToken: false, persistSession: false } }
   )
 
-  const newPassword = 'SistemaMM!!!'
+  const newPassword = 'SistemaMM2026!'
 
   // Get [STORE] user IDs directly from users table + auth
   const { data: storeUsers, error: qErr } = await supabaseAdmin
