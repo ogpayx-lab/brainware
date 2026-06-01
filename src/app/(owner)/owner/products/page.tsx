@@ -67,7 +67,7 @@ export default function ProductsPage() {
       setOrgStores((storeList ?? []).filter(s => s.id !== profile.store_id))
     }
     setAllStores(storesList)
-    if (!viewStore) setViewStore(profile.store_id)
+    if (!viewStore) setViewStore(storesList[0]?.id || profile.store_id)
 
     // Load warehouses
     if (oid) {
