@@ -15,38 +15,26 @@ export async function POST(req: Request) {
     { auth: { autoRefreshToken: false, persistSession: false } }
   )
 
-  const emails = [
-    'malta.dispensary@gmail.com',
-    'malta.vapeshop.mm@gmail.com',
-    'brancaccio.dispensary@gmail.com',
-    'cavour.mamamary@gmail.com',
-    'mktg.mamamary@gmail.com',
-    'sistina.mamamary@gmail.com',
-  ]
-
   const newPassword = 'SistemaMM!!!'
-  const results: any[] = []
 
-  for (const email of emails) {
-    // Find user by email
-    const { data: { users }, error: listErr } = await supabaseAdmin.auth.admin.listUsers()
-    if (listErr) {
-      results.push({ email, error: listErr.message })
-      continue
-    }
-    
-    const user = users.find(u => u.email === email)
-    if (!user) {
-      results.push({ email, error: 'User not found' })
-      continue
-    }
+  // Get [STORE] user IDs directly from users table + auth
+  const { data: storeUsers, error: qErr } = await supabaseAdmin
+    .from('users')
+    .select('id, full_name')
+    .like('full_name', '[STORE]%')
 
-    const { error } = await supabaseAdmin.auth.admin.updateUserById(user.id, {
-      password: newPassword,
-    })
-
-    results.push({ email, success: !error, error: error?.message })
+  if (qErr) {
+    return NextResponse.json({ error: qErr.message })
   }
 
-  return NextResponse.json({ results })
+  const results: any[] = []
+
+  for (const u of (storeUsers || [])) {
+    const { error } = await supabaseAdmin.auth.admin.updateUserById(u.id, {
+      password: newPassword,
+    })
+    results.push({ name: u.full_name, id: u.id, success: !error, error: error?.message })
+  }
+
+  return NextResponse.json({ total: results.length, results })
 }
