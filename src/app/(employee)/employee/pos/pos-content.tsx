@@ -857,7 +857,7 @@ export default function POSContent() {
                   <div key={p.id} className="card card-sm" style={{ cursor: 'pointer' }} onClick={() => addToCart(p)}>
                     <div style={{ fontWeight: 600, fontSize: 13, marginBottom: 2 }}>{p.name}</div>
                     <div style={{ fontSize: 12, color: 'var(--text-secondary)' }}>{fmt(p.price)}/{p.unit}</div>
-                    <div style={{ fontSize: 11, color: p.stock <= p.stock_alert ? 'var(--danger)' : 'var(--success)', marginTop: 4, fontWeight: 600 }}>Stock: {p.stock}</div>
+
                   </div>
                 ))}
               </div>
@@ -872,7 +872,7 @@ export default function POSContent() {
                   <div style={{ fontSize: 12, color: 'var(--text-secondary)' }}>{fmt(p.price)}/{p.unit}</div>
                   <span className="badge badge-indigo" style={{ fontSize: 10, marginTop: 4 }}>{categoryLabel[p.category]}</span>
                 </div>
-                <div style={{ fontSize: 11, color: p.stock <= p.stock_alert ? 'var(--danger)' : 'var(--success)', fontWeight: 600 }}>Stock: {p.stock}</div>
+
                 <button className="btn btn-primary" style={{ padding: 8, fontSize: 12 }} disabled={p.stock === 0} onClick={() => addToCart(p)}>
                   {p.stock === 0 ? 'Esaurito' : '+ Aggiungi'}
                 </button>
