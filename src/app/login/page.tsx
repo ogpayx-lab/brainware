@@ -12,6 +12,7 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false)
   const [mode, setMode] = useState<'login' | 'forgot'>('login')
   const [forgotSent, setForgotSent] = useState(false)
+  const [showPw, setShowPw] = useState(false)
 
   // Store selection for employees
   const [showStoreSelect, setShowStoreSelect] = useState(false)
@@ -250,7 +251,12 @@ export default function LoginPage() {
                     Password dimenticata?
                   </button>
                 </div>
-                <input type="password" value={password} onChange={e=>setPassword(e.target.value)} required style={{width:'100%',padding:'11px 14px',border:'1px solid #E5E7EB',borderRadius:8,fontSize:14,outline:'none',boxSizing:'border-box'}}/>
+                <div style={{position:'relative'}}>
+                  <input type={showPw ? 'text' : 'password'} value={password} onChange={e=>setPassword(e.target.value)} required style={{width:'100%',padding:'11px 14px',paddingRight:44,border:'1px solid #E5E7EB',borderRadius:8,fontSize:14,outline:'none',boxSizing:'border-box'}}/>
+                  <button type="button" onClick={()=>setShowPw(!showPw)} style={{position:'absolute',right:10,top:'50%',transform:'translateY(-50%)',background:'none',border:'none',cursor:'pointer',fontSize:18,color:'#9CA3AF',padding:4,display:'flex',alignItems:'center'}} aria-label="Mostra password">
+                    {showPw ? '🙈' : '👁️'}
+                  </button>
+                </div>
               </div>
               <p style={{fontSize:12,color:'#9CA3AF',margin:0}}>I dipendenti devono essere abilitati dal proprietario per poter accedere.</p>
               {error&&<div style={{background:'#FEF2F2',border:'1px solid #EF4444',borderRadius:8,padding:'10px 14px',fontSize:13,color:'#EF4444'}}>{error}</div>}
