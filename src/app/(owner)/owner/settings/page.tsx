@@ -334,10 +334,8 @@ export default function SettingsPage() {
 
           {/* Turni & FCU */}
           <div className="card" style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-lg)' }}>
-            <div style={{ display: 'flex', alignItems: 'center' }}><h3>🕐 Turni & FCU</h3><SavedBadge section="config" /></div>
+            <div style={{ display: 'flex', alignItems: 'center' }}><h3>🕐 Turni</h3><SavedBadge section="config" /></div>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--space-md)' }}>
-              <div className="input-group"><label className="input-label">FCU Desiderato (€)</label><input className="input" type="number" min="0" step="10" value={cfg.fcu_default} onChange={e => setCfg(c => ({ ...c, fcu_default: parseFloat(e.target.value) || 0 }))} /></div>
-              <div />
               <div className="input-group"><label className="input-label">Inizio Mattina</label><input className="input" type="time" value={cfg.morning_shift_start} onChange={e => setCfg(c => ({ ...c, morning_shift_start: e.target.value }))} /></div>
               <div className="input-group"><label className="input-label">Fine Mattina</label><input className="input" type="time" value={cfg.morning_shift_end} onChange={e => setCfg(c => ({ ...c, morning_shift_end: e.target.value }))} /></div>
               <div className="input-group"><label className="input-label">Inizio Sera</label><input className="input" type="time" value={cfg.evening_shift_start} onChange={e => setCfg(c => ({ ...c, evening_shift_start: e.target.value }))} /></div>

@@ -165,7 +165,7 @@ export default function EmployeeDashboard() {
   if (loading) return <div style={{ display:'flex', alignItems:'center', justifyContent:'center', height:'100vh' }}><div style={{ color:'var(--text-secondary)' }}>{t('loading')}</div></div>
   if (!summary) return null
 
-  const depositExpected = summary.fce + summary.total_cash - summary.total_expenses - fcuDefault
+  const depositExpected = summary.fce + summary.total_cash - summary.total_expenses
   const salesPct = Math.min(100, Math.round((summary.total_sales / objectives.sales_target) * 100))
 
   // Mini bar chart component
@@ -247,7 +247,6 @@ export default function EmployeeDashboard() {
             { label: t('empApp.fce'), value:`+${fmt(summary.fce)}`, color:'var(--text-primary)' },
             { label: t('empApp.cashSales'), value:`+${fmt(summary.total_cash)}`, color:'var(--success)' },
             { label: t('empApp.minusExpenses'), value:`−${fmt(summary.total_expenses)}`, color:'var(--danger)' },
-            { label: t('empApp.minusFcu'), value:`−${fmt(fcuDefault)}`, color:'var(--text-secondary)' },
           ].map(row => (
             <div key={row.label} style={{ display:'flex', justifyContent:'space-between', padding:'5px 0', borderBottom:'1px solid var(--border-subtle)', fontSize:13 }}>
               <span style={{ color:'var(--text-secondary)' }}>{row.label}</span>

@@ -197,7 +197,7 @@ export default function ShiftClosePage() {
               Inserisci le banconote che lasci in cassa
             </p>
             <div style={{ fontSize: 12, color: 'var(--text-tertiary)', marginTop: 4 }}>
-              FCU Desiderato: <strong>{fmt(fcuDefault)}</strong> (impostato dal proprietario)
+              Conta le banconote che lasci in cassa per il turno successivo
             </div>
           </div>
 
@@ -218,8 +218,8 @@ export default function ShiftClosePage() {
           <div style={{
             display: 'flex', justifyContent: 'space-between', alignItems: 'center',
             padding: 'var(--space-md)', borderRadius: 'var(--radius-sm)',
-            background: Math.abs(fcuValue - fcuDefault) < 1 ? 'var(--success-light)' : 'var(--bg-surface)',
-            border: `1px solid ${Math.abs(fcuValue - fcuDefault) < 1 ? 'var(--brand-primary)' : 'var(--border-default)'}`,
+            background: fcuValue > 0 ? 'var(--success-light)' : 'var(--bg-surface)',
+            border: `1px solid ${fcuValue > 0 ? 'var(--brand-primary)' : 'var(--border-default)'}`,
           }}>
             <span style={{ fontWeight: 700, fontSize: 15 }}>Totale FCU</span>
             <span style={{ fontWeight: 700, fontSize: 22, fontFamily: 'var(--font-heading)', color: 'var(--brand-primary)' }}>{fmt(fcuValue)}</span>
