@@ -237,9 +237,16 @@ export default function SalesLogPage() {
     if (!manualStore || !ownerId || manualCart.length === 0) return
     setSavingManual(true)
     try {
-      // Find or create a shift for this store/date
-      const { data: existingShift } = await supabase.from('shifts').select('id')
-        .eq('store_id', manualStore).order('created_at', { ascending: false }).limit(1).single()
+      // Find the OPEN shift for this store (same as employee dashboard uses)
+      let { data: existingShift } = await supabase.from('shifts').select('id')
+        .eq('store_id', manualStore).eq('status', 'open').order('created_at', { ascending: false }).limit(1).single()
+
+      // Fallback: if no open shift, use the most recent one
+      if (!existingShift) {
+        const { data: recentShift } = await supabase.from('shifts').select('id')
+          .eq('store_id', manualStore).order('created_at', { ascending: false }).limit(1).single()
+        existingShift = recentShift
+      }
 
       let shiftId = existingShift?.id
       if (!shiftId) {
