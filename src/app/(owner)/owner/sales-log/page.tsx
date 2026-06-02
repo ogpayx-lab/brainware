@@ -20,6 +20,7 @@ interface SaleRow {
   storeName: string
   invoiceNumber: string | null
   movementType: string
+  notes: string
   saleIndex: number
   isFirstInGroup: boolean
   itemsInSale: number
@@ -104,7 +105,7 @@ export default function SalesLogPage() {
       .from('sales')
       .select(`
         id, created_at, payment_method, customer_name, customer_nationality,
-        movement_type, invoice_number, store_id, user_id, total,
+        movement_type, invoice_number, store_id, user_id, total, notes,
         sale_items(product_name, qty, unit_price, line_total),
         users!sales_user_id_fkey(full_name),
         stores(name)
@@ -123,7 +124,7 @@ export default function SalesLogPage() {
     if (error) {
       const { data: fallback } = await supabase
         .from('sales')
-        .select('id, created_at, payment_method, customer_name, customer_nationality, movement_type, invoice_number, store_id, user_id, total, sale_items(product_name, qty, unit_price, line_total), stores(name)')
+        .select('id, created_at, payment_method, customer_name, customer_nationality, movement_type, invoice_number, store_id, user_id, total, notes, sale_items(product_name, qty, unit_price, line_total), stores(name)')
         .gte('created_at', fromDate)
         .lte('created_at', toDate)
         .in('store_id', storeIds)
@@ -157,7 +158,7 @@ export default function SalesLogPage() {
           paymentMethod: sale.payment_method, customerName: sale.customer_name || '',
           nationality: sale.customer_nationality || '', employee: empName,
           storeName: (sale.stores as any)?.name || '', invoiceNumber: sale.invoice_number,
-          movementType: sale.movement_type || 'sale', saleIndex, isFirstInGroup: true, itemsInSale: 1,
+          movementType: sale.movement_type || 'sale', notes: sale.notes || '', saleIndex, isFirstInGroup: true, itemsInSale: 1,
         })
       } else {
         items.forEach((item, idx) => {
@@ -167,7 +168,7 @@ export default function SalesLogPage() {
             paymentMethod: sale.payment_method, customerName: sale.customer_name || '',
             nationality: sale.customer_nationality || '', employee: empName,
             storeName: (sale.stores as any)?.name || '', invoiceNumber: sale.invoice_number,
-            movementType: sale.movement_type || 'sale', saleIndex, isFirstInGroup: idx === 0, itemsInSale: items.length,
+            movementType: sale.movement_type || 'sale', notes: sale.notes || '', saleIndex, isFirstInGroup: idx === 0, itemsInSale: items.length,
           })
         })
       }
@@ -438,15 +439,21 @@ export default function SalesLogPage() {
                         {row.isFirstInGroup && (
                           <span style={{
                             display: 'inline-block', padding: '2px 8px', borderRadius: 3, fontSize: 10, fontWeight: 700,
-                            background: row.paymentMethod === 'cash' ? '#DCFCE7' : '#EDE9FE',
-                            color: row.paymentMethod === 'cash' ? '#166534' : '#5B21B6',
+                            background: row.paymentMethod === 'cash' ? '#DCFCE7' : row.paymentMethod === 'split' ? '#FEF3C7' : row.paymentMethod === 'other' ? '#F3F4F6' : '#EDE9FE',
+                            color: row.paymentMethod === 'cash' ? '#166534' : row.paymentMethod === 'split' ? '#92400E' : row.paymentMethod === 'other' ? '#6B7280' : '#5B21B6',
                           }}>
-                            {row.paymentMethod === 'cash' ? 'CASH' : 'POS'}
+                            {row.paymentMethod === 'cash' ? '💵 CASH' : row.paymentMethod === 'split' ? '💵💳 SPLIT' : row.paymentMethod === 'other' ? '🔄 ALTRO' : '💳 POS'}
                           </span>
                         )}
                       </td>
                       <td style={{ ...CELL, borderTop: borderTopStyle, color: '#374151' }}>
-                        {row.isFirstInGroup ? row.customerName : ''}
+                        {row.isFirstInGroup ? (
+                          row.movementType === 'autoconsumo' ? (
+                            <span style={{ color: '#D97706' }}>🍃 {row.notes || 'Autoconsumo'}</span>
+                          ) : row.movementType === 'online' ? (
+                            <span style={{ color: '#2563EB' }}>📦 {row.notes || 'Ordine Online'}</span>
+                          ) : row.customerName || <span style={{ color: '#9CA3AF' }}>—</span>
+                        ) : ''}
                       </td>
                       <td style={{ ...CELL, borderTop: borderTopStyle, color: '#6B7280' }}>
                         {row.isFirstInGroup ? row.nationality : ''}

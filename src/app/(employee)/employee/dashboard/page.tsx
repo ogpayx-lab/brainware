@@ -96,20 +96,25 @@ export default function EmployeeDashboard() {
     const allSales = allSalesData ?? []
     setSales(allSales.slice(0, 8)) // Only show last 8 in UI list
 
+    // Separate in-store sales from online/autoconsumo for cash register calculations
+    const storeSales = allSales.filter((r: any) => r.movement_type === 'sale' || !r.movement_type)
+    const onlineSales = allSales.filter((r: any) => r.movement_type === 'online' || r.movement_type === 'autoconsumo')
+
     let expensesList: any[] = []
     try {
       const { data: expensesData } = await supabase.from('expenses').select('amount').eq('shift_id', openShift.id)
       expensesList = expensesData ?? []
     } catch {}
 
-    const totalSales = allSales.reduce((s: number, r: any) => s + (parseFloat(r.total) || 0), 0)
-    // Cash = pagamenti cash + parte cash degli split
-    const totalCash = allSales.reduce((s: number, r: any) => {
+    const totalStoreSales = storeSales.reduce((s: number, r: any) => s + (parseFloat(r.total) || 0), 0)
+    const totalOnline = onlineSales.reduce((s: number, r: any) => s + (parseFloat(r.total) || 0), 0)
+    // Cash = pagamenti cash + parte cash degli split (solo vendite negozio)
+    const totalCash = storeSales.reduce((s: number, r: any) => {
       if (r.payment_method === 'cash') return s + (parseFloat(r.total) || 0)
       if (r.payment_method === 'split') return s + (parseFloat(r.split_cash_amount) || 0)
       return s
     }, 0)
-    const totalPos = allSales.reduce((s: number, r: any) => {
+    const totalPos = storeSales.reduce((s: number, r: any) => {
       if (r.payment_method === 'pos') return s + (parseFloat(r.total) || 0)
       if (r.payment_method === 'split') return s + ((parseFloat(r.total) || 0) - (parseFloat(r.split_cash_amount) || 0))
       return s
@@ -119,9 +124,10 @@ export default function EmployeeDashboard() {
     setSummary({
       shift_id: openShift.id, user_id: user.id, status: 'open',
       fce: openShift.fce ?? 0, period: openShift.period,
-      total_sales: totalSales, total_cash: totalCash,
+      total_sales: totalStoreSales, total_cash: totalCash,
       total_pos: totalPos, total_expenses: totalExpenses,
-      total_transactions: allSales.length, created_at: openShift.created_at, opened_at: openShift.created_at,
+      total_transactions: storeSales.length, created_at: openShift.created_at, opened_at: openShift.created_at,
+      total_online: totalOnline, online_count: onlineSales.length,
     })
 
     // Performance
@@ -337,12 +343,20 @@ export default function EmployeeDashboard() {
             {sales.map((sale, i) => (
               <div key={sale.id} style={{ display:'flex', alignItems:'center', gap:12, padding:'10px 14px', borderBottom:i<sales.length-1?'1px solid var(--border-subtle)':'none' }}>
                 <div style={{ flex:1 }}>
-                  <div style={{ fontSize:14, fontWeight:600 }}>{sale.customer_name || t('empApp.anonymous')}</div>
+                  <div style={{ fontSize:14, fontWeight:600 }}>
+                    {sale.movement_type === 'autoconsumo' ? (
+                      <span style={{ color:'#D97706' }}>🍃 {sale.notes || 'Autoconsumo'}</span>
+                    ) : sale.movement_type === 'online' ? (
+                      <span style={{ color:'#2563EB' }}>📦 {sale.notes || 'Ordine Online'}</span>
+                    ) : sale.customer_name || t('empApp.anonymous')}
+                  </div>
                   <div style={{ fontSize:11, color:'var(--text-tertiary)' }}>{sale.invoice_number} · {formatTime(sale.created_at)}</div>
                 </div>
                 <div style={{ display:'flex', flexDirection:'column', alignItems:'flex-end', gap:3 }}>
-                  <span style={{ fontSize:10, padding:'2px 7px', borderRadius:20, background:sale.payment_method==='cash'?'var(--success-light)':'#EEF2FF', color:sale.payment_method==='cash'?'var(--brand-primary)':'var(--accent-indigo)', fontWeight:600 }}>
-                    {sale.payment_method==='cash'?'💵 Cash':'💳 POS'}
+                  <span style={{ fontSize:10, padding:'2px 7px', borderRadius:20, fontWeight:600,
+                    background: sale.payment_method==='cash'?'var(--success-light)': sale.payment_method==='split'?'#FEF3C7': sale.payment_method==='other'?'#F3F4F6':'#EEF2FF',
+                    color: sale.payment_method==='cash'?'var(--brand-primary)': sale.payment_method==='split'?'#92400E': sale.payment_method==='other'?'#6B7280':'var(--accent-indigo)' }}>
+                    {sale.payment_method==='cash'?'💵 Cash': sale.payment_method==='split'?'💵💳 Split': sale.payment_method==='other'?'🔄 Altro':'💳 POS'}
                   </span>
                   <span style={{ fontWeight:700, fontSize:14 }}>{fmt(sale.total)}</span>
                 </div>

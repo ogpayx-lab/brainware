@@ -239,7 +239,8 @@ export default function POSContent() {
     // Map canale acquisizione al valore corretto dell'enum
     const channelMap: Record<string, string> = {
       'walk-in': 'walk-in', 'walkin': 'walk-in',
-      'usual-customer': 'walk-in',
+      'regular-customer': 'walk-in',
+      'tourist-back': 'walk-in',
       'social': 'social', 'google': 'google',
       'ai/chatgpt/gemini-etc..': 'other',
       'friends': 'referral',
@@ -332,13 +333,11 @@ export default function POSContent() {
 
     if (!sale) { setStornoId(null); return }
 
-    // Restore stock
+    // Restore stock using atomic increment
     for (const item of (sale.sale_items || [])) {
-      await supabase
-        .from('products')
-        .update({ stock: item.qty }) // trigger will handle
-        .eq('id', item.product_id)
-      // Manually restore stock (since delete trigger handles it)
+      if (item.product_id) {
+        await supabase.rpc('increment_stock', { row_id: item.product_id, qty: item.qty })
+      }
     }
 
     // Delete sale items (trigger restores stock)
@@ -474,9 +473,8 @@ export default function POSContent() {
           <div style={{ marginTop: 12 }}>
             <div style={{ fontSize: 12, fontWeight: 600, marginBottom: 8 }}>👤 Dati Cliente <span style={{ color: 'var(--danger)' }}>*</span></div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-              <input className="input" placeholder="Nome cliente *" value={customer.name} onChange={e => { setCustomer(c => ({ ...c, name: e.target.value })); setCustomerError('') }} style={{ height: 34, fontSize: 13, borderColor: customerError ? 'var(--danger)' : undefined }} />
-              {customerError && <div style={{ fontSize: 12, color: 'var(--danger)' }}>⚠️ {customerError}</div>}
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6 }}>
+                <input className="input" placeholder="Nome cliente *" value={customer.name} onChange={e => { setCustomer(c => ({ ...c, name: e.target.value })); setCustomerError('') }} style={{ height: 34, fontSize: 13, borderColor: customerError ? 'var(--danger)' : undefined }} />
                 <div style={{ position: 'relative' }}>
                   <input className="input" placeholder="🔍 Paese..." value={customer.nationality}
                     onChange={e => { setCustomer(c => ({ ...c, nationality: e.target.value })); setNatSearch(true) }}
@@ -519,10 +517,11 @@ export default function POSContent() {
                     )
                   })()}
                 </div>
-                <select className="input" value={customer.channel} onChange={e => setCustomer(c => ({ ...c, channel: e.target.value }))} style={{ height: 34, fontSize: 12 }}>
-                  {['Walk-in', 'Usual Customer', 'Google', 'Social', 'AI/ChatGPT/Gemini Etc..', 'Friends'].map(c => <option key={c}>{c}</option>)}
-                </select>
               </div>
+              {customerError && <div style={{ fontSize: 12, color: 'var(--danger)' }}>⚠️ {customerError}</div>}
+              <select className="input" value={customer.channel} onChange={e => setCustomer(c => ({ ...c, channel: e.target.value }))} style={{ height: 34, fontSize: 12 }}>
+                {['Walk-in', 'Regular Customer', 'Tourist Back', 'Google', 'Social', 'AI/ChatGPT/Gemini Etc..', 'Friends'].map(c => <option key={c}>{c}</option>)}
+              </select>
               <input className="input" type="email" placeholder="Email (opzionale)" value={customer.email} onChange={e => setCustomer(c => ({ ...c, email: e.target.value }))} style={{ height: 34, fontSize: 13 }} />
               <textarea className="input" placeholder="Note sul cliente (opzionale)" value={customer.notes} onChange={e => setCustomer(c => ({ ...c, notes: e.target.value }))} rows={2} style={{ fontSize: 13, resize: 'none' }} />
             </div>
