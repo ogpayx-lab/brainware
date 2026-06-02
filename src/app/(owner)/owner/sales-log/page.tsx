@@ -252,7 +252,8 @@ export default function SalesLogPage() {
       if (!shiftId) { alert('Errore: impossibile creare turno'); setSavingManual(false); return }
 
       const subtotal = manualCart.reduce((s, p) => s + p.price * p.qty, 0)
-      const createdAt = `${manualDate}T${manualTime}:00`
+      const localDate = new Date(`${manualDate}T${manualTime}:00`)
+      const createdAt = localDate.toISOString()
 
       const { data: sale, error: saleErr } = await supabase.from('sales').insert({
         shift_id: shiftId, store_id: manualStore, user_id: ownerId, created_by: ownerId,
@@ -275,14 +276,9 @@ export default function SalesLogPage() {
         }))
       )
 
-      // Update stock
+      // Update stock (atomic decrement via increment_stock with negative qty)
       for (const p of manualCart) {
-        await supabase.rpc('decrement_stock', { p_product_id: p.id, p_qty: p.qty }).catch(() => {
-          // fallback: manual update
-          supabase.from('products').select('stock').eq('id', p.id).single().then(({ data }) => {
-            if (data) supabase.from('products').update({ stock: Math.max(0, data.stock - p.qty) }).eq('id', p.id)
-          })
-        })
+        await supabase.rpc('increment_stock', { product_id: p.id, qty: -p.qty })
       }
 
       setShowManual(false)
