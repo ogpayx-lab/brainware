@@ -26,6 +26,10 @@ export default function SettingsPage() {
   const [shopify, setShopify] = useState({ shopify_domain: '', access_token: '', sync_enabled: false })
   const [shopifyId, setShopifyId] = useState<string | null>(null)
 
+  // Inventory count time
+  const [invCountTime, setInvCountTime] = useState('18:00')
+  const [invManuallyOpened, setInvManuallyOpened] = useState(false)
+
   // Tablet account
   const [tabletAccount, setTabletAccount] = useState<any>(null)
   const [tabletPw, setTabletPw] = useState('')
@@ -75,7 +79,11 @@ export default function SettingsPage() {
       supabase.from('bonus_config').select('*').eq('store_id', profile.store_id).single(),
     ])
 
-    if (storeData) setStore({ name: storeData.name, address: storeData.address ?? '', city: storeData.city ?? '' })
+    if (storeData) {
+      setStore({ name: storeData.name, address: storeData.address ?? '', city: storeData.city ?? '' })
+      setInvCountTime(storeData.inventory_count_opens_at || '18:00')
+      setInvManuallyOpened(storeData.inventory_manually_opened ?? false)
+    }
     if (brandData) { setBrand({ brand_name: brandData.brand_name, logo_letter: brandData.logo_letter, primary_color: brandData.primary_color, piva: brandData.piva ?? '', receipt_header: brandData.receipt_header ?? '', receipt_footer: brandData.receipt_footer ?? '' }); setBrandId(brandData.id) }
     if (cfgData) { setCfg({ fcu_default: cfgData.fcu_default, morning_shift_start: cfgData.morning_shift_start, morning_shift_end: cfgData.morning_shift_end, evening_shift_start: cfgData.evening_shift_start, evening_shift_end: cfgData.evening_shift_end, stock_alert_threshold: cfgData.stock_alert_threshold, discount_notify_pct: cfgData.discount_notify_pct, punctuality_tolerance_min: cfgData.punctuality_tolerance_min ?? 5 }); setCfgId(cfgData.id) }
     if (bonusData) { setBonus({ sales_commission_pct: bonusData.sales_commission_pct, hours_bonus_amount: bonusData.hours_bonus_amount, hours_bonus_threshold: bonusData.hours_bonus_threshold, avg_sale_threshold: bonusData.avg_sale_threshold }); setBonusId(bonusData.id) }
@@ -343,6 +351,31 @@ export default function SettingsPage() {
               <div className="input-group"><label className="input-label">Soglia Sconto Notifica (%)</label><input className="input" type="number" min="0" max="100" value={cfg.discount_notify_pct} onChange={e => setCfg(c => ({ ...c, discount_notify_pct: parseFloat(e.target.value) || 0 }))} /></div>
             </div>
             <button onClick={saveConfig} disabled={saving} className="btn btn-primary" style={{ alignSelf: 'flex-start' }}>Salva Configurazione</button>
+          </div>
+
+          {/* Conteggio Inventario */}
+          <div className="card" style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-lg)' }}>
+            <div style={{ display: 'flex', alignItems: 'center' }}><h3>📊 Conteggio Inventario</h3><SavedBadge section="inventory_time" /></div>
+            <div style={{ background: 'var(--bg-surface)', borderRadius: 'var(--radius-sm)', padding: 'var(--space-md)', fontSize: 13, color: 'var(--text-secondary)' }}>
+              💡 Imposta l'orario in cui i dipendenti possono iniziare il conteggio inventario. Prima di quest'orario vedranno un countdown.
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--space-md)', alignItems: 'end' }}>
+              <div className="input-group">
+                <label className="input-label">Orario Apertura Conteggio</label>
+                <input className="input" type="time" value={invCountTime} onChange={e => setInvCountTime(e.target.value)} />
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-sm)', height: 44 }}>
+                <label style={{ position: 'relative', display: 'inline-flex', alignItems: 'center', cursor: 'pointer' }}>
+                  <input type="checkbox" checked={invManuallyOpened} onChange={e => setInvManuallyOpened(e.target.checked)} style={{ width: 18, height: 18, accentColor: 'var(--brand-primary)', cursor: 'pointer' }} />
+                  <span style={{ marginLeft: 8, fontSize: 13, fontWeight: 600 }}>Apri subito (bypass orario)</span>
+                </label>
+              </div>
+            </div>
+            <button onClick={async () => {
+              if (!storeId) return; setSaving(true)
+              await supabase.from('stores').update({ inventory_count_opens_at: invCountTime, inventory_manually_opened: invManuallyOpened }).eq('id', storeId)
+              showSaved('inventory_time'); setSaving(false)
+            }} disabled={saving} className="btn btn-primary" style={{ alignSelf: 'flex-start' }}>Salva Orario Inventario</button>
           </div>
 
           {/* Info Negozio */}
