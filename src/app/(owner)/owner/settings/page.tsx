@@ -4,11 +4,12 @@ import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { fmt } from '@/lib/utils'
-import { useLanguage, LANGUAGES, Lang } from '@/lib/i18n'
+import { useLanguage, useT, LANGUAGES, Lang } from '@/lib/i18n'
 
 export default function SettingsPage() {
   const router = useRouter()
   const supabase = createClient()
+  const t = useT()
 
   const [storeId, setStoreId] = useState<string | null>(null)
   const [orgId, setOrgId] = useState<string | null>(null)
