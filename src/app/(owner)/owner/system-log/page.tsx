@@ -190,15 +190,18 @@ const TABS: TabDef[] = [
     ],
   },
   {
-    key: 'ricarica', label: 'Ricarica', icon: '📥', table: 'warehouse_movements',
-    select: 'id, product_name, qty, created_at, warehouse_id, notes',
+    key: 'ricarica', label: 'Ricarica', icon: '📥', table: 'stock_requests',
+    select: 'id, product_name, qty_requested, qty_delivered, status, notes, created_at, store_id, user_id',
     orderBy: 'created_at',
     columns: [
       { key: '_date', label: 'Data', width: 85, render: (_, r) => new Date(r.created_at).toLocaleDateString('it-IT') },
       { key: '_time', label: 'Ora', width: 55, render: (_, r) => new Date(r.created_at).toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' }) },
       { key: '_store', label: 'Negozio', width: 120, render: (_, r) => r._storeName || '' },
-      { key: 'product_name', label: 'Item Name', width: 180, editable: true },
-      { key: 'qty', label: 'Quantity', width: 70, editable: true, type: 'number' },
+      { key: '_employee', label: 'Richiesto da', width: 110, render: (_, r) => r._userName || '' },
+      { key: 'product_name', label: 'Prodotto', width: 180, editable: true },
+      { key: 'qty_requested', label: 'Qty Rich.', width: 70, type: 'number' },
+      { key: 'qty_delivered', label: 'Qty Conseg.', width: 80, editable: true, type: 'number' },
+      { key: 'status', label: 'Stato', width: 90, editable: true, render: (v) => v === 'approved' ? '✅ Approvato' : v === 'rejected' ? '❌ Rifiutato' : v === 'owner_review' ? '⏳ In revisione' : v || '' },
       { key: 'notes', label: 'Note', width: 150, editable: true },
     ],
   },
@@ -374,15 +377,12 @@ export default function SystemLogPage() {
       if (error) console.error('Error loading daily_checklists:', error.message)
       data = result ?? []
     } else if (tab.key === 'ricarica') {
-      // Ricarica = warehouse_movements filtered by restock
-      if (warehouseIds.length > 0) {
-        const { data: result } = await supabase.from('warehouse_movements').select(tab.select)
-          .in('warehouse_id', warehouseIds)
-          .eq('movement_type', 'restock')
-          .gte('created_at', fromDate).lte('created_at', toDate)
-          .order('created_at', { ascending: false }).limit(500)
-        data = result ?? []
-      }
+      // Ricarica = stock_requests from stores
+      const { data: result } = await supabase.from('stock_requests').select(tab.select)
+        .in('store_id', storeIds)
+        .gte('created_at', fromDate).lte('created_at', toDate)
+        .order('created_at', { ascending: false }).limit(500)
+      data = result ?? []
     } else if (tab.key === 'sale_items') {
       // sale_items: no created_at, no store_id — load via sale_ids from sales in date range
       const { data: salesInRange } = await supabase
