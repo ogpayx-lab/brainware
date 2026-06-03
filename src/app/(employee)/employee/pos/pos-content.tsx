@@ -336,7 +336,7 @@ export default function POSContent() {
     // Restore stock using atomic increment
     for (const item of (sale.sale_items || [])) {
       if (item.product_id) {
-        await supabase.rpc('increment_stock', { row_id: item.product_id, qty: item.qty })
+        await supabase.rpc('increment_stock', { product_id: item.product_id, qty: item.qty })
       }
     }
 

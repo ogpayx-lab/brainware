@@ -133,7 +133,7 @@ export default function StockApprovalsPage() {
 
       // Update product stock atomically
       if (item.product_id && approvedQty > 0) {
-        await supabase.rpc('increment_stock', { row_id: item.product_id, qty: approvedQty })
+        await supabase.rpc('increment_stock', { product_id: item.product_id, qty: approvedQty })
       }
     }
 
