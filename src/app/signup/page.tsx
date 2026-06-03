@@ -8,6 +8,8 @@ export default function SignupPage() {
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
   const [emailSent, setEmailSent] = useState(false)
+  const [showPass, setShowPass] = useState(false)
+  const [showConfirm, setShowConfirm] = useState(false)
 
   async function handleSignup(e: FormEvent) {
     e.preventDefault()
@@ -94,11 +96,21 @@ export default function SignupPage() {
           </div>
           <div className="input-group">
             <label className="input-label">Password</label>
-            <input className="input" type="password" placeholder="Min. 8 caratteri" required value={form.password} onChange={e => setForm(f => ({ ...f, password: e.target.value }))} />
+            <div style={{ position: 'relative' }}>
+              <input className="input" type={showPass ? 'text' : 'password'} placeholder="Min. 8 caratteri" required value={form.password} onChange={e => setForm(f => ({ ...f, password: e.target.value }))} style={{ paddingRight: 44 }} />
+              <button type="button" onClick={() => setShowPass(p => !p)} style={{ position: 'absolute', right: 8, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', fontSize: 18, color: 'var(--text-tertiary)', padding: 4 }} aria-label="Mostra password">
+                {showPass ? '🙈' : '👁️'}
+              </button>
+            </div>
           </div>
           <div className="input-group">
             <label className="input-label">Conferma password</label>
-            <input className="input" type="password" placeholder="Ripeti la password" required value={form.confirm} onChange={e => setForm(f => ({ ...f, confirm: e.target.value }))} />
+            <div style={{ position: 'relative' }}>
+              <input className="input" type={showConfirm ? 'text' : 'password'} placeholder="Ripeti la password" required value={form.confirm} onChange={e => setForm(f => ({ ...f, confirm: e.target.value }))} style={{ paddingRight: 44 }} />
+              <button type="button" onClick={() => setShowConfirm(p => !p)} style={{ position: 'absolute', right: 8, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', fontSize: 18, color: 'var(--text-tertiary)', padding: 4 }} aria-label="Mostra conferma password">
+                {showConfirm ? '🙈' : '👁️'}
+              </button>
+            </div>
           </div>
           {error && (
             <div style={{ background: 'var(--danger-light)', border: '1px solid var(--danger)', borderRadius: 8, padding: '10px 14px', fontSize: 13, color: 'var(--danger)' }}>
