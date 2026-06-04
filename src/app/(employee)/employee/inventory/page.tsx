@@ -219,10 +219,18 @@ export default function InventoryPage() {
 
     await saveItems(finalId!)
 
+    // Update stock to counted values
+    const countedRows = rows.filter(r => r.counted !== '')
+    for (const r of countedRows) {
+      const countedQty = parseInt(r.counted)
+      if (!isNaN(countedQty)) {
+        await supabase.from('products').update({ stock: countedQty }).eq('id', r.id)
+      }
+    }
+
     // Get employee name
     const { data: empProfile } = await supabase.from('users').select('full_name').eq('id', userId).single()
     const empName = empProfile?.full_name || 'Dipendente'
-    const countedRows = rows.filter(r => r.counted !== '')
     const matches = countedRows.filter(r => r.status === 'match').length
     const mismatches = countedRows.filter(r => r.status !== 'match').length
 
@@ -230,7 +238,7 @@ export default function InventoryPage() {
       store_id: storeId,
       type: 'inventory_count',
       title: '📋 Inventario completato',
-      message: `${empName} ha finalizzato il conteggio inventario: ${countedRows.length} prodotti, ${matches} ✅ match, ${mismatches} ⚠️ discrepanze.`,
+      message: `${empName} ha finalizzato il conteggio inventario: ${countedRows.length} prodotti, ${matches} ✅ match, ${mismatches} ⚠️ discrepanze. Stock aggiornato.`,
     })
 
     setFinalized(true)
