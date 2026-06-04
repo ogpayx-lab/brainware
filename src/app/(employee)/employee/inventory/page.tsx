@@ -143,14 +143,15 @@ export default function InventoryPage() {
       if (r.id !== productId) return r
       if (r.escalated) return r
       if (r.counted === '') return { ...r, status: 'pending' as const }
-
       const counted = parseInt(r.counted)
       if (isNaN(counted)) return r
-      const isMatch = counted === r.stock
 
-      if (isMatch) return { ...r, status: 'match' as const }
+      // If stock ≤ 0 (reset/initial mode), accept any count
+      if (r.stock <= 0) return { ...r, status: 'match' as const }
 
-      // Mismatch — conta tentativo solo se è un nuovo tentativo
+      // Normal validation: match or mismatch
+      if (counted === r.stock) return { ...r, status: 'match' as const }
+
       const newAttempts = r.attempts + 1
       if (newAttempts >= 2) {
         return { ...r, status: 'escalated' as const, attempts: newAttempts, escalated: true, showEscalateModal: true }
