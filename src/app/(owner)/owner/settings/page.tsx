@@ -27,7 +27,7 @@ export default function SettingsPage() {
   const [shopifyId, setShopifyId] = useState<string | null>(null)
 
   // Inventory count time
-  const [invCountTime, setInvCountTime] = useState('18:00')
+  const [invCountTime, setInvCountTime] = useState('09:00')
   const [invManuallyOpened, setInvManuallyOpened] = useState(false)
 
   // Tablet account
@@ -81,7 +81,7 @@ export default function SettingsPage() {
 
     if (storeData) {
       setStore({ name: storeData.name, address: storeData.address ?? '', city: storeData.city ?? '' })
-      setInvCountTime(storeData.inventory_count_opens_at || '18:00')
+      setInvCountTime(storeData.inventory_count_opens_at || '09:00')
       setInvManuallyOpened(storeData.inventory_manually_opened ?? false)
     }
     if (brandData) { setBrand({ brand_name: brandData.brand_name, logo_letter: brandData.logo_letter, primary_color: brandData.primary_color, piva: brandData.piva ?? '', receipt_header: brandData.receipt_header ?? '', receipt_footer: brandData.receipt_footer ?? '' }); setBrandId(brandData.id) }

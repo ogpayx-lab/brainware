@@ -37,7 +37,7 @@ export default function InventoryPage() {
 
   // Time-lock
   const [locked, setLocked] = useState(false)
-  const [opensAt, setOpensAt] = useState('18:00')
+  const [opensAt, setOpensAt] = useState('09:00')
   const [now, setNow] = useState(new Date())
 
   useEffect(() => { loadData() }, [])
@@ -59,7 +59,7 @@ export default function InventoryPage() {
 
     // Check time-lock: fetch store inventory config
     const { data: storeConfig } = await supabase.from('stores').select('inventory_count_opens_at, inventory_manually_opened').eq('id', profile.store_id).single()
-    const opensTime = storeConfig?.inventory_count_opens_at || '18:00'
+    const opensTime = storeConfig?.inventory_count_opens_at || '09:00'
     const manuallyOpened = storeConfig?.inventory_manually_opened ?? false
     setOpensAt(opensTime)
 
