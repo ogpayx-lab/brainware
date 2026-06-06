@@ -265,14 +265,7 @@ export default function InventoryPage() {
   const filtered = rows
     .filter(r => activeCategory === 'all' || r.category === activeCategory)
     .filter(r => !searchQuery || r.name.toLowerCase().includes(searchQuery.toLowerCase()))
-    .sort((a, b) => {
-      // Sort: pending first, then by category, then alphabetically
-      const statusOrder = { pending: 0, mismatch: 1, escalated: 2, match: 3 }
-      const sa = statusOrder[a.status] ?? 0
-      const sb = statusOrder[b.status] ?? 0
-      if (sa !== sb) return sa - sb
-      return a.name.localeCompare(b.name)
-    })
+    .sort((a, b) => a.name.localeCompare(b.name))
   const counted = rows.filter(r => r.counted !== '')
   const matchCount = counted.filter(r => r.status === 'match').length
   const mismatchCount = counted.filter(r => r.status === 'mismatch' || r.status === 'escalated').length
@@ -436,11 +429,22 @@ export default function InventoryPage() {
         />
       </div>
 
-      {/* Stats bar */}
-      <div style={{ padding: 'var(--space-md) var(--space-lg)', background: 'var(--bg-surface-alt)', borderBottom: '1px solid var(--border-subtle)', display: 'flex', gap: 'var(--space-lg)' }}>
-        <span style={{ fontSize: 13 }}>Contati: <strong>{counted.length}</strong></span>
-        <span style={{ fontSize: 13, color: 'var(--success)' }}> Match: <strong>{matchCount}</strong></span>
-        <span style={{ fontSize: 13, color: 'var(--danger)' }}> Non corrisp.: <strong>{mismatchCount}</strong></span>
+      {/* Progress bar */}
+      <div style={{ padding: 'var(--space-md) var(--space-lg)', background: 'var(--bg-surface-alt)', borderBottom: '1px solid var(--border-subtle)' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+          <span style={{ fontSize: 13, fontWeight: 700 }}>Progresso: {counted.length}/{rows.length}</span>
+          <div style={{ display: 'flex', gap: 10 }}>
+            <span style={{ fontSize: 12, color: 'var(--success)', fontWeight: 600 }}>✅ {matchCount}</span>
+            <span style={{ fontSize: 12, color: 'var(--danger)', fontWeight: 600 }}>❌ {mismatchCount}</span>
+          </div>
+        </div>
+        <div style={{ height: 6, borderRadius: 3, background: 'var(--border-subtle)', overflow: 'hidden' }}>
+          <div style={{
+            height: '100%', borderRadius: 3, transition: 'width 0.3s',
+            width: `${rows.length > 0 ? (counted.length / rows.length) * 100 : 0}%`,
+            background: mismatchCount > 0 ? 'linear-gradient(90deg, var(--success), var(--danger))' : 'var(--success)',
+          }} />
+        </div>
       </div>
 
       {/* Table */}
