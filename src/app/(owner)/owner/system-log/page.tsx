@@ -48,8 +48,7 @@ const TABS: TabDef[] = [
     select: 'id, created_at, store_id, user_id, total, payment_method, customer_name, customer_nationality, acquisition_channel, movement_type, invoice_number',
     orderBy: 'created_at',
     columns: [
-      { key: '_date', label: 'Data', width: 85, render: (_, r) => new Date(r.created_at).toLocaleDateString('it-IT') },
-      { key: '_time', label: 'Ora', width: 55, render: (_, r) => new Date(r.created_at).toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' }) },
+      { key: 'created_at', label: 'Data/Ora', width: 135, editable: true, type: 'datetime', render: (v) => v ? new Date(v).toLocaleString('it-IT', { day: '2-digit', month: '2-digit', year: '2-digit', hour: '2-digit', minute: '2-digit' }) : '' },
       { key: 'payment_method', label: 'Pagamento', width: 70, editable: true },
       { key: '_store', label: 'Negozio', width: 120, render: (_, r) => r._storeName || '' },
       { key: 'invoice_number', label: 'N° Fatt.', width: 65, editable: true },
@@ -79,7 +78,7 @@ const TABS: TabDef[] = [
     select: 'id, opened_at, closed_at, period, status, fce, fcu, deposit_actual, user_id, store_id, created_at',
     orderBy: 'created_at',
     columns: [
-      { key: '_date', label: 'Data', width: 85, render: (_, r) => new Date(r.opened_at || r.created_at).toLocaleDateString('it-IT') },
+      { key: 'created_at', label: 'Data/Ora', width: 135, editable: true, type: 'datetime', render: (v) => v ? new Date(v).toLocaleString('it-IT', { day: '2-digit', month: '2-digit', year: '2-digit', hour: '2-digit', minute: '2-digit' }) : '' },
       { key: 'fce', label: 'FCE', width: 60, editable: true, type: 'number' },
       { key: 'fcu', label: 'FCU', width: 60, editable: true, type: 'number' },
       { key: '_employee', label: 'Referente', width: 100, render: (_, r) => r._userName || '' },
@@ -96,8 +95,7 @@ const TABS: TabDef[] = [
     select: 'id, amount, description, created_at, store_id, user_id',
     orderBy: 'created_at',
     columns: [
-      { key: '_date', label: 'Data', width: 90, render: (_, r) => new Date(r.created_at).toLocaleDateString('it-IT') },
-      { key: '_time', label: 'Ora', width: 60, render: (_, r) => new Date(r.created_at).toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' }) },
+      { key: 'created_at', label: 'Data/Ora', width: 135, editable: true, type: 'datetime', render: (v: any) => v ? new Date(v).toLocaleString('it-IT', { day: '2-digit', month: '2-digit', year: '2-digit', hour: '2-digit', minute: '2-digit' }) : '' },
       { key: '_store', label: 'Negozio', width: 140, render: (_, r) => r._storeName || '' },
       { key: '_employee', label: 'Dipendente', width: 120, render: (_, r) => r._userName || '' },
       { key: 'amount', label: 'Importo', width: 80, editable: true, type: 'number' },
@@ -227,18 +225,17 @@ const TABS: TabDef[] = [
     ],
   },
   {
-    key: 'person_counted', label: 'Person Counted', icon: '🔢', table: 'inventory_counts',
-    select: 'id, product_name, category, counted_qty, expected_qty, match, store_id, user_id, created_at',
-    orderBy: 'created_at',
+    key: 'person_counted', label: 'Person Counted', icon: '🔢', table: 'inventory_count_items',
+    select: 'id, inventory_count_id, product_id, product_name, system_qty, counted_qty, status, mismatch_reason, attempt_count',
+    orderBy: 'product_name',
     columns: [
-      { key: '_store', label: 'Negozio', width: 120, render: (_, r) => r._storeName || '' },
-      { key: '_date', label: 'Data', width: 85, render: (_, r) => new Date(r.created_at).toLocaleDateString('it-IT') },
       { key: 'product_name', label: 'Prodotto', width: 180, editable: true },
-      { key: 'category', label: 'Categoria', width: 100, editable: true },
+      { key: 'system_qty', label: 'Sistema', width: 65, type: 'number' },
       { key: 'counted_qty', label: 'Contato', width: 65, editable: true, type: 'number' },
-      { key: 'expected_qty', label: 'Atteso', width: 65, type: 'number' },
-      { key: 'match', label: 'Match', width: 55, render: (v) => v ? '✓ Match' : '✗ No' },
-      { key: '_employee', label: 'Contato da', width: 100, render: (_, r) => r._userName || '' },
+      { key: '_diff', label: 'Diff', width: 55, render: (_: any, r: any) => { const d = (r.counted_qty ?? 0) - (r.system_qty ?? 0); return d === 0 ? '—' : d > 0 ? `+${d}` : `${d}` } },
+      { key: 'status', label: 'Status', width: 80, render: (v: any) => v === 'match' ? '✅ Match' : v === 'mismatch' ? '⚠️ Non corr.' : v || '' },
+      { key: 'mismatch_reason', label: 'Note', width: 150, editable: true },
+      { key: 'attempt_count', label: 'Tentativi', width: 60, type: 'number' },
     ],
   },
   {
@@ -357,7 +354,7 @@ export default function SystemLogPage() {
 
     let data: any[] = []
 
-    if (tab.key === 'products' || tab.key === 'employees' || tab.key === 'inventory' || tab.key === 'person_counted') {
+    if (tab.key === 'products' || tab.key === 'employees' || tab.key === 'inventory') {
       // No date filter — just store filter + order by name/date
       let query = supabase.from(tab.table).select(tab.select)
         .in('store_id', storeIds)
@@ -366,6 +363,16 @@ export default function SystemLogPage() {
       const { data: result, error } = await query
       if (error) console.error(`Error loading ${tab.table}:`, error.message)
       data = result ?? []
+    } else if (tab.key === 'person_counted') {
+      // Load inventory_count_items via inventory_counts (which has store_id)
+      const { data: counts } = await supabase.from('inventory_counts').select('id')
+        .in('store_id', storeIds).order('created_at', { ascending: false }).limit(10)
+      const countIds = (counts ?? []).map((c: any) => c.id)
+      if (countIds.length > 0) {
+        const { data: items } = await supabase.from('inventory_count_items').select(tab.select)
+          .in('inventory_count_id', countIds).order('product_name')
+        data = items ?? []
+      }
     } else if (tab.key === 'checklist') {
       // Daily checklists — filter by store + date range on 'date' column
       let query = supabase.from('daily_checklists').select(tab.select)
@@ -563,7 +570,15 @@ export default function SystemLogPage() {
       return
     }
     setEditCell({ rowId, colKey })
-    setEditValue(currentValue?.toString() ?? '')
+    // Format datetime for datetime-local input
+    const col = tab.columns.find(c => c.key === colKey)
+    if (col?.type === 'datetime' && currentValue) {
+      const d = new Date(currentValue)
+      const local = new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 16)
+      setEditValue(local)
+    } else {
+      setEditValue(currentValue?.toString() ?? '')
+    }
     setTimeout(() => editRef.current?.focus(), 50)
   }
 
@@ -581,6 +596,7 @@ export default function SystemLogPage() {
     const col = tab.columns.find(c => c.key === editCell.colKey)
     let value: any = editValue
     if (col?.type === 'number') value = parseFloat(editValue) || 0
+    if (col?.type === 'datetime') value = editValue ? new Date(editValue).toISOString() : null
 
     // Try RPC that bypasses RLS for owner edits
     const { error: rpcError } = await supabase.rpc('owner_update_row', {
@@ -679,7 +695,7 @@ export default function SystemLogPage() {
       case 'tasks': newRow = { id, description: '', status: 'pending', priority: 'normal', due_date: null, store_id: storeId, user_id: currentUserId, created_at: now }; break
       case 'maintenance_logs': newRow = { id, title: '', notes: '', completed: false, store_id: storeId, user_id: currentUserId, created_at: now }; break
       case 'daily_checklists': newRow = { id, date: new Date().toISOString().split('T')[0], shift_period: 'morning', clean_floor: false, clean_door: false, clean_bathroom: false, clean_bancone: false, clean_shelfs: false, clean_products: false, throw_trash: false, expired_products: false, price_labels: false, maintenance_supplies: false, vending_on_off: false, vending_ricarica: false, deposits_delivery: false, store_id: storeId, user_id: currentUserId, created_at: now }; break
-      case 'inventory_counts': newRow = { id, product_name: '', category: '', counted_qty: 0, expected_qty: 0, match: false, store_id: storeId, user_id: currentUserId, created_at: now }; break
+      case 'inventory_count_items': newRow = { id, product_name: '', system_qty: 0, counted_qty: 0, status: 'pending', mismatch_reason: '', attempt_count: 0 }; break
       default: newRow = { id, store_id: storeId, user_id: currentUserId, created_at: now }
     }
     const { data, error } = await supabase.from(tab.table).insert(newRow).select()
@@ -839,7 +855,7 @@ export default function SystemLogPage() {
                               onChange={e => setEditValue(e.target.value)}
                               onBlur={saveEdit}
                               onKeyDown={handleKeyDown}
-                              type={col.type === 'number' ? 'number' : 'text'}
+                              type={col.type === 'number' ? 'number' : col.type === 'datetime' ? 'datetime-local' : 'text'}
                               style={{
                                 width: '100%', border: 'none', outline: 'none',
                                 background: '#FEF3C7', padding: '4px 6px', fontSize: 11,
