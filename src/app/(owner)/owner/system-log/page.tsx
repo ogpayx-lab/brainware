@@ -64,13 +64,16 @@ const TABS: TabDef[] = [
   {
     key: 'sale_items', label: 'Prodotti Venduti', icon: '🛒', table: 'sale_items',
     select: 'id, sale_id, product_id, product_name, qty, unit_price, line_total',
-    orderBy: 'id', // sale_items has NO created_at
+    orderBy: 'id',
     columns: [
+      { key: '_sale_date', label: 'Data/Ora', width: 120, render: (_: any, r: any) => r._sale_date || '' },
+      { key: '_invoice', label: 'Invoice', width: 60, render: (_: any, r: any) => r._invoice || '' },
+      { key: '_customer', label: 'Cliente', width: 100, render: (_: any, r: any) => r._customer || '' },
+      { key: '_payment', label: 'Pag.', width: 55, render: (_: any, r: any) => r._payment || '' },
       { key: 'product_name', label: 'Prodotto', width: 180, editable: true },
-      { key: 'qty', label: 'Qty', width: 60, editable: true, type: 'number' },
-      { key: 'unit_price', label: 'Prezzo', width: 80, editable: true, type: 'number' },
-      { key: 'line_total', label: 'Totale', width: 80, editable: true, type: 'number' },
-      { key: 'sale_id', label: 'Sale ID', width: 100, render: (v) => v?.slice(0, 8) || '' },
+      { key: 'qty', label: 'Qty', width: 50, editable: true, type: 'number' },
+      { key: 'unit_price', label: 'Prezzo', width: 70, editable: true, type: 'number' },
+      { key: 'line_total', label: 'Totale', width: 70, editable: true, type: 'number' },
     ],
   },
   {
@@ -401,12 +404,28 @@ export default function SystemLogPage() {
         .limit(500)
       const saleIds = (salesInRange ?? []).map(s => s.id)
       if (saleIds.length > 0) {
+        // Build sale lookup for enriching items
+        const { data: salesFull } = await supabase.from('sales')
+          .select('id, created_at, customer_name, invoice_number, payment_method')
+          .in('id', saleIds)
+        const saleMap = new Map((salesFull ?? []).map((s: any) => [s.id, s]))
+
         const { data: items } = await supabase
           .from('sale_items')
           .select(tab.select)
           .in('sale_id', saleIds)
           .limit(1000)
-        data = items ?? []
+        // Enrich each item with parent sale info
+        data = (items ?? []).map((item: any) => {
+          const sale = saleMap.get(item.sale_id)
+          return {
+            ...item,
+            _sale_date: sale ? new Date(sale.created_at).toLocaleString('it-IT', { day: '2-digit', month: '2-digit', year: '2-digit', hour: '2-digit', minute: '2-digit' }) : '',
+            _customer: sale?.customer_name || '',
+            _invoice: sale?.invoice_number || '',
+            _payment: sale?.payment_method || '',
+          }
+        })
       }
     } else if (tab.computed) {
       // ─── COMPUTED TABS ───
