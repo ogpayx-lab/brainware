@@ -467,12 +467,22 @@ export default function InventoryPage() {
                 <td>
                   {row.escalated ? (
                     <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                      <span style={{ fontWeight: 700, fontSize: 14 }}>{row.counted}</span>
+                      <input
+                        type="number"
+                        min="0"
+                        value={row.counted}
+                        onChange={e => handleInput(row.id, e.target.value)}
+                        style={{
+                          width: 64, padding: '4px 8px',
+                          border: '1.5px solid var(--danger)',
+                          borderRadius: 'var(--radius-sm)', fontSize: 14, fontWeight: 700, textAlign: 'center',
+                        }}
+                      />
                       <button
-                        onClick={() => setRows(prev => prev.map(r => r.id === row.id ? { ...r, showEscalateModal: true } : r))}
-                        title="Richiedi assistenza"
-                        style={{ background: 'none', border: 'none', fontSize: 20, cursor: 'pointer', padding: 0 }}
-                      >🆘</button>
+                        onClick={() => setRows(prev => prev.map(r => r.id === row.id ? { ...r, status: 'match' as const, escalated: false } : r))}
+                        title="Forza accettazione"
+                        style={{ background: 'var(--success)', border: 'none', borderRadius: 6, color: 'white', fontSize: 11, padding: '4px 8px', cursor: 'pointer', fontWeight: 700, whiteSpace: 'nowrap' }}
+                      >✅ Forza</button>
                     </div>
                   ) : (
                     <input
@@ -495,7 +505,8 @@ export default function InventoryPage() {
                 <td>
                   {row.status === 'pending' && <span className="badge badge-gray">In attesa</span>}
                   {row.status === 'match' && <span className="badge badge-success">✅ Match</span>}
-                  {row.status === 'mismatch' && <span className="badge badge-warning">⚠️ Riprova</span>}
+                  {row.status === 'mismatch' && !row.escalated && <span className="badge badge-warning">⚠️ Riprova</span>}
+                  {row.status === 'mismatch' && row.escalated && <span className="badge badge-danger">❌ Non corrisponde</span>}
                   {row.status === 'escalated' && <span className="badge badge-danger">🆘 Assistenza</span>}
                 </td>
                 <td>
