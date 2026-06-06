@@ -142,7 +142,6 @@ export default function InventoryPage() {
   function handleValidate(productId: string) {
     setRows(prev => prev.map(r => {
       if (r.id !== productId) return r
-      if (r.escalated) return r
       if (r.counted === '') return { ...r, status: 'pending' as const }
       const counted = parseInt(r.counted)
       if (isNaN(counted)) return r
@@ -155,7 +154,8 @@ export default function InventoryPage() {
 
       const newAttempts = r.attempts + 1
       if (newAttempts >= 2) {
-        return { ...r, status: 'escalated' as const, attempts: newAttempts, escalated: true, showEscalateModal: true }
+        // After 2 attempts: accept as confirmed mismatch (no SOS)
+        return { ...r, status: 'mismatch' as const, attempts: newAttempts, escalated: true }
       }
       return { ...r, status: 'mismatch' as const, attempts: newAttempts }
     }))
@@ -236,11 +236,31 @@ export default function InventoryPage() {
     const matches = countedRows.filter(r => r.status === 'match').length
     const mismatches = countedRows.filter(r => r.status !== 'match').length
 
+    // Build discrepancy report for notification
+    const discrepancies = countedRows
+      .filter(r => r.status === 'mismatch' || r.status === 'escalated')
+      .map(r => {
+        const diff = parseInt(r.counted) - r.stock
+        return { name: r.name, system: r.stock, counted: parseInt(r.counted), diff }
+      })
+    const surplus = discrepancies.filter(d => d.diff > 0)
+    const deficit = discrepancies.filter(d => d.diff < 0)
+
+    let reportMsg = `${empName} ha finalizzato il conteggio: ${countedRows.length} prodotti, ${matches} ✅ match, ${mismatches} ⚠️ discrepanze.`
+    if (discrepancies.length > 0) {
+      reportMsg += '\n\n📊 DISCREPANZE:'
+      deficit.forEach(d => { reportMsg += `\n  🔴 ${d.name}: sistema ${d.system}, contato ${d.counted} (${d.diff})` })
+      surplus.forEach(d => { reportMsg += `\n  🟢 ${d.name}: sistema ${d.system}, contato ${d.counted} (+${d.diff})` })
+      if (surplus.length > 0 && deficit.length > 0) {
+        reportMsg += '\n\n💡 Possibile scambio prodotti: verificare se items simili sono stati invertiti nelle vendite.'
+      }
+    }
+
     await supabase.from('notifications').insert({
       store_id: storeId,
       type: 'inventory_count',
-      title: '📋 Inventario completato',
-      message: `${empName} ha finalizzato il conteggio inventario: ${countedRows.length} prodotti, ${matches} ✅ match, ${mismatches} ⚠️ discrepanze. Stock aggiornato.`,
+      title: mismatches > 0 ? '📋 Inventario con discrepanze' : '📋 Inventario perfetto ✅',
+      message: reportMsg,
     })
 
     setFinalized(true)
@@ -304,40 +324,86 @@ export default function InventoryPage() {
     )
   }
 
-  if (finalized) return (
-    <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 'var(--space-lg)', padding: 'var(--space-lg)' }}>
-      <span style={{ fontSize: 64 }}></span>
-      <h3>Conteggio finalizzato!</h3>
-      <div style={{ display: 'flex', gap: 'var(--space-md)' }}>
-        <span className="badge badge-success">{matchCount} Match</span>
-        <span className="badge badge-danger">{mismatchCount} Non corrispondenti</span>
+  if (finalized) {
+    const discrepancies = rows
+      .filter(r => r.counted !== '' && (r.status === 'mismatch' || r.status === 'escalated'))
+      .map(r => ({ name: r.name, category: r.category, system: r.stock, counted: parseInt(r.counted), diff: parseInt(r.counted) - r.stock }))
+      .sort((a, b) => a.diff - b.diff)
+    const surplus = discrepancies.filter(d => d.diff > 0)
+    const deficit = discrepancies.filter(d => d.diff < 0)
+
+    return (
+      <div className="page" style={{ paddingBottom: 80 }}>
+        <div style={{ background: 'var(--bg-primary)', borderBottom: '1px solid var(--border-subtle)', padding: 'var(--space-lg)', textAlign: 'center' }}>
+          <span style={{ fontSize: 48 }}>{discrepancies.length === 0 ? '🎉' : '📊'}</span>
+          <h3>Conteggio finalizzato!</h3>
+          <div style={{ display: 'flex', gap: 'var(--space-md)', justifyContent: 'center', marginTop: 8 }}>
+            <span className="badge badge-success">{matchCount} Match</span>
+            <span className="badge badge-danger">{mismatchCount} Discrepanze</span>
+          </div>
+        </div>
+
+        {discrepancies.length > 0 && (
+          <div style={{ padding: 'var(--space-lg)' }}>
+            <h4 style={{ marginBottom: 'var(--space-md)' }}>📊 Report Discrepanze</h4>
+
+            {deficit.length > 0 && (
+              <div style={{ marginBottom: 'var(--space-lg)' }}>
+                <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--danger)', marginBottom: 8 }}>🔴 Meno del previsto ({deficit.length})</div>
+                {deficit.map((d, i) => (
+                  <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 12px', background: 'rgba(239,68,68,0.05)', borderRadius: 8, marginBottom: 4, border: '1px solid rgba(239,68,68,0.15)' }}>
+                    <span style={{ fontWeight: 600, fontSize: 14 }}>{d.name}</span>
+                    <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
+                      <span style={{ fontSize: 12, color: 'var(--text-tertiary)' }}>Sistema: {d.system}</span>
+                      <span style={{ fontSize: 12, color: 'var(--text-tertiary)' }}>Contato: {d.counted}</span>
+                      <span style={{ fontWeight: 800, color: 'var(--danger)', fontSize: 14 }}>{d.diff}</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {surplus.length > 0 && (
+              <div style={{ marginBottom: 'var(--space-lg)' }}>
+                <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--success)', marginBottom: 8 }}>🟢 Più del previsto ({surplus.length})</div>
+                {surplus.map((d, i) => (
+                  <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 12px', background: 'rgba(34,197,94,0.05)', borderRadius: 8, marginBottom: 4, border: '1px solid rgba(34,197,94,0.15)' }}>
+                    <span style={{ fontWeight: 600, fontSize: 14 }}>{d.name}</span>
+                    <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
+                      <span style={{ fontSize: 12, color: 'var(--text-tertiary)' }}>Sistema: {d.system}</span>
+                      <span style={{ fontSize: 12, color: 'var(--text-tertiary)' }}>Contato: {d.counted}</span>
+                      <span style={{ fontWeight: 800, color: 'var(--success)', fontSize: 14 }}>+{d.diff}</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {surplus.length > 0 && deficit.length > 0 && (
+              <div style={{ padding: '12px 16px', background: 'rgba(99,102,241,0.06)', borderRadius: 8, border: '1px solid rgba(99,102,241,0.2)', marginBottom: 'var(--space-lg)' }}>
+                <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--brand-primary)', marginBottom: 4 }}>💡 Possibile scambio prodotti</div>
+                <div style={{ fontSize: 12, color: 'var(--text-secondary)' }}>Ci sono prodotti in eccesso e in difetto. Verifica se items simili sono stati invertiti nelle vendite di ieri.</div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {discrepancies.length === 0 && (
+          <div style={{ padding: 'var(--space-2xl)', textAlign: 'center' }}>
+            <div style={{ fontSize: 18, fontWeight: 600, color: 'var(--success)' }}>Tutto perfetto! Nessuna discrepanza.</div>
+          </div>
+        )}
+
+        <div style={{ padding: 'var(--space-lg)', textAlign: 'center' }}>
+          <Link href="/employee/dashboard" className="btn btn-primary btn-lg">Torna alla Dashboard</Link>
+        </div>
+        <BottomNav />
       </div>
-      <Link href="/employee/dashboard" className="btn btn-primary">Torna alla Dashboard</Link>
-    </div>
-  )
+    )
+  }
 
   return (
     <div className="page" style={{ paddingBottom: 80 }}>
-      {/* Escalation modal */}
-      {rows.some(r => r.showEscalateModal) && (
-        <div className="modal-overlay">
-          <div className="modal" style={{ textAlign: 'center' }}>
-            <div style={{ fontSize: 40, marginBottom: 'var(--space-md)' }}></div>
-            <h3 style={{ marginBottom: 'var(--space-sm)' }}>Richiedi Assistenza</h3>
-            <p style={{ color: 'var(--text-secondary)', marginBottom: 'var(--space-lg)', fontSize: 14 }}>
-              Hai esaurito i tentativi. Il conteggio non corrisponde al valore di sistema. Contatta il responsabile.
-            </p>
-            <div style={{ display: 'flex', gap: 'var(--space-sm)' }}>
-              <button className="btn btn-secondary" style={{ flex: 1 }} onClick={() => setRows(prev => prev.map(r => ({ ...r, showEscalateModal: false })))}>
-                Annulla
-              </button>
-              <button className="btn btn-primary" style={{ flex: 1 }} onClick={() => setRows(prev => prev.map(r => ({ ...r, showEscalateModal: false })))}>
-                Chiama Responsabile
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* Header */}
       <div style={{ background: 'var(--bg-primary)', borderBottom: '1px solid var(--border-subtle)', padding: 'var(--space-lg)', display: 'flex', alignItems: 'center', gap: 'var(--space-md)' }}>
