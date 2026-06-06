@@ -1,0 +1,211 @@
+-- PART 2: Items data
+INSERT INTO tmp_items VALUES
+(2,'dry sift 5g',1,65),(2,'cartine no logo',1,3),(2,'Actitube filtri pack of 10 pcs',1,3),
+(3,'dry sift 5g',1,65),
+(4,'dry sift 2g',1,30),(4,'Lemon weed 2g',1,25),(4,'Grinder MM',1,5),
+(5,'OG Kush 3G',1,30),(5,'Cartine MM',1,3),(5,'Clipper Accendino',1,3),
+(6,'Lemon hash 2g',1,30),(6,'Cherry Pie 3g',1,30),(6,'Grinder MM',1,5),(6,'dry sift 2g',1,30),(6,'Clipper Accendino',1,3),
+(7,'Lemon hash 2g',1,30),
+(8,'Lemon hash 2g',1,30),(8,'Lemon weed 3g',1,30),(8,'Hemp Cones + Glass Tip',1,5),(8,'Clipper Accendino',1,3),
+(9,'Bubble Hash 5g',1,65),
+(10,'Lemon hash 2g',1,30),(10,'Clipper Accendino',1,3),(10,'Lemon hash 2g',1,30),
+(11,'Clipper Accendino',1,3),
+(12,'dry sift 2g',2,30),
+(13,'Mexican Strong Pre-roll',1,25),(13,'Clipper Accendino',1,3),
+(14,'Gelato 2g',1,25),(14,'Cartine MM',1,3),(14,'Grinder MM',1,5),
+(15,'OG Kush 3G',2,30),
+(16,'Bubble Hash 2g',1,30),(16,'Runtz 2g',1,25),
+(17,'Gelato 3g',1,30),(17,'Lemon weed 3g',1,30),(17,'OG Kush 3G',1,30),
+(18,'Vape Disposable 2ml',1,100),
+(19,'Single Pre Roll',2,15),
+(20,'Trance-E (Happy Caps) DISPLAY',1,20),(20,'Lemon hash 2g',1,30),
+(21,'Spaghetti Cheese 3g',1,30),
+(22,'Bubble Hash 2g',1,30),
+(23,'Box da 3 Pre-roll',1,30),
+(24,'Strong Cannabis Gummies MM',1,40),
+(25,'Mango 5g',1,50),(25,'Grinder MM',1,5),(25,'Cartine MM',1,3),
+(26,'Vape Disposable 2ml',2,100),
+(27,'Cherry Pie 3g',1,30),(27,'Runtz 3g',1,30),(27,'Amnesia 3g',1,30),
+(28,'Bubble Hash 2g',1,30),(28,'Cartine MM',1,3),
+(29,'Lemon hash 2g',1,30),
+(30,'Lemon hash 2g',1,30),
+(31,'Cherry Pie 3g',1,30),(31,'Amnesia 3g',1,30),(31,'Gelato 3g',1,30),
+(32,'Bubble Hash 2g',1,30),
+(33,'Bubble Hash 2g',1,30),(33,'Spaghetti Cheese 2g',1,25),
+(34,'Bubble Hash 2g',1,30),(34,'dry sift 2g',1,30),(34,'Cartine MM',1,3),
+(35,'Mexican Strong Pre-roll',1,25),
+(36,'Box da 3 Pre-roll',1,30),(36,'Grinder MM',1,5),
+(37,'Bubble Hash 10g',1,130),
+(38,'OG Kush 2G',1,25),(38,'Lemon hash 2g',1,30),(38,'Kit Pipe + Grinder',1,15),
+(39,'dry sift 2g',1,30),
+(40,'Lemon hash 2g',1,30),
+(41,'Mango 3g',1,30),
+(42,'dry sift 2g',1,30),
+(43,'Bubble Hash 2g',1,30),(43,'Amnesia 2g',1,25),
+(44,'Box da 3 Pre-roll',2,30),(44,'Accendino MM',1,2),
+(45,'Bubble Hash 2g',1,30),(45,'Cartine MM',1,3),
+(46,'Lemon weed 2g',1,25),(46,'Lemon hash 2g',1,30),(46,'Cartine MM',1,3),
+(47,'Vape Disposable 2ml',1,100),
+(48,'Bob my Box',1,5),
+(49,'Gelato 5g',4,50),
+(50,'Bubble Hash 2g',1,30),(50,'dry sift 2g',1,30),(50,'Cartine MM',1,3),
+(51,'Lemon weed 3g',1,30),(51,'Cartine MM',1,3),
+(52,'Lemon weed 2g',1,25),(52,'Cartine MM',1,3),
+(53,'Mango 2g',1,25),
+(54,'Lemon hash 2g',1,30),
+(55,'Lemon hash 2g',1,30),(55,'Cartine MM',1,3),
+(56,'OG Kush 5G',1,50),(56,'Clipper Accendino',1,3),(56,'Amnesia 3g',1,30),(56,'Lemon weed 3g',1,30),(56,'SuperSkunk 3g',1,30),(56,'Grinder MM',2,5),(56,'Cartine MM',1,3),
+(57,'Mexican Strong Pre-roll',1,25),(57,'Accendino MM',1,2),
+(58,'Mexican Strong Pre-roll',2,25),
+(59,'Strong Cannabis Gummies MM',1,40),
+(60,'Vape Disposable 2ml',1,100),
+(61,'Mexican Strong Pre-roll',2,25),
+(62,'Vape Disposable 2ml',1,100),
+(63,'dry sift 10g',1,130),(63,'Cartine MM',1,3),
+(64,'Bubble Hash 2g',1,30),
+(65,'Box da 3 Pre-roll',1,30),(65,'Mexican Strong Pre-roll',1,25),
+(66,'Strong Cannabis Gummies MM',1,40),
+(67,'Cherry Pie 3g',1,30),(67,'Actitube filtri pack of 10 pcs',1,3),
+(68,'Bubble Hash 2g',1,30),
+(69,'dry sift 5g',1,65),
+(70,'Mexican Strong Pre-roll',1,25),
+(71,'Bubble Hash 2g',1,30),(71,'Runtz 2g',1,25),
+(72,'Bubble Hash 5g',1,65),
+(73,'Bubble Hash 2g',1,30),
+(74,'dry sift 2g',1,30),(74,'Cartine MM',1,3),
+(75,'Spaghetti Cheese 3g',1,30),(75,'Cartine MM',1,3),(75,'Grinder MM',1,5),
+(76,'Clipper Accendino',1,3),
+(77,'dry sift 2g',1,30),(77,'Spaghetti Cheese 2g',1,25),(77,'Mango 2g',1,25),(77,'Gelato 2g',1,25),(77,'Cartine MM',1,3),
+(78,'Mango 2g',1,25),
+(79,'Cartine MM',1,3),(79,'Actitube filtri pack of 10 pcs',2,3),
+(80,'dry sift 10g',1,130),
+(81,'Strong Cannabis Gummies MM',1,40),
+(82,'Bubble Hash 2g',1,30),
+(83,'Euphory-E (Happy Caps) DISPLAY',2,20),(83,'Lemon hash 2g',1,30),(83,'dry sift 2g',1,30),
+(84,'Vape Disposable 2ml',1,100),
+(85,'dry sift 5g',1,65),(85,'Cartine MM',1,3),
+(86,'Bubble Hash 5g',1,65),(86,'Cartine MM',1,3),
+(87,'Mexican Strong Pre-roll',1,25),
+(88,'Mexican Strong Pre-roll',1,25),
+(89,'SuperSkunk 3g',1,30),(89,'Cartine MM',1,3),
+(90,'Runtz 2g',1,25),
+(91,'dry sift 2g',1,30),
+(92,'Vape Disposable 2ml',1,100),
+(93,'Bubble Hash 2g',1,30),
+(94,'Cartine MM',1,3),
+(95,'Strong Cannabis Gummies MM',1,40),(95,'Euphory-E (Happy Caps) DISPLAY',1,20),
+(96,'dry sift 5g',1,65),
+(97,'Runtz 3g',1,30),(97,'Bob my Box',1,5),(97,'Grinder MM',1,5),
+(98,'Mexican Strong Pre-roll',1,25),(98,'Accendino MM',1,2),
+(99,'dry sift 5g',1,65),
+(100,'Mexican Strong Pre-roll',1,25),
+(101,'Bubble Hash 2g',1,30),
+(102,'Bubble Hash 5g',1,65),
+(103,'Vape Disposable 2ml',2,100),
+(104,'Trance-E (Happy Caps) DISPLAY',2,20),
+(105,'Lemon hash 2g',1,30),(105,'Grinder MM',1,5),
+(106,'Bubble Hash 2g',1,30),
+(107,'Lemon weed 3g',1,30),(107,'Bubble Hash 2g',1,30),(107,'cartine no logo',1,3),
+(108,'Grinder Card',1,8),(108,'Mango 5g',1,50),(108,'Sour Diesel 5g',1,50),(108,'Amnesia 5g',1,50),(108,'Bubble Hash 2g',1,30),
+(109,'Hemp Cones + Glass Tip',1,5),
+(110,'Spaghetti Cheese 3g',1,30),
+(111,'Mexican Strong Pre-roll',1,25),
+(112,'Bubble Hash 2g',1,30),(112,'Euphory-E (Happy Caps) DISPLAY',1,20),
+(113,'Cherry Pie 3g',1,30),(113,'Grinder MM',1,5),(113,'cartine no logo',1,3),
+(114,'Amnesia 3g',1,30),(114,'Bob my Box',1,5),
+(115,'Lemon weed 3g',1,30),
+(116,'THC Shots',2,15),
+(117,'dry sift 2g',1,30),
+(118,'Bubble Hash 5g',1,65),
+(119,'Mexican Strong Pre-roll',2,25),
+(120,'Bubble Hash 2g',1,30),
+(121,'Bubble Hash 2g',1,30),
+(122,'Strong Cannabis Gummies MM',1,40),
+(123,'Spaghetti Cheese 2g',1,25),
+(124,'cartine no logo',1,3),(124,'dry sift 2g',1,30),
+(125,'Mexican Strong Pre-roll',3,25),
+(126,'Bubble Hash 2g',1,30),
+(127,'dry sift 5g',1,65),
+(128,'Accendino MM',1,2),(128,'Mexican Strong Pre-roll',1,25),
+(129,'Bubble Hash 2g',1,30),
+(130,'Bubble Hash 2g',1,30),
+(131,'Spaghetti Cheese 3g',1,30),(131,'Mango 3g',1,30),(131,'Grinder MM',1,5),(131,'Grinder Card',1,8),(131,'Clipper Accendino',1,3),(131,'cartine no logo',1,3),
+(132,'Mexican Strong Pre-roll',3,25),
+(133,'Spaghetti Cheese 3g',1,30),
+(134,'Mexican Strong Pre-roll',3,25),
+(135,'Mexican Strong Pre-roll',1,25),
+(136,'dry sift 5g',1,65),(136,'Cartine MM',1,3),(136,'Bubble Hash 5g',1,65),
+(137,'Bubble Hash 10g',1,130),
+(138,'cartine no logo',1,3);
+
+-- STEP 3: Delete existing sales for High Street 6/1-6/5
+DO $$
+DECLARE v_store_id uuid;
+BEGIN
+  SELECT id INTO v_store_id FROM stores WHERE name ILIKE '%high street%' LIMIT 1;
+  DELETE FROM sale_items WHERE sale_id IN (
+    SELECT id FROM sales WHERE store_id = v_store_id AND created_at >= '2026-06-01' AND created_at < '2026-06-05'
+  );
+  DELETE FROM sales WHERE store_id = v_store_id AND created_at >= '2026-06-01' AND created_at < '2026-06-05';
+END $$;
+
+-- STEP 4: Insert all sales and items
+DO $$
+DECLARE
+  v_store_id uuid;
+  v_sale_id uuid;
+  v_user_id uuid;
+  v_prod_id uuid;
+  inv record;
+  itm record;
+BEGIN
+  SELECT id INTO v_store_id FROM stores WHERE name ILIKE '%high street%' LIMIT 1;
+
+  FOR inv IN SELECT * FROM tmp_inv ORDER BY n LOOP
+    -- Map referente to user_id
+    v_user_id := CASE inv.ref
+      WHEN 'Peppe' THEN '7add32b7-4803-41d7-b6a8-6e7df62a617e'::uuid
+      WHEN 'Andrea' THEN '3741ec04-5d49-4e8b-8eea-4ee71eb8e41e'::uuid
+      WHEN 'Lorenzo' THEN 'c79bd98c-980f-4d8e-91e6-0bd246d8dbb8'::uuid
+      WHEN 'Adam' THEN 'd18168bb-c296-47d1-b379-1db28f4a9f3e'::uuid
+      ELSE '3741ec04-5d49-4e8b-8eea-4ee71eb8e41e'::uuid -- default Andrea
+    END;
+
+    -- Insert sale
+    INSERT INTO sales (
+      store_id, user_id, created_by, movement_type, payment_method, 
+      total, subtotal, customer_name, acquisition_channel, 
+      split_cash_amount, created_at
+    ) VALUES (
+      v_store_id, v_user_id, v_user_id, inv.mv::movement_type, inv.pay::payment_method,
+      inv.total, inv.total, inv.cust, inv.ch::acquisition_channel,
+      CASE WHEN inv.n = 8 THEN 20 WHEN inv.n = 22 THEN 20 ELSE NULL END,
+      inv.ts
+    ) RETURNING id INTO v_sale_id;
+
+    -- Insert items for this invoice
+    FOR itm IN SELECT * FROM tmp_items WHERE n = inv.n LOOP
+      SELECT id INTO v_prod_id FROM products 
+      WHERE LOWER(name) = LOWER(itm.pname) AND store_id = v_store_id LIMIT 1;
+      
+      INSERT INTO sale_items (sale_id, product_id, product_name, qty, unit_price, line_total)
+      VALUES (v_sale_id, v_prod_id, itm.pname, itm.qty, itm.price, itm.price * itm.qty);
+    END LOOP;
+  END LOOP;
+
+  RAISE NOTICE 'Done! Inserted % sales', (SELECT count(*) FROM tmp_inv);
+END $$;
+
+-- STEP 5: Verify
+SELECT created_at::date as data, count(*) as vendite, sum(total) as totale,
+  sum(CASE WHEN payment_method='cash' THEN total ELSE 0 END) as cash,
+  sum(CASE WHEN payment_method='pos' THEN total ELSE 0 END) as pos,
+  sum(CASE WHEN movement_type='autoconsumo' THEN total ELSE 0 END) as autoconsumo
+FROM sales 
+WHERE store_id = (SELECT id FROM stores WHERE name ILIKE '%high street%' LIMIT 1)
+  AND created_at >= '2026-06-01' AND created_at < '2026-06-05'
+GROUP BY created_at::date ORDER BY data;
+
+-- Cleanup
+DROP TABLE IF EXISTS tmp_inv;
+DROP TABLE IF EXISTS tmp_items;

@@ -483,31 +483,31 @@ export default function POSContent() {
                   {natSearch && customer.nationality && (() => {
                     const countries = [
                       'Unknown',
-                      'Afghanistan','Albania','Algeria','Andorra','Angola','Arabia Saudita','Argentina','Armenia','Australia',
-                      'Austria','Azerbaigian','Bahamas','Bahrain','Bangladesh','Belgio','Bielorussia','Bolivia','Bosnia ed Erzegovina',
-                      'Botswana','Brasile','Bulgaria','Burkina Faso','Cambogia','Camerun','Canada','Ciad','Cile','Cina','Cipro',
-                      'Colombia','Corea del Sud','Costa Rica',"Costa d'Avorio",'Croazia','Cuba','Danimarca','Ecuador','Egitto',
-                      'El Salvador','Emirati Arabi Uniti','Estonia','Etiopia','Filippine','Finlandia','Francia',
-                      'Georgia','Germania','Ghana','Giamaica','Giappone','Giordania','Grecia',
-                      'Guatemala','Guinea','Haiti','Honduras','India','Indonesia',
-                      'Iran','Iraq','Irlanda','Islanda','Israele','Italia','Kazakistan','Kenya',
-                      'Kuwait','Laos','Lettonia','Libano','Libia','Liechtenstein','Lituania','Lussemburgo',
-                      'Madagascar','Malawi','Malaysia','Maldive','Mali','Malta','Marocco','Mauritius','Messico',
-                      'Moldavia','Monaco','Mongolia','Montenegro','Mozambico','Myanmar','Namibia','Nepal',
-                      'Nicaragua','Niger','Nigeria','Norvegia','Nuova Zelanda','Oman','Paesi Bassi','Pakistan','Panama',
-                      'Paraguay','Perù','Polonia','Portogallo','Qatar','Regno Unito','Rep. Ceca','Rep. Dominicana','Romania',
-                      'Russia','Senegal','Serbia','Singapore','Siria','Slovacchia','Slovenia','Somalia','Spagna','Sri Lanka','Stati Uniti',
-                      'Sudafrica','Sudan','Svezia','Svizzera','Tanzania','Thailandia',
-                      'Togo','Trinidad e Tobago','Tunisia','Turchia','Ucraina','Uganda','Ungheria',
-                      'Uruguay','Uzbekistan','Venezuela','Vietnam','Yemen','Zambia','Zimbabwe'
+                      'Afghanistan', 'Albania', 'Algeria', 'Andorra', 'Angola', 'Arabia Saudita', 'Argentina', 'Armenia', 'Australia',
+                      'Austria', 'Azerbaigian', 'Bahamas', 'Bahrain', 'Bangladesh', 'Belgio', 'Bielorussia', 'Bolivia', 'Bosnia ed Erzegovina',
+                      'Botswana', 'Brasile', 'Bulgaria', 'Burkina Faso', 'Cambogia', 'Camerun', 'Canada', 'Ciad', 'Cile', 'Cina', 'Cipro',
+                      'Colombia', 'Corea del Sud', 'Costa Rica', "Costa d'Avorio", 'Croazia', 'Cuba', 'Danimarca', 'Ecuador', 'Egitto',
+                      'El Salvador', 'Emirati Arabi Uniti', 'Estonia', 'Etiopia', 'Filippine', 'Finlandia', 'Francia',
+                      'Georgia', 'Germania', 'Ghana', 'Giamaica', 'Giappone', 'Giordania', 'Grecia',
+                      'Guatemala', 'Guinea', 'Haiti', 'Honduras', 'India', 'Indonesia',
+                      'Iran', 'Iraq', 'Irlanda', 'Islanda', 'Israele', 'Italia', 'Kazakistan', 'Kenya',
+                      'Kuwait', 'Laos', 'Lettonia', 'Libano', 'Libia', 'Liechtenstein', 'Lituania', 'Lussemburgo',
+                      'Madagascar', 'Malawi', 'Malaysia', 'Maldive', 'Mali', 'Malta', 'Marocco', 'Mauritius', 'Messico',
+                      'Moldavia', 'Monaco', 'Mongolia', 'Montenegro', 'Mozambico', 'Myanmar', 'Namibia', 'Nepal',
+                      'Nicaragua', 'Niger', 'Nigeria', 'Norvegia', 'Nuova Zelanda', 'Oman', 'Paesi Bassi', 'Pakistan', 'Panama',
+                      'Paraguay', 'Perù', 'Polonia', 'Portogallo', 'Qatar', 'Regno Unito', 'Rep. Ceca', 'Rep. Dominicana', 'Romania',
+                      'Russia', 'Senegal', 'Serbia', 'Singapore', 'Siria', 'Slovacchia', 'Slovenia', 'Somalia', 'Spagna', 'Sri Lanka', 'Stati Uniti',
+                      'Sudafrica', 'Sudan', 'Svezia', 'Svizzera', 'Tanzania', 'Thailandia',
+                      'Togo', 'Trinidad e Tobago', 'Tunisia', 'Turchia', 'Ucraina', 'Uganda', 'Ungheria',
+                      'Uruguay', 'Uzbekistan', 'Venezuela', 'Vietnam', 'Yemen', 'Zambia', 'Zimbabwe'
                     ]
                     const filtered = countries.filter(c => c.toLowerCase().startsWith(customer.nationality.toLowerCase()))
                     if (filtered.length === 0 || (filtered.length === 1 && filtered[0] === customer.nationality)) return null
                     return (
-                      <div style={{ position:'absolute', top:'100%', left:0, right:0, zIndex:999, background:'var(--bg-primary)', border:'1px solid var(--border-default)', borderRadius:8, maxHeight:160, overflowY:'auto', boxShadow:'0 4px 12px rgba(0,0,0,0.15)' }}>
+                      <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 999, background: 'var(--bg-primary)', border: '1px solid var(--border-default)', borderRadius: 8, maxHeight: 160, overflowY: 'auto', boxShadow: '0 4px 12px rgba(0,0,0,0.15)' }}>
                         {filtered.slice(0, 8).map(c => (
                           <div key={c} onClick={() => { setCustomer(prev => ({ ...prev, nationality: c })); setNatSearch(false) }}
-                            style={{ padding:'8px 12px', fontSize:13, cursor:'pointer', borderBottom:'1px solid var(--border-subtle)' }}
+                            style={{ padding: '8px 12px', fontSize: 13, cursor: 'pointer', borderBottom: '1px solid var(--border-subtle)' }}
                             onMouseEnter={e => (e.currentTarget.style.background = 'var(--bg-surface)')}
                             onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}>
                             {c}

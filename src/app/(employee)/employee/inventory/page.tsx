@@ -34,6 +34,7 @@ export default function InventoryPage() {
   const [finalized, setFinalized] = useState(false)
   const [saving, setSaving] = useState(false)
   const [savedMsg, setSavedMsg] = useState('')
+  const [searchQuery, setSearchQuery] = useState('')
 
   // Time-lock
   const [locked, setLocked] = useState(false)
@@ -78,7 +79,7 @@ export default function InventoryPage() {
     // If manually opened or time passed, proceed
     setLocked(false)
 
-    const { data: shift } = await supabase.from('shifts').select('id').eq('store_id', profile.store_id).eq('status', 'open').order('created_at',{ascending:false}).limit(1).single()
+    const { data: shift } = await supabase.from('shifts').select('id').eq('store_id', profile.store_id).eq('status', 'open').order('created_at', { ascending: false }).limit(1).single()
     if (!shift) { router.push('/employee/shift/open'); return }
     setShiftId(shift.id)
 
@@ -247,7 +248,17 @@ export default function InventoryPage() {
   }
 
   const categories: (ProductCategory | 'all')[] = ['all', 'flowers', 'hashish', 'oils', 'edibles', 'accessories']
-  const filtered = rows.filter(r => activeCategory === 'all' || r.category === activeCategory)
+  const filtered = rows
+    .filter(r => activeCategory === 'all' || r.category === activeCategory)
+    .filter(r => !searchQuery || r.name.toLowerCase().includes(searchQuery.toLowerCase()))
+    .sort((a, b) => {
+      // Sort: pending first, then by category, then alphabetically
+      const statusOrder = { pending: 0, mismatch: 1, escalated: 2, match: 3 }
+      const sa = statusOrder[a.status] ?? 0
+      const sb = statusOrder[b.status] ?? 0
+      if (sa !== sb) return sa - sb
+      return a.name.localeCompare(b.name)
+    })
   const counted = rows.filter(r => r.counted !== '')
   const matchCount = counted.filter(r => r.status === 'match').length
   const mismatchCount = counted.filter(r => r.status === 'mismatch' || r.status === 'escalated').length
@@ -321,7 +332,7 @@ export default function InventoryPage() {
                 Annulla
               </button>
               <button className="btn btn-primary" style={{ flex: 1 }} onClick={() => setRows(prev => prev.map(r => ({ ...r, showEscalateModal: false })))}>
-                 Chiama Responsabile
+                Chiama Responsabile
               </button>
             </div>
           </div>
@@ -351,6 +362,20 @@ export default function InventoryPage() {
         ))}
       </div>
 
+      {/* Search bar */}
+      <div style={{ padding: 'var(--space-sm) var(--space-lg)', background: 'var(--bg-primary)', borderBottom: '1px solid var(--border-subtle)' }}>
+        <input
+          type="text"
+          placeholder="🔍 Cerca prodotto..."
+          value={searchQuery}
+          onChange={e => setSearchQuery(e.target.value)}
+          style={{
+            width: '100%', padding: '10px 14px', border: '1.5px solid var(--border-default)',
+            borderRadius: 'var(--radius-md)', fontSize: 14, background: 'var(--bg-surface)',
+          }}
+        />
+      </div>
+
       {/* Stats bar */}
       <div style={{ padding: 'var(--space-md) var(--space-lg)', background: 'var(--bg-surface-alt)', borderBottom: '1px solid var(--border-subtle)', display: 'flex', gap: 'var(--space-lg)' }}>
         <span style={{ fontSize: 13 }}>Contati: <strong>{counted.length}</strong></span>
@@ -375,12 +400,12 @@ export default function InventoryPage() {
                 <td style={{ fontWeight: 600 }}>{row.name}</td>
                 <td>
                   {row.escalated ? (
-                    <div style={{ display:'flex', alignItems:'center', gap:6 }}>
-                      <span style={{ fontWeight:700, fontSize:14 }}>{row.counted}</span>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                      <span style={{ fontWeight: 700, fontSize: 14 }}>{row.counted}</span>
                       <button
                         onClick={() => setRows(prev => prev.map(r => r.id === row.id ? { ...r, showEscalateModal: true } : r))}
                         title="Richiedi assistenza"
-                        style={{ background:'none', border:'none', fontSize:20, cursor:'pointer', padding:0 }}
+                        style={{ background: 'none', border: 'none', fontSize: 20, cursor: 'pointer', padding: 0 }}
                       >🆘</button>
                     </div>
                   ) : (
@@ -399,7 +424,7 @@ export default function InventoryPage() {
                       }}
                     />
                   )}
-                  {row.status === 'mismatch' && <div style={{ fontSize:10, color:'var(--warning)', marginTop:2 }}>Tentativo {row.attempts}/2</div>}
+                  {row.status === 'mismatch' && <div style={{ fontSize: 10, color: 'var(--warning)', marginTop: 2 }}>Tentativo {row.attempts}/2</div>}
                 </td>
                 <td>
                   {row.status === 'pending' && <span className="badge badge-gray">In attesa</span>}

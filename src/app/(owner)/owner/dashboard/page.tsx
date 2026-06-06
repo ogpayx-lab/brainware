@@ -49,9 +49,28 @@ export default function OwnerDashboard() {
   // Daily target
   const [dailyTarget, setDailyTarget] = useState(500)
 
+  // Drill-down modal
+  const [drillFilter, setDrillFilter] = useState<'cash' | 'pos' | 'split' | 'autoconsumo' | 'shopify' | null>(null)
+  const [allSalesList, setAllSalesList] = useState<any[]>([])
+  const [saleItemsMap, setSaleItemsMap] = useState<Record<string, any[]>>({})
+
   // Live clock
   const [now, setNow] = useState(new Date())
   useEffect(() => { const t = setInterval(() => setNow(new Date()), 1000); return () => clearInterval(t) }, [])
+
+  // Day navigation
+  function shiftDay(delta: number) {
+    const d = new Date(dateFrom + 'T12:00:00')
+    d.setDate(d.getDate() + delta)
+    const ds = d.toISOString().split('T')[0]
+    setDateFrom(ds)
+    setDateTo(ds)
+  }
+  function goToday() {
+    const ds = new Date().toISOString().split('T')[0]
+    setDateFrom(ds)
+    setDateTo(ds)
+  }
 
   useEffect(() => {
     loadData()
@@ -107,25 +126,36 @@ export default function OwnerDashboard() {
     if (!isAll) salesQuery = salesQuery.eq('store_id', storeIds[0])
     else salesQuery = salesQuery.in('store_id', storeIds)
     const { data: allSalesData } = await salesQuery
+    setAllSalesList(allSalesData ?? [])
 
-    // Sale items for top products
+    // Sale items for top products AND drill-down
     const saleIds = (allSalesData ?? []).map((s: any) => s.id)
     let topProducts: any[] = []
+    const itemsMap: Record<string, any[]> = {}
     if (saleIds.length > 0) {
-      const { data: saleItems } = await supabase.from('sale_items').select('product_name, qty, line_total').in('sale_id', saleIds.slice(0, 200))
-      if (saleItems) {
-        const prodMap: Record<string, { qty: number; revenue: number; count: number }> = {}
-        saleItems.forEach((item: any) => {
-          if (!prodMap[item.product_name]) prodMap[item.product_name] = { qty: 0, revenue: 0, count: 0 }
-          prodMap[item.product_name].qty += Number(item.qty)
-          prodMap[item.product_name].revenue += Number(item.line_total)
-          prodMap[item.product_name].count++
-        })
-        topProducts = Object.entries(prodMap)
-          .map(([name, stats]) => ({ name, ...stats }))
-          .sort((a, b) => b.revenue - a.revenue)
-          .slice(0, 5)
+      // Load all sale items (batch in chunks of 200)
+      let allItems: any[] = []
+      for (let i = 0; i < saleIds.length; i += 200) {
+        const chunk = saleIds.slice(i, i + 200)
+        const { data: chunkItems } = await supabase.from('sale_items').select('sale_id, product_name, qty, unit_price, line_total').in('sale_id', chunk)
+        if (chunkItems) allItems = [...allItems, ...chunkItems]
       }
+      allItems.forEach((item: any) => {
+        if (!itemsMap[item.sale_id]) itemsMap[item.sale_id] = []
+        itemsMap[item.sale_id].push(item)
+      })
+      setSaleItemsMap(itemsMap)
+      const prodMap: Record<string, { qty: number; revenue: number; count: number }> = {}
+      allItems.forEach((item: any) => {
+        if (!prodMap[item.product_name]) prodMap[item.product_name] = { qty: 0, revenue: 0, count: 0 }
+        prodMap[item.product_name].qty += Number(item.qty)
+        prodMap[item.product_name].revenue += Number(item.line_total)
+        prodMap[item.product_name].count++
+      })
+      topProducts = Object.entries(prodMap)
+        .map(([name, stats]) => ({ name, ...stats }))
+        .sort((a, b) => b.revenue - a.revenue)
+        .slice(0, 5)
     }
 
     // Expenses
@@ -238,6 +268,16 @@ export default function OwnerDashboard() {
     const shopifyRevenue = shopifySales.reduce((sum: number, x: any) => sum + Math.abs(Number(x.total)), 0)
     const shopifyCount = shopifySales.length
 
+    // Autoconsumo
+    const autoconsumoSales = allSales.filter((s: any) => s.movement_type === 'autoconsumo')
+    const autoconsumoTotal = autoconsumoSales.reduce((sum: number, x: any) => sum + Math.abs(Number(x.total)), 0)
+    const autoconsumoCount = autoconsumoSales.length
+
+    // Split payments
+    const splitSales = realSales.filter((s: any) => s.payment_method === 'split')
+    const splitTotal = splitSales.reduce((sum: number, x: any) => sum + Number(x.total), 0)
+    const splitCount = splitSales.length
+
     // Nationality breakdown
     const nationalityMap: Record<string, number> = {}
     realSales.forEach((s: any) => {
@@ -311,6 +351,7 @@ export default function OwnerDashboard() {
       workers, storeBreakdown, topProducts, lowStockProducts,
       revenueChange, txnChange, prevRevenue, prevTxn,
       trend7, nationalities, totalFidelity, newFidelityToday,
+      autoconsumoTotal, autoconsumoCount, splitTotal, splitCount,
     })
     setLoading(false)
   }
@@ -490,6 +531,8 @@ export default function OwnerDashboard() {
           </p>
         </div>
         <div style={{ display:'flex', alignItems:'center', gap:8 }}>
+          {/* Day navigation */}
+          <button onClick={() => shiftDay(-1)} className="btn btn-ghost" style={{ fontSize:18, padding:'4px 10px', lineHeight:1 }} title="Giorno precedente">◀</button>
           {/* Export buttons */}
           <button onClick={exportPDF} className="btn btn-ghost" style={{ fontSize:12, padding:'5px 10px', display:'flex', alignItems:'center', gap:4 }}>📄 PDF</button>
           <button onClick={exportExcel} className="btn btn-ghost" style={{ fontSize:12, padding:'5px 10px', display:'flex', alignItems:'center', gap:4 }}>📊 Excel</button>
@@ -503,6 +546,10 @@ export default function OwnerDashboard() {
             <input type="date" className="input" value={dateTo} onChange={e => setDateTo(e.target.value)}
               style={{ fontSize:13, fontWeight:600, padding:'5px 8px' }} />
           </div>
+          <button onClick={() => shiftDay(1)} className="btn btn-ghost" style={{ fontSize:18, padding:'4px 10px', lineHeight:1 }} title="Giorno successivo">▶</button>
+          {!isTodayRange && (
+            <button onClick={goToday} className="btn btn-ghost" style={{ fontSize:12, padding:'5px 10px', fontWeight:700, color:'var(--brand-primary)' }}>Oggi</button>
+          )}
           {isTodayRange && (
             <div style={{ textAlign:'right', marginLeft:8 }}>
               <div style={{ fontFamily:'var(--font-heading)', fontSize:22, fontWeight:700, color:'var(--text-primary)', letterSpacing:'-0.02em' }}>
@@ -609,13 +656,15 @@ export default function OwnerDashboard() {
             {data.revenueChange >= 0 ? '▲' : '▼'} {Math.abs(data.revenueChange).toFixed(1)}% {t('vsPrevPeriod')}
           </div>
         </div>
-        <div className="kpi-card">
-          <div className="kpi-label">{t('dash.cash')}</div>
+        <div className="kpi-card" onClick={() => setDrillFilter('cash')} style={{ cursor:'pointer', transition:'transform 0.15s' }} onMouseEnter={e => (e.currentTarget.style.transform='scale(1.03)')} onMouseLeave={e => (e.currentTarget.style.transform='scale(1)')}>
+          <div className="kpi-label">💵 {t('dash.cash')}</div>
           <div className="kpi-value">{fmt(data.totalCash)}</div>
+          <div style={{ fontSize:10, color:'var(--text-tertiary)', marginTop:2 }}>Click per dettaglio →</div>
         </div>
-        <div className="kpi-card">
-          <div className="kpi-label">{t('dash.pos')}</div>
+        <div className="kpi-card" onClick={() => setDrillFilter('pos')} style={{ cursor:'pointer', transition:'transform 0.15s' }} onMouseEnter={e => (e.currentTarget.style.transform='scale(1.03)')} onMouseLeave={e => (e.currentTarget.style.transform='scale(1)')}>
+          <div className="kpi-label">💳 {t('dash.pos')}</div>
           <div className="kpi-value" style={{ color:'#7C3AED' }}>{fmt(data.totalPos)}</div>
+          <div style={{ fontSize:10, color:'var(--text-tertiary)', marginTop:2 }}>Click per dettaglio →</div>
         </div>
         <div className="kpi-card">
           <div className="kpi-label">{t('dash.deposit')}</div>
@@ -653,15 +702,15 @@ export default function OwnerDashboard() {
           <div className="kpi-value">{fmt(data.totalDiscounts)}</div>
           <div style={{ fontSize:11, color:'var(--text-tertiary)', marginTop:2 }}>{data.discountPct.toFixed(1)}% {t('dash.onTotal')}</div>
         </div>
-        <div className="kpi-card">
-          <div className="kpi-label">{t('dash.shopifyOnline')}</div>
+        <div className="kpi-card" onClick={() => setDrillFilter('shopify')} style={{ cursor:'pointer', transition:'transform 0.15s' }} onMouseEnter={e => (e.currentTarget.style.transform='scale(1.03)')} onMouseLeave={e => (e.currentTarget.style.transform='scale(1)')}>
+          <div className="kpi-label">🛍️ Shopify Online</div>
           <div className="kpi-value" style={{ color:'#7C3AED' }}>{fmt(data.shopifyRevenue)}</div>
-          <div style={{ fontSize:11, color:'var(--text-tertiary)', marginTop:2 }}>{data.shopifyCount} {t('orders')}</div>
+          <div style={{ fontSize:11, color:'var(--text-tertiary)', marginTop:2 }}>{data.shopifyCount} {t('orders')} · Click →</div>
         </div>
-        <div className="kpi-card">
-          <div className="kpi-label">{t('dash.fidelityCards')}</div>
-          <div className="kpi-value">{data.totalFidelity}</div>
-          <div style={{ fontSize:11, color:'var(--success)', fontWeight:600, marginTop:2 }}>+{data.newFidelityToday} {t('new_')}</div>
+        <div className="kpi-card" onClick={() => setDrillFilter('autoconsumo')} style={{ cursor:'pointer', transition:'transform 0.15s', background: data.autoconsumoCount > 0 ? 'rgba(156,163,175,0.06)' : undefined }} onMouseEnter={e => (e.currentTarget.style.transform='scale(1.03)')} onMouseLeave={e => (e.currentTarget.style.transform='scale(1)')}>
+          <div className="kpi-label">🏠 Autoconsumo</div>
+          <div className="kpi-value" style={{ color:'#6B7280' }}>{fmt(data.autoconsumoTotal)}</div>
+          <div style={{ fontSize:11, color:'var(--text-tertiary)', marginTop:2 }}>{data.autoconsumoCount} movimenti · Click →</div>
         </div>
         <Link href="/owner/products" style={{ textDecoration:'none' }}>
           <div className="kpi-card" style={{ border: data.lowStockProducts.length > 0 ? '1px solid var(--danger)' : undefined, background: data.lowStockProducts.length > 0 ? 'rgba(239,68,68,0.04)' : undefined, cursor:'pointer' }}>
@@ -939,6 +988,69 @@ export default function OwnerDashboard() {
           </div>
         </div>
       )}
+      {/* ═══════ DRILL-DOWN MODAL ═══════ */}
+      {drillFilter && (() => {
+        const LABELS: Record<string, string> = { cash: '💵 Transazioni Cash', pos: '💳 Transazioni POS', split: '🔀 Split Payments', autoconsumo: '🏠 Autoconsumi', shopify: '🛍️ Ordini Online' }
+        const filtered = allSalesList.filter((s: any) => {
+          if (drillFilter === 'autoconsumo') return s.movement_type === 'autoconsumo'
+          if (drillFilter === 'shopify') return s.acquisition_channel === 'shopify'
+          return s.payment_method === drillFilter && s.movement_type === 'sale'
+        }).sort((a: any, b: any) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime())
+        const drillTotal = filtered.reduce((s: number, x: any) => s + Math.abs(Number(x.total)), 0)
+        return (
+          <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.5)', zIndex:1000, display:'flex', alignItems:'center', justifyContent:'center', padding:20 }}
+            onClick={() => setDrillFilter(null)}>
+            <div style={{ background:'var(--bg-surface)', borderRadius:16, width:'100%', maxWidth:800, maxHeight:'80vh', overflow:'hidden', display:'flex', flexDirection:'column' }}
+              onClick={e => e.stopPropagation()}>
+              <div style={{ padding:'20px 24px', borderBottom:'1px solid var(--border-subtle)', display:'flex', justifyContent:'space-between', alignItems:'center' }}>
+                <div>
+                  <h3 style={{ margin:0, fontSize:18 }}>{LABELS[drillFilter]}</h3>
+                  <div style={{ fontSize:13, color:'var(--text-tertiary)', marginTop:4 }}>
+                    {filtered.length} transazioni · Totale: <strong style={{ color:'var(--brand-primary)' }}>{fmt(drillTotal)}</strong>
+                  </div>
+                </div>
+                <button onClick={() => setDrillFilter(null)} style={{ background:'none', border:'none', fontSize:24, cursor:'pointer', color:'var(--text-secondary)', padding:'4px 8px' }}>✕</button>
+              </div>
+              <div style={{ overflowY:'auto', flex:1 }}>
+                <table style={{ width:'100%' }}>
+                  <thead><tr style={{ position:'sticky', top:0, background:'var(--bg-surface)', zIndex:1 }}>
+                    <th style={{ padding:'10px 16px', textAlign:'left', fontSize:12, fontWeight:700, color:'var(--text-tertiary)' }}>Ora</th>
+                    <th style={{ padding:'10px 16px', textAlign:'left', fontSize:12, fontWeight:700, color:'var(--text-tertiary)' }}>Cliente</th>
+                    <th style={{ padding:'10px 16px', textAlign:'left', fontSize:12, fontWeight:700, color:'var(--text-tertiary)' }}>Prodotti</th>
+                    <th style={{ padding:'10px 16px', textAlign:'right', fontSize:12, fontWeight:700, color:'var(--text-tertiary)' }}>Totale</th>
+                  </tr></thead>
+                  <tbody>
+                    {filtered.map((sale: any, i: number) => {
+                      const items = saleItemsMap[sale.id] || []
+                      return (
+                        <tr key={sale.id} style={{ borderBottom:'1px solid var(--border-subtle)', background: i % 2 === 0 ? 'transparent' : 'var(--bg-surface-alt)' }}>
+                          <td style={{ padding:'10px 16px', fontSize:13, fontWeight:600, whiteSpace:'nowrap' }}>
+                            {new Date(sale.created_at).toLocaleTimeString('it-IT', { hour:'2-digit', minute:'2-digit' })}
+                          </td>
+                          <td style={{ padding:'10px 16px', fontSize:13 }}>
+                            {sale.customer_name || '—'}
+                          </td>
+                          <td style={{ padding:'10px 16px', fontSize:12, color:'var(--text-secondary)', maxWidth:300 }}>
+                            {items.length > 0
+                              ? items.map((it: any) => `${it.product_name}${it.qty > 1 ? ` ×${it.qty}` : ''}`).join(', ')
+                              : '—'}
+                          </td>
+                          <td style={{ padding:'10px 16px', fontSize:14, fontWeight:700, textAlign:'right', color:'var(--brand-primary)' }}>
+                            {fmt(Math.abs(Number(sale.total)))}
+                          </td>
+                        </tr>
+                      )
+                    })}
+                    {filtered.length === 0 && (
+                      <tr><td colSpan={4} style={{ padding:40, textAlign:'center', color:'var(--text-tertiary)', fontSize:14 }}>Nessuna transazione trovata</td></tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        )
+      })()}
     </div>
   )
 }
