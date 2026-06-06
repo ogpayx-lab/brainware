@@ -69,15 +69,19 @@ export default function EmployeeDashboard() {
         const { data: todaySales } = await supabase.from('sales').select('id, total, payment_method, customer_name, created_at, invoice_number').eq('store_id', profile.store_id).gte('created_at', todayStr).eq('movement_type', 'sale')
         const allToday = todaySales ?? []
         setTodaySalesData(allToday)
+        const storeTodaySales = allToday.filter(s => s.payment_method === 'cash' || s.payment_method === 'pos' || s.payment_method === 'split')
         const totalSales = allToday.reduce((s, r) => s + (parseFloat(r.total) || 0), 0)
-        const customers = allToday.length
-        const avgPerCustomer = customers > 0 ? totalSales / customers : 0
+        const storeTotal = storeTodaySales.reduce((s, r) => s + (parseFloat(r.total) || 0), 0)
+        const customers = storeTodaySales.length
+        const avgPerCustomer = customers > 0 ? storeTotal / customers : 0
 
         const { data: todayDeposits } = await supabase.from('shifts').select('id, deposit_actual, created_at, period').eq('store_id', profile.store_id).gte('created_at', todayStr).eq('status', 'closed')
         setTodayDepositsData(todayDeposits ?? [])
         const deposits = (todayDeposits ?? []).reduce((s, r) => s + (parseFloat(r.deposit_actual) || 0), 0)
 
-        setTodayStats({ totalSales, customers, avgPerCustomer, deposits, onlineSales: 0 })
+        const onlineTodaySales = allToday.filter(s => s.payment_method !== 'cash' && s.payment_method !== 'pos' && s.payment_method !== 'split').reduce((s, r) => s + (parseFloat(r.total) || 0), 0)
+
+        setTodayStats({ totalSales, customers, avgPerCustomer, deposits, onlineSales: onlineTodaySales })
       } catch {}
     }
 
@@ -209,6 +213,9 @@ export default function EmployeeDashboard() {
               <div style={{ fontSize:11, color:'var(--text-secondary)', fontWeight:600, marginBottom:6 }}>{t('empApp.salesToday')}</div>
               <div style={{ fontSize:22, fontWeight:700, color:'var(--brand-primary)' }}>{fmt(todayStats.totalSales)}</div>
               <div style={{ fontSize:11, color:'var(--text-tertiary)', marginTop:4 }}>{todayStats.customers} {t('empApp.clients')}</div>
+              {todayStats.onlineSales > 0 && (
+                <div style={{ fontSize:11, color:'var(--text-secondary)', marginTop:4, fontWeight:600 }}>🏪 Store: {fmt(todayStats.totalSales - todayStats.onlineSales)}</div>
+              )}
             </div>
             <div style={{ background:'var(--bg-surface)', borderRadius:12, padding:'12px' }}>
               <div style={{ fontSize:11, color:'var(--text-secondary)', fontWeight:600, marginBottom:6 }}>{t('empApp.avgPerCustomer')}</div>

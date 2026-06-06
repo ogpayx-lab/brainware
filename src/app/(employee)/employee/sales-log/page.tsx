@@ -13,11 +13,11 @@ export default function EmployeeSalesLog() {
   const t = useT()
   const [sales, setSales] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
-  const [filter, setFilter] = useState<'all' | 'cash' | 'pos'>('all')
+  const [filter, setFilter] = useState<'all' | 'cash' | 'pos' | 'other'>('all')
   const [shiftId, setShiftId] = useState<string | null>(null)
   const [storeId, setStoreId] = useState<string | null>(null)
   const [userId, setUserId] = useState<string | null>(null)
-  const [summary, setSummary] = useState({ total: 0, cash: 0, pos: 0, count: 0, discounts: 0 })
+  const [summary, setSummary] = useState({ total: 0, cash: 0, pos: 0, other: 0, count: 0, discounts: 0 })
 
   useEffect(() => { loadSales() }, [])
 
@@ -55,11 +55,13 @@ export default function EmployeeSalesLog() {
 
     const totalCash = allSales.filter(s => s.payment_method === 'cash').reduce((sum, s) => sum + Number(s.total), 0)
     const totalPos = allSales.filter(s => s.payment_method === 'pos').reduce((sum, s) => sum + Number(s.total), 0)
+    const totalOther = allSales.filter(s => s.payment_method !== 'cash' && s.payment_method !== 'pos').reduce((sum, s) => sum + Number(s.total), 0)
     const totalDiscounts = allSales.reduce((sum, s) => sum + Number(s.discount_amount || 0), 0)
     setSummary({
-      total: totalCash + totalPos,
+      total: totalCash + totalPos + totalOther,
       cash: totalCash,
       pos: totalPos,
+      other: totalOther,
       count: allSales.length,
       discounts: totalDiscounts,
     })
@@ -67,7 +69,7 @@ export default function EmployeeSalesLog() {
     setLoading(false)
   }
 
-  const filtered = filter === 'all' ? sales : sales.filter(s => s.payment_method === filter)
+  const filtered = filter === 'all' ? sales : filter === 'other' ? sales.filter(s => s.payment_method !== 'cash' && s.payment_method !== 'pos') : sales.filter(s => s.payment_method === filter)
 
   if (loading) return (
     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100vh' }}>
@@ -105,6 +107,18 @@ export default function EmployeeSalesLog() {
             <div style={{ fontSize: 20, fontWeight: 700, color: '#7C3AED' }}>{fmt(summary.pos)}</div>
           </div>
         </div>
+        {summary.other > 0 && (
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+            <div style={{ background: 'var(--bg-primary)', borderRadius: 12, padding: '12px 14px', border: '1px solid var(--border-subtle)' }}>
+              <div style={{ fontSize: 11, color: 'var(--text-tertiary)', fontWeight: 600, marginBottom: 4 }}>🏪 Totale Store</div>
+              <div style={{ fontSize: 20, fontWeight: 700 }}>{fmt(summary.cash + summary.pos)}</div>
+            </div>
+            <div style={{ background: 'var(--bg-primary)', borderRadius: 12, padding: '12px 14px', border: '1px solid var(--border-subtle)' }}>
+              <div style={{ fontSize: 11, color: 'var(--text-tertiary)', fontWeight: 600, marginBottom: 4 }}>🌐 Online</div>
+              <div style={{ fontSize: 20, fontWeight: 700, color: '#06B6D4' }}>{fmt(summary.other)}</div>
+            </div>
+          </div>
+        )}
 
         {summary.discounts > 0 && (
           <div style={{ background: '#FFFBEB', border: '1px solid #FCD34D', borderRadius: 10, padding: '8px 12px', fontSize: 12, color: '#92400E', display: 'flex', justifyContent: 'space-between' }}>
@@ -116,10 +130,11 @@ export default function EmployeeSalesLog() {
         {/* Filter Tabs */}
         <div style={{ display: 'flex', gap: 6 }}>
           {([
-            { key: 'all', label: 'Tutte', count: sales.length },
-            { key: 'cash', label: '💵 Cash', count: sales.filter(s => s.payment_method === 'cash').length },
-            { key: 'pos', label: '💳 POS', count: sales.filter(s => s.payment_method === 'pos').length },
-          ] as const).map(tab => (
+            { key: 'all' as const, label: 'Tutte', count: sales.length },
+            { key: 'cash' as const, label: '💵 Cash', count: sales.filter(s => s.payment_method === 'cash').length },
+            { key: 'pos' as const, label: '💳 POS', count: sales.filter(s => s.payment_method === 'pos').length },
+            { key: 'other' as const, label: '🌐 Online', count: sales.filter(s => s.payment_method !== 'cash' && s.payment_method !== 'pos').length },
+          ]).map(tab => (
             <button
               key={tab.key}
               onClick={() => setFilter(tab.key)}
