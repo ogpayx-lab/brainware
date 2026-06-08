@@ -53,23 +53,43 @@ export default function EmployeeSalesLog() {
     const allSales = salesData ?? []
     setSales(allSales)
 
-    const totalCash = allSales.filter(s => s.payment_method === 'cash').reduce((sum, s) => sum + Number(s.total), 0)
-    const totalPos = allSales.filter(s => s.payment_method === 'pos').reduce((sum, s) => sum + Number(s.total), 0)
-    const totalOther = allSales.filter(s => s.payment_method !== 'cash' && s.payment_method !== 'pos').reduce((sum, s) => sum + Number(s.total), 0)
+    // Separate store sales from autoconsumo
+    const storeSales = allSales.filter(s => (s.movement_type || 'sale') === 'sale')
+    const autoconsumoSales = allSales.filter(s => s.movement_type === 'autoconsumo')
+
+    // Cash: pure cash + cash part of split
+    const totalCash = storeSales.reduce((sum, s) => {
+      if (s.payment_method === 'cash') return sum + Number(s.total)
+      if (s.payment_method === 'split') return sum + Number(s.split_cash_amount || 0)
+      return sum
+    }, 0)
+    // POS: pure pos + pos part of split
+    const totalPos = storeSales.reduce((sum, s) => {
+      if (s.payment_method === 'pos') return sum + Number(s.total)
+      if (s.payment_method === 'split') return sum + (Number(s.total) - Number(s.split_cash_amount || 0))
+      return sum
+    }, 0)
+    // Online/Other: payment_method !== cash/pos/split
+    const totalOnline = storeSales.filter(s => s.payment_method !== 'cash' && s.payment_method !== 'pos' && s.payment_method !== 'split').reduce((sum, s) => sum + Number(s.total), 0)
+    const totalAutoconsumo = autoconsumoSales.reduce((sum, s) => sum + Number(s.total), 0)
     const totalDiscounts = allSales.reduce((sum, s) => sum + Number(s.discount_amount || 0), 0)
     setSummary({
-      total: totalCash + totalPos + totalOther,
+      total: totalCash + totalPos + totalOnline,
       cash: totalCash,
       pos: totalPos,
-      other: totalOther,
-      count: allSales.length,
+      other: totalOnline,
+      autoconsumo: totalAutoconsumo,
+      count: storeSales.length,
       discounts: totalDiscounts,
     })
 
     setLoading(false)
   }
 
-  const filtered = filter === 'all' ? sales : filter === 'other' ? sales.filter(s => s.payment_method !== 'cash' && s.payment_method !== 'pos') : sales.filter(s => s.payment_method === filter)
+  const filtered = filter === 'all' ? sales.filter(s => (s.movement_type || 'sale') === 'sale')
+    : filter === 'other' ? sales.filter(s => s.payment_method !== 'cash' && s.payment_method !== 'pos' && s.payment_method !== 'split' && (s.movement_type || 'sale') === 'sale')
+    : filter === 'autoconsumo' ? sales.filter(s => s.movement_type === 'autoconsumo')
+    : sales.filter(s => (s.payment_method === filter || (filter === 'cash' && s.payment_method === 'split') || (filter === 'pos' && s.payment_method === 'split')) && (s.movement_type || 'sale') === 'sale')
 
   if (loading) return (
     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100vh' }}>

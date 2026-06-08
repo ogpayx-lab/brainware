@@ -441,7 +441,7 @@ export default function SystemLogPage() {
     } else if (tab.computed) {
       // ─── COMPUTED TABS ───
       if (tab.key === 'sold_items_daily') {
-        const { data: salesInRange } = await supabase.from('sales').select('id, created_at').in('store_id', storeIds).gte('created_at', fromDate).lte('created_at', toDate)
+        const { data: salesInRange } = await supabase.from('sales').select('id, created_at').in('store_id', storeIds).gte('created_at', fromDate).lte('created_at', toDate).eq('movement_type', 'sale')
         const saleIds = (salesInRange ?? []).map(s => s.id)
         const saleDateMap = new Map((salesInRange ?? []).map(s => [s.id, new Date(s.created_at).toLocaleDateString('it-IT')]))
         if (saleIds.length > 0) {
@@ -525,9 +525,12 @@ export default function SystemLogPage() {
           amount: (v.fce + v.cash - v.expenses - v.fcu).toFixed(2),
         }))
       } else if (tab.key === 'avg_sales') {
-        const { data: sales } = await supabase.from('sales').select('created_at, total, customer_name').in('store_id', storeIds).gte('created_at', fromDate).lte('created_at', toDate).eq('movement_type', 'sale')
+        const { data: sales } = await supabase.from('sales').select('created_at, total, customer_name, payment_method').in('store_id', storeIds).gte('created_at', fromDate).lte('created_at', toDate).eq('movement_type', 'sale')
         const daily: Record<string, { total: number; customers: Set<string> }> = {}
         for (const s of sales ?? []) {
+          // Exclude online/other sales — only store customers (cash, pos, split)
+          const pm = (s.payment_method || '').toLowerCase()
+          if (pm !== 'cash' && pm !== 'pos' && pm !== 'split') continue
           const d = new Date(s.created_at).toLocaleDateString('it-IT')
           if (!daily[d]) daily[d] = { total: 0, customers: new Set() }
           daily[d].total += s.total || 0
