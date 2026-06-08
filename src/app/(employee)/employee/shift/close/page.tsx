@@ -57,9 +57,21 @@ export default function ShiftClosePage() {
 
     // Calcola totali
     const allSales = salesData ?? []
-    const totalSales = allSales.reduce((s: number, r: any) => s + (parseFloat(r.total) || 0), 0)
-    const totalCash = allSales.filter((r: any) => r.payment_method === 'cash').reduce((s: number, r: any) => s + (parseFloat(r.total) || 0), 0)
-    const totalPos = totalSales - totalCash
+    // Separate store sales from autoconsumo
+    const storeSales = allSales.filter((r: any) => (r.movement_type || 'sale') === 'sale' || r.movement_type === 'return')
+    const totalStoreSales = storeSales.reduce((s: number, r: any) => s + (parseFloat(r.total) || 0), 0)
+    // Cash: pure cash + cash part of split (store sales only)
+    const totalCash = storeSales.reduce((s: number, r: any) => {
+      if (r.payment_method === 'cash') return s + (parseFloat(r.total) || 0)
+      if (r.payment_method === 'split') return s + (parseFloat(r.split_cash_amount) || 0)
+      return s
+    }, 0)
+    // POS: pure pos + pos part of split (store sales only)
+    const totalPos = storeSales.reduce((s: number, r: any) => {
+      if (r.payment_method === 'pos') return s + (parseFloat(r.total) || 0)
+      if (r.payment_method === 'split') return s + ((parseFloat(r.total) || 0) - (parseFloat(r.split_cash_amount) || 0))
+      return s
+    }, 0)
     const totalExpenses = (expData ?? []).reduce((s: number, r: any) => s + (parseFloat(r.amount) || 0), 0)
     const totalResi = allSales.filter((r: any) => r.movement_type === 'return').reduce((s: number, r: any) => s + (parseFloat(r.total) || 0), 0)
     const totalResiCount = allSales.filter((r: any) => r.movement_type === 'return').length
@@ -71,11 +83,11 @@ export default function ShiftClosePage() {
       status: 'open',
       fce: openShift.fce ?? 0,
       period: openShift.period,
-      total_sales: totalSales,
+      total_sales: totalStoreSales,
       total_cash: totalCash,
       total_pos: totalPos,
       total_expenses: totalExpenses,
-      total_transactions: allSales.length,
+      total_transactions: storeSales.length,
       total_resi: totalResi,
       total_resi_count: totalResiCount,
       total_rotti: 0,
