@@ -325,7 +325,7 @@ export default function SystemLogPage() {
   const [showSaleModal, setShowSaleModal] = useState(false)
   const [saleProducts, setSaleProducts] = useState<any[]>([])
   const [saleCart, setSaleCart] = useState<{ productId: string; name: string; price: number; qty: number }[]>([])
-  const [saleForm, setSaleForm] = useState({ payment_method: 'cash', customer_name: '', customer_nationality: '', acquisition_channel: 'walk-in', movement_type: 'sale', discount: 0, discount_reason: '' })
+  const [saleForm, setSaleForm] = useState({ payment_method: 'cash', customer_name: '', customer_nationality: '', acquisition_channel: 'walk-in', movement_type: 'sale', discount: 0, discount_reason: '', created_at: new Date().toISOString().slice(0, 16) })
   const [saleSearchQ, setSaleSearchQ] = useState('')
   const [saleSaving, setSaleSaving] = useState(false)
   const editRef = useRef<HTMLInputElement>(null)
@@ -717,7 +717,7 @@ export default function SystemLogPage() {
         const { data: prods } = await supabase.from('products').select('id, name, price, category, stock').eq('store_id', stId).eq('is_active', true).order('name')
         setSaleProducts(prods ?? [])
         setSaleCart([])
-        setSaleForm({ payment_method: 'cash', customer_name: '', customer_nationality: '', acquisition_channel: 'walk-in', movement_type: 'sale', discount: 0, discount_reason: '' })
+        setSaleForm({ payment_method: 'cash', customer_name: '', customer_nationality: '', acquisition_channel: 'walk-in', movement_type: 'sale', discount: 0, discount_reason: '', created_at: new Date().toISOString().slice(0, 16) })
         setSaleSearchQ('')
         setShowSaleModal(true)
         setSaving(false)
@@ -994,6 +994,11 @@ export default function SystemLogPage() {
 
             {/* Sale details */}
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 16 }}>
+              <div style={{ gridColumn: '1 / -1' }}>
+                <label style={{ fontSize: 11, fontWeight: 600, color: '#6B7280' }}>Data e Ora</label>
+                <input type="datetime-local" value={saleForm.created_at} onChange={e => setSaleForm(p => ({ ...p, created_at: e.target.value }))}
+                  style={{ width: '100%', padding: '8px', border: '1.5px solid #D1D5DB', borderRadius: 8, fontSize: 13 }} />
+              </div>
               <div>
                 <label style={{ fontSize: 11, fontWeight: 600, color: '#6B7280' }}>Pagamento</label>
                 <select value={saleForm.payment_method} onChange={e => setSaleForm(p => ({ ...p, payment_method: e.target.value }))}
@@ -1067,7 +1072,7 @@ export default function SystemLogPage() {
                   invoice_number: invNum,
                   discount_amount: saleForm.discount || 0,
                   discount_reason: saleForm.discount_reason || null,
-                  created_at: new Date().toISOString(),
+                  created_at: saleForm.created_at ? new Date(saleForm.created_at).toISOString() : new Date().toISOString(),
                 })
                 // Insert sale items
                 await supabase.from('sale_items').insert(saleCart.map(c => ({
