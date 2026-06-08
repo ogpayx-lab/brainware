@@ -279,7 +279,11 @@ const TABS: TabDef[] = [
     key: 'deposits', label: 'Deposits', icon: '🏦', table: 'shifts', select: '', orderBy: '', computed: true,
     columns: [
       { key: 'date', label: 'Data', width: 100 },
-      { key: 'amount', label: 'Amount', width: 100 },
+      { key: 'fce', label: 'FCE', width: 80 },
+      { key: 'cash_sales', label: 'Cash Vendite', width: 100 },
+      { key: 'expenses', label: 'Spese', width: 80 },
+      { key: 'fcu', label: 'FCU', width: 80 },
+      { key: 'amount', label: 'Deposito', width: 100 },
     ],
   },
   {
@@ -513,7 +517,12 @@ export default function SystemLogPage() {
           if (daily[d]) daily[d].expenses += e.amount || 0
         }
         data = Object.entries(daily).sort().map(([date, v], i) => ({
-          id: `comp-${i}`, date, amount: (v.fce + v.cash - v.expenses - v.fcu).toFixed(2),
+          id: `comp-${i}`, date,
+          fce: v.fce.toFixed(2),
+          cash_sales: v.cash.toFixed(2),
+          expenses: v.expenses.toFixed(2),
+          fcu: v.fcu.toFixed(2),
+          amount: (v.fce + v.cash - v.expenses - v.fcu).toFixed(2),
         }))
       } else if (tab.key === 'avg_sales') {
         const { data: sales } = await supabase.from('sales').select('created_at, total, customer_name').in('store_id', storeIds).gte('created_at', fromDate).lte('created_at', toDate).eq('movement_type', 'sale')
