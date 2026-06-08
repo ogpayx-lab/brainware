@@ -487,7 +487,7 @@ export default function SystemLogPage() {
         }))
       } else if (tab.key === 'deposits') {
         const { data: shifts } = await supabase.from('shifts').select('opened_at, fce, fcu, deposit_actual, store_id').in('store_id', storeIds).gte('opened_at', fromDate).lte('opened_at', toDate).eq('status', 'closed')
-        const { data: sales } = await supabase.from('sales').select('created_at, total, payment_method').in('store_id', storeIds).gte('created_at', fromDate).lte('created_at', toDate)
+        const { data: sales } = await supabase.from('sales').select('created_at, total, payment_method, movement_type, split_cash_amount').in('store_id', storeIds).gte('created_at', fromDate).lte('created_at', toDate)
         const { data: expenses } = await supabase.from('expenses').select('created_at, amount').in('store_id', storeIds).gte('created_at', fromDate).lte('created_at', toDate)
         const daily: Record<string, { fce: number; fcu: number; cash: number; expenses: number }> = {}
         for (const sh of shifts ?? []) {
@@ -497,10 +497,15 @@ export default function SystemLogPage() {
           daily[d].fcu += sh.fcu || 0
         }
         for (const s of sales ?? []) {
-          if ((s.payment_method || '').toLowerCase() === 'cash') {
-            const d = new Date(s.created_at).toLocaleDateString('it-IT')
-            if (!daily[d]) daily[d] = { fce: 0, fcu: 0, cash: 0, expenses: 0 }
+          const mt = (s.movement_type || 'sale').toLowerCase()
+          if (mt === 'autoconsumo') continue // skip autoconsumo
+          const d = new Date(s.created_at).toLocaleDateString('it-IT')
+          if (!daily[d]) daily[d] = { fce: 0, fcu: 0, cash: 0, expenses: 0 }
+          const pm = (s.payment_method || '').toLowerCase()
+          if (pm === 'cash') {
             daily[d].cash += s.total || 0
+          } else if (pm === 'split') {
+            daily[d].cash += s.split_cash_amount || 0
           }
         }
         for (const e of expenses ?? []) {
