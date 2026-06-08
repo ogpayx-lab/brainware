@@ -458,21 +458,31 @@ export default function SystemLogPage() {
           }
         }
       } else if (tab.key === 'cash_pos') {
-        const { data: sales } = await supabase.from('sales').select('created_at, total, payment_method').in('store_id', storeIds).gte('created_at', fromDate).lte('created_at', toDate)
+        const { data: sales } = await supabase.from('sales').select('created_at, total, payment_method, movement_type, split_cash_amount').in('store_id', storeIds).gte('created_at', fromDate).lte('created_at', toDate)
         const grouped: Record<string, Record<string, number>> = {}
         for (const s of sales ?? []) {
           const d = new Date(s.created_at).toLocaleDateString('it-IT')
           if (!grouped[d]) grouped[d] = {}
-          const pm = (s.payment_method || 'other').toLowerCase()
-          grouped[d][pm] = (grouped[d][pm] || 0) + (s.total || 0)
+          const mt = (s.movement_type || 'sale').toLowerCase()
+          if (mt === 'autoconsumo') {
+            grouped[d]['autoconsumo'] = (grouped[d]['autoconsumo'] || 0) + (s.total || 0)
+          } else if ((s.payment_method || '').toLowerCase() === 'split') {
+            const cashPart = s.split_cash_amount || 0
+            const posPart = (s.total || 0) - cashPart
+            grouped[d]['cash'] = (grouped[d]['cash'] || 0) + cashPart
+            grouped[d]['pos'] = (grouped[d]['pos'] || 0) + posPart
+          } else {
+            const pm = (s.payment_method || 'other').toLowerCase()
+            grouped[d][pm] = (grouped[d][pm] || 0) + (s.total || 0)
+          }
         }
         data = Object.entries(grouped).sort().map(([date, methods], i) => ({
           id: `comp-${i}`, date,
           cash: (methods['cash'] || 0).toFixed(2),
           pos: (methods['pos'] || 0).toFixed(2),
-          auto_consumo: (methods['auto_consumo'] || methods['autoconsumo'] || 0).toFixed(2),
+          auto_consumo: (methods['autoconsumo'] || 0).toFixed(2),
           online: (methods['online'] || 0).toFixed(2),
-          other: Object.entries(methods).filter(([k]) => !['cash','pos','auto_consumo','autoconsumo','online'].includes(k)).reduce((s, [,v]) => s + v, 0).toFixed(2),
+          other: Object.entries(methods).filter(([k]) => !['cash','pos','autoconsumo','online','split'].includes(k)).reduce((s, [,v]) => s + v, 0).toFixed(2),
           grand_total: Object.values(methods).reduce((s, v) => s + v, 0).toFixed(2),
         }))
       } else if (tab.key === 'deposits') {
