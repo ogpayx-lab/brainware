@@ -321,6 +321,13 @@ export default function SystemLogPage() {
   const [savedMsg, setSavedMsg] = useState('')
   const [warehouseIds, setWarehouseIds] = useState<string[]>([])
   const [currentUserId, setCurrentUserId] = useState<string>('')
+  // New Sale modal
+  const [showSaleModal, setShowSaleModal] = useState(false)
+  const [saleProducts, setSaleProducts] = useState<any[]>([])
+  const [saleCart, setSaleCart] = useState<{ productId: string; name: string; price: number; qty: number }[]>([])
+  const [saleForm, setSaleForm] = useState({ payment_method: 'cash', customer_name: '', customer_nationality: '', acquisition_channel: 'walk-in', movement_type: 'sale', discount: 0, discount_reason: '' })
+  const [saleSearchQ, setSaleSearchQ] = useState('')
+  const [saleSaving, setSaleSaving] = useState(false)
   const editRef = useRef<HTMLInputElement>(null)
 
   const tab = TABS.find(t => t.key === activeTab)!
@@ -704,7 +711,18 @@ export default function SystemLogPage() {
     let newRow: any = {}
     switch (tab.table) {
       case 'products': newRow = { id, name: '', price: 0, category: '', stock: 0, unit: 'pz', barcode: '', is_active: true, store_id: storeId, created_at: now }; break
-      case 'sales': newRow = { id, total: 0, subtotal: 0, payment_method: 'cash', movement_type: 'sale', customer_name: null, customer_nationality: null, acquisition_channel: null, invoice_number: null, store_id: storeId, user_id: currentUserId, created_at: now }; break
+      case 'sales': {
+        // Open modal instead of adding empty row
+        const stId = selectedStore !== 'all' ? selectedStore : orgStoreIds[0]
+        const { data: prods } = await supabase.from('products').select('id, name, price, category, stock').eq('store_id', stId).eq('is_active', true).order('name')
+        setSaleProducts(prods ?? [])
+        setSaleCart([])
+        setSaleForm({ payment_method: 'cash', customer_name: '', customer_nationality: '', acquisition_channel: 'walk-in', movement_type: 'sale', discount: 0, discount_reason: '' })
+        setSaleSearchQ('')
+        setShowSaleModal(true)
+        setSaving(false)
+        return
+      }
       case 'sale_items': newRow = { id, product_name: '', qty: 1, unit_price: 0, line_total: 0 }; break
       case 'shifts': newRow = { id, opened_at: now, period: 'morning', status: 'open', fce: 0, fcu: null, deposit_actual: null, store_id: storeId, user_id: currentUserId, created_at: now }; break
       case 'expenses': newRow = { id, amount: 0, description: '', store_id: storeId, user_id: currentUserId, created_at: now }; break
@@ -906,6 +924,171 @@ export default function SystemLogPage() {
           <div style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 10px', borderTop: '2px solid #9CA3AF', background: '#F3F4F6', fontSize: 10, color: '#6B7280' }}>
             <span>{tab.icon} {tab.label} · {rows.length} righe</span>
             <span>{dateFrom} → {dateTo}</span>
+          </div>
+        </div>
+      )}
+
+      {/* ═══ NEW SALE MODAL ═══ */}
+      {showSaleModal && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={() => setShowSaleModal(false)}>
+          <div onClick={e => e.stopPropagation()} style={{ background: 'white', borderRadius: 16, width: '90%', maxWidth: 700, maxHeight: '90vh', overflow: 'auto', padding: 24 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+              <h3 style={{ margin: 0 }}>🛒 Nuova Vendita</h3>
+              <button onClick={() => setShowSaleModal(false)} style={{ background: 'none', border: 'none', fontSize: 24, cursor: 'pointer' }}>✕</button>
+            </div>
+
+            {/* Product search & add */}
+            <div style={{ marginBottom: 16 }}>
+              <input
+                placeholder="🔍 Cerca prodotto..."
+                value={saleSearchQ}
+                onChange={e => setSaleSearchQ(e.target.value)}
+                style={{ width: '100%', padding: '8px 12px', border: '1.5px solid #D1D5DB', borderRadius: 8, fontSize: 13, marginBottom: 8 }}
+              />
+              <div style={{ maxHeight: 160, overflowY: 'auto', border: '1px solid #E5E7EB', borderRadius: 8 }}>
+                {saleProducts
+                  .filter(p => !saleSearchQ || p.name.toLowerCase().includes(saleSearchQ.toLowerCase()))
+                  .slice(0, 20)
+                  .map(p => (
+                    <div key={p.id} onClick={() => {
+                      const existing = saleCart.find(c => c.productId === p.id)
+                      if (existing) setSaleCart(prev => prev.map(c => c.productId === p.id ? { ...c, qty: c.qty + 1 } : c))
+                      else setSaleCart(prev => [...prev, { productId: p.id, name: p.name, price: p.price, qty: 1 }])
+                      setSaleSearchQ('')
+                    }}
+                    style={{ padding: '8px 12px', cursor: 'pointer', borderBottom: '1px solid #F3F4F6', display: 'flex', justifyContent: 'space-between', fontSize: 13 }}
+                    onMouseEnter={e => (e.currentTarget.style.background = '#F0FDF4')}
+                    onMouseLeave={e => (e.currentTarget.style.background = 'white')}
+                    >
+                      <span style={{ fontWeight: 600 }}>{p.name}</span>
+                      <span style={{ color: '#6B7280' }}>€{p.price?.toFixed(2)} · Stock: {p.stock}</span>
+                    </div>
+                  ))}
+              </div>
+            </div>
+
+            {/* Cart */}
+            {saleCart.length > 0 && (
+              <div style={{ marginBottom: 16, border: '1.5px solid #7C3AED', borderRadius: 10, overflow: 'hidden' }}>
+                <div style={{ background: '#7C3AED', color: 'white', padding: '6px 12px', fontSize: 12, fontWeight: 700 }}>Carrello ({saleCart.length} prodotti)</div>
+                {saleCart.map((item, i) => (
+                  <div key={item.productId} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 12px', borderBottom: '1px solid #E5E7EB' }}>
+                    <span style={{ flex: 1, fontSize: 13, fontWeight: 600 }}>{item.name}</span>
+                    <span style={{ fontSize: 12, color: '#6B7280' }}>€{item.price.toFixed(2)}</span>
+                    <button onClick={() => setSaleCart(prev => prev.map(c => c.productId === item.productId ? { ...c, qty: Math.max(1, c.qty - 1) } : c))}
+                      style={{ width: 28, height: 28, borderRadius: 6, border: '1px solid #D1D5DB', background: 'white', cursor: 'pointer', fontWeight: 700 }}>−</button>
+                    <span style={{ fontWeight: 700, fontSize: 14, width: 24, textAlign: 'center' }}>{item.qty}</span>
+                    <button onClick={() => setSaleCart(prev => prev.map(c => c.productId === item.productId ? { ...c, qty: c.qty + 1 } : c))}
+                      style={{ width: 28, height: 28, borderRadius: 6, border: 'none', background: '#7C3AED', color: 'white', cursor: 'pointer', fontWeight: 700 }}>+</button>
+                    <span style={{ fontWeight: 700, fontSize: 13, width: 60, textAlign: 'right' }}>€{(item.price * item.qty).toFixed(2)}</span>
+                    <button onClick={() => setSaleCart(prev => prev.filter(c => c.productId !== item.productId))}
+                      style={{ background: 'none', border: 'none', color: '#EF4444', cursor: 'pointer', fontSize: 16 }}>✕</button>
+                  </div>
+                ))}
+                <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 12px', background: '#F9FAFB', fontWeight: 700 }}>
+                  <span>Subtotale</span>
+                  <span>€{saleCart.reduce((s, c) => s + c.price * c.qty, 0).toFixed(2)}</span>
+                </div>
+              </div>
+            )}
+
+            {/* Sale details */}
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 16 }}>
+              <div>
+                <label style={{ fontSize: 11, fontWeight: 600, color: '#6B7280' }}>Pagamento</label>
+                <select value={saleForm.payment_method} onChange={e => setSaleForm(p => ({ ...p, payment_method: e.target.value }))}
+                  style={{ width: '100%', padding: '8px', border: '1.5px solid #D1D5DB', borderRadius: 8, fontSize: 13 }}>
+                  <option value="cash">💵 Cash</option>
+                  <option value="pos">💳 POS</option>
+                  <option value="other">🌐 Online</option>
+                  <option value="split">Split</option>
+                </select>
+              </div>
+              <div>
+                <label style={{ fontSize: 11, fontWeight: 600, color: '#6B7280' }}>Tipo</label>
+                <select value={saleForm.movement_type} onChange={e => setSaleForm(p => ({ ...p, movement_type: e.target.value }))}
+                  style={{ width: '100%', padding: '8px', border: '1.5px solid #D1D5DB', borderRadius: 8, fontSize: 13 }}>
+                  <option value="sale">Vendita</option>
+                  <option value="autoconsumo">Autoconsumo</option>
+                </select>
+              </div>
+              <div>
+                <label style={{ fontSize: 11, fontWeight: 600, color: '#6B7280' }}>Cliente</label>
+                <input value={saleForm.customer_name} onChange={e => setSaleForm(p => ({ ...p, customer_name: e.target.value }))}
+                  placeholder="Nome cliente" style={{ width: '100%', padding: '8px', border: '1.5px solid #D1D5DB', borderRadius: 8, fontSize: 13 }} />
+              </div>
+              <div>
+                <label style={{ fontSize: 11, fontWeight: 600, color: '#6B7280' }}>Nazionalità</label>
+                <input value={saleForm.customer_nationality} onChange={e => setSaleForm(p => ({ ...p, customer_nationality: e.target.value }))}
+                  placeholder="es. Italia" style={{ width: '100%', padding: '8px', border: '1.5px solid #D1D5DB', borderRadius: 8, fontSize: 13 }} />
+              </div>
+              <div>
+                <label style={{ fontSize: 11, fontWeight: 600, color: '#6B7280' }}>Sconto €</label>
+                <input type="number" min="0" value={saleForm.discount || ''} onChange={e => setSaleForm(p => ({ ...p, discount: parseFloat(e.target.value) || 0 }))}
+                  placeholder="0" style={{ width: '100%', padding: '8px', border: '1.5px solid #D1D5DB', borderRadius: 8, fontSize: 13 }} />
+              </div>
+              <div>
+                <label style={{ fontSize: 11, fontWeight: 600, color: '#6B7280' }}>Motivo sconto</label>
+                <input value={saleForm.discount_reason} onChange={e => setSaleForm(p => ({ ...p, discount_reason: e.target.value }))}
+                  placeholder="es. Cliente fisso" style={{ width: '100%', padding: '8px', border: '1.5px solid #D1D5DB', borderRadius: 8, fontSize: 13 }} />
+              </div>
+            </div>
+
+            {/* Total & Submit */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 16px', background: '#F0FDF4', borderRadius: 10, marginBottom: 12 }}>
+              <span style={{ fontSize: 16, fontWeight: 700 }}>Totale:</span>
+              <span style={{ fontSize: 22, fontWeight: 800, color: '#16A34A' }}>
+                €{Math.max(0, saleCart.reduce((s, c) => s + c.price * c.qty, 0) - (saleForm.discount || 0)).toFixed(2)}
+              </span>
+            </div>
+
+            <button
+              disabled={saleCart.length === 0 || saleSaving}
+              onClick={async () => {
+                setSaleSaving(true)
+                const storeId = selectedStore !== 'all' ? selectedStore : orgStoreIds[0]
+                const subtotal = saleCart.reduce((s, c) => s + c.price * c.qty, 0)
+                const total = Math.max(0, subtotal - (saleForm.discount || 0))
+                const saleId = crypto.randomUUID()
+                // Find current open shift for this store
+                const { data: openShift } = await supabase.from('shifts').select('id').eq('store_id', storeId).eq('status', 'open').order('created_at', { ascending: false }).limit(1).single()
+                // Generate invoice number
+                const { count } = await supabase.from('sales').select('id', { count: 'exact', head: true }).eq('store_id', storeId)
+                const invNum = `INV-${String((count || 0) + 1).padStart(4, '0')}`
+                // Insert sale
+                await supabase.from('sales').insert({
+                  id: saleId, store_id: storeId, user_id: currentUserId,
+                  shift_id: openShift?.id || null,
+                  total, subtotal, payment_method: saleForm.payment_method,
+                  movement_type: saleForm.movement_type,
+                  customer_name: saleForm.customer_name || null,
+                  customer_nationality: saleForm.customer_nationality || null,
+                  acquisition_channel: saleForm.acquisition_channel || null,
+                  invoice_number: invNum,
+                  discount_amount: saleForm.discount || 0,
+                  discount_reason: saleForm.discount_reason || null,
+                  created_at: new Date().toISOString(),
+                })
+                // Insert sale items
+                await supabase.from('sale_items').insert(saleCart.map(c => ({
+                  id: crypto.randomUUID(), sale_id: saleId,
+                  product_id: c.productId, product_name: c.name,
+                  qty: c.qty, unit_price: c.price, line_total: c.price * c.qty,
+                })))
+                // Decrement stock
+                for (const c of saleCart) {
+                  await supabase.rpc('increment_stock', { product_id: c.productId, qty: -c.qty })
+                }
+                setSaleSaving(false)
+                setShowSaleModal(false)
+                setSavedMsg('✅ Vendita creata con prodotti!')
+                setTimeout(() => setSavedMsg(''), 3000)
+                loadData()
+              }}
+              style={{ width: '100%', padding: '12px', background: saleCart.length === 0 ? '#D1D5DB' : '#16A34A', color: 'white', border: 'none', borderRadius: 10, fontSize: 14, fontWeight: 700, cursor: saleCart.length === 0 ? 'not-allowed' : 'pointer' }}
+            >
+              {saleSaving ? '⏳ Creazione...' : '✅ Crea Vendita'}
+            </button>
           </div>
         </div>
       )}
