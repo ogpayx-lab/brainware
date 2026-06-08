@@ -325,7 +325,7 @@ export default function SystemLogPage() {
   const [showSaleModal, setShowSaleModal] = useState(false)
   const [saleProducts, setSaleProducts] = useState<any[]>([])
   const [saleCart, setSaleCart] = useState<{ productId: string; name: string; price: number; qty: number }[]>([])
-  const [saleForm, setSaleForm] = useState({ payment_method: 'cash', customer_name: '', customer_nationality: '', acquisition_channel: 'walk-in', movement_type: 'sale', discount: 0, discount_reason: '', created_at: new Date().toISOString().slice(0, 16) })
+  const [saleForm, setSaleForm] = useState({ payment_method: 'cash', customer_name: '', customer_nationality: '', acquisition_channel: 'walk-in', movement_type: 'sale', discount: 0, discount_reason: '', created_at: new Date().toISOString().slice(0, 16), split_cash: 0 })
   const [saleSearchQ, setSaleSearchQ] = useState('')
   const [saleSaving, setSaleSaving] = useState(false)
   const editRef = useRef<HTMLInputElement>(null)
@@ -717,7 +717,7 @@ export default function SystemLogPage() {
         const { data: prods } = await supabase.from('products').select('id, name, price, category, stock').eq('store_id', stId).eq('is_active', true).order('name')
         setSaleProducts(prods ?? [])
         setSaleCart([])
-        setSaleForm({ payment_method: 'cash', customer_name: '', customer_nationality: '', acquisition_channel: 'walk-in', movement_type: 'sale', discount: 0, discount_reason: '', created_at: new Date().toISOString().slice(0, 16) })
+        setSaleForm({ payment_method: 'cash', customer_name: '', customer_nationality: '', acquisition_channel: 'walk-in', movement_type: 'sale', discount: 0, discount_reason: '', created_at: new Date().toISOString().slice(0, 16), split_cash: 0 })
         setSaleSearchQ('')
         setShowSaleModal(true)
         setSaving(false)
@@ -1006,9 +1006,29 @@ export default function SystemLogPage() {
                   <option value="cash">💵 Cash</option>
                   <option value="pos">💳 POS</option>
                   <option value="other">🌐 Online</option>
-                  <option value="split">Split</option>
+                  <option value="split">💵💳 Split</option>
                 </select>
               </div>
+              {saleForm.payment_method === 'split' && (() => {
+                const saleTotal = Math.max(0, saleCart.reduce((s, c) => s + c.price * c.qty, 0) - (saleForm.discount || 0))
+                const posAmount = Math.max(0, saleTotal - (saleForm.split_cash || 0))
+                return (
+                  <>
+                    <div>
+                      <label style={{ fontSize: 11, fontWeight: 600, color: '#6B7280' }}>💵 Parte Cash</label>
+                      <input type="number" min="0" step="0.01" value={saleForm.split_cash || ''}
+                        onChange={e => setSaleForm(p => ({ ...p, split_cash: parseFloat(e.target.value) || 0 }))}
+                        placeholder="0.00" style={{ width: '100%', padding: '8px', border: '1.5px solid #D1D5DB', borderRadius: 8, fontSize: 13 }} />
+                    </div>
+                    <div>
+                      <label style={{ fontSize: 11, fontWeight: 600, color: '#6B7280' }}>💳 Parte POS</label>
+                      <div style={{ padding: '8px', border: '1.5px solid #D1D5DB', borderRadius: 8, fontSize: 13, background: '#F3F4F6', color: '#374151', fontWeight: 600 }}>
+                        €{posAmount.toFixed(2)}
+                      </div>
+                    </div>
+                  </>
+                )
+              })()}
               <div>
                 <label style={{ fontSize: 11, fontWeight: 600, color: '#6B7280' }}>Tipo</label>
                 <select value={saleForm.movement_type} onChange={e => setSaleForm(p => ({ ...p, movement_type: e.target.value }))}
@@ -1072,6 +1092,7 @@ export default function SystemLogPage() {
                   invoice_number: invNum,
                   discount_amount: saleForm.discount || 0,
                   discount_reason: saleForm.discount_reason || null,
+                  split_cash_amount: saleForm.payment_method === 'split' ? (saleForm.split_cash || 0) : null,
                   created_at: saleForm.created_at ? new Date(saleForm.created_at).toISOString() : new Date().toISOString(),
                 })
                 // Insert sale items
