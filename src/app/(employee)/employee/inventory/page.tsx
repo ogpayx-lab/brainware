@@ -84,7 +84,7 @@ export default function InventoryPage() {
     setShiftId(shift.id)
 
     const { data: prods } = await supabase
-      .from('products').select('*').eq('store_id', profile.store_id).eq('is_active', true).order('name')
+      .from('products').select('*').eq('store_id', profile.store_id).eq('is_active', true).gt('stock', 0).order('name')
 
     // Check for existing draft (non-finalized count for this store)
     const { data: existingCount } = await supabase
@@ -145,9 +145,6 @@ export default function InventoryPage() {
       if (r.counted === '') return { ...r, status: 'pending' as const }
       const counted = parseInt(r.counted)
       if (isNaN(counted)) return r
-
-      // If stock ≤ 0 (reset/initial mode), accept any count
-      if (r.stock <= 0) return { ...r, status: 'match' as const }
 
       // Simple validation: match or mismatch (no attempt limits)
       if (counted === r.stock) return { ...r, status: 'match' as const }
