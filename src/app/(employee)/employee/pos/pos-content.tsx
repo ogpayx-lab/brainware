@@ -473,14 +473,12 @@ export default function POSContent() {
           <div style={{ marginTop: 12 }}>
             <div style={{ fontSize: 12, fontWeight: 600, marginBottom: 8 }}>👤 Dati Cliente <span style={{ color: 'var(--danger)' }}>*</span></div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6 }}>
-                <input className="input" placeholder="Nome cliente *" value={customer.name} onChange={e => { setCustomer(c => ({ ...c, name: e.target.value })); setCustomerError('') }} style={{ height: 34, fontSize: 13, borderColor: customerError ? 'var(--danger)' : undefined }} />
-                <div style={{ position: 'relative' }}>
-                  <input className="input" placeholder="🔍 Paese..." value={customer.nationality}
-                    onChange={e => { setCustomer(c => ({ ...c, nationality: e.target.value })); setNatSearch(true) }}
-                    onFocus={() => setNatSearch(true)}
-                    style={{ height: 34, fontSize: 12 }} />
-                  {natSearch && customer.nationality && (() => {
+              <div style={{ position: 'relative' }}>
+                <input className="input" placeholder="Nazionalità / Nome cliente *" value={customer.name}
+                  onChange={e => { setCustomer(c => ({ ...c, name: e.target.value, nationality: e.target.value })); setCustomerError(''); setNatSearch(true) }}
+                  onFocus={() => setNatSearch(true)}
+                  style={{ height: 38, fontSize: 14, borderColor: customerError ? 'var(--danger)' : undefined }} />
+                {natSearch && customer.name && (() => {
                     const countries = [
                       'Unknown',
                       'Afghanistan', 'Albania', 'Algeria', 'Andorra', 'Angola', 'Arabia Saudita', 'Argentina', 'Armenia', 'Australia',
@@ -501,12 +499,12 @@ export default function POSContent() {
                       'Togo', 'Trinidad e Tobago', 'Tunisia', 'Turchia', 'Ucraina', 'Uganda', 'Ungheria',
                       'Uruguay', 'Uzbekistan', 'Venezuela', 'Vietnam', 'Yemen', 'Zambia', 'Zimbabwe'
                     ]
-                    const filtered = countries.filter(c => c.toLowerCase().startsWith(customer.nationality.toLowerCase()))
-                    if (filtered.length === 0 || (filtered.length === 1 && filtered[0] === customer.nationality)) return null
+                    const filtered = countries.filter(c => c.toLowerCase().startsWith(customer.name.toLowerCase()))
+                    if (filtered.length === 0 || (filtered.length === 1 && filtered[0] === customer.name)) return null
                     return (
                       <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 999, background: 'var(--bg-primary)', border: '1px solid var(--border-default)', borderRadius: 8, maxHeight: 160, overflowY: 'auto', boxShadow: '0 4px 12px rgba(0,0,0,0.15)' }}>
                         {filtered.slice(0, 8).map(c => (
-                          <div key={c} onClick={() => { setCustomer(prev => ({ ...prev, nationality: c })); setNatSearch(false) }}
+                          <div key={c} onClick={() => { setCustomer(prev => ({ ...prev, name: c, nationality: c })); setNatSearch(false) }}
                             style={{ padding: '8px 12px', fontSize: 13, cursor: 'pointer', borderBottom: '1px solid var(--border-subtle)' }}
                             onMouseEnter={e => (e.currentTarget.style.background = 'var(--bg-surface)')}
                             onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}>
@@ -516,7 +514,6 @@ export default function POSContent() {
                       </div>
                     )
                   })()}
-                </div>
               </div>
               {customerError && <div style={{ fontSize: 12, color: 'var(--danger)' }}>⚠️ {customerError}</div>}
               <select className="input" value={customer.channel} onChange={e => setCustomer(c => ({ ...c, channel: e.target.value }))} style={{ height: 34, fontSize: 12 }}>
