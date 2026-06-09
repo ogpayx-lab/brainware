@@ -212,7 +212,7 @@ export default function EmployeeDashboard() {
             <div style={{ background:'var(--bg-surface)', borderRadius:12, padding:'12px', cursor:'pointer' }} onClick={() => setKpiModal({ type: 'sales', title: t('empApp.salesToday') })}>
               <div style={{ fontSize:11, color:'var(--text-secondary)', fontWeight:600, marginBottom:6 }}>{t('empApp.salesToday')}</div>
               <div style={{ fontSize:22, fontWeight:700, color:'var(--brand-primary)' }}>{fmt(todayStats.totalSales)}</div>
-              <div style={{ fontSize:11, color:'var(--text-tertiary)', marginTop:4 }}>{todayStats.customers} {t('empApp.clients')}</div>
+              <div style={{ fontSize:11, color:'var(--text-tertiary)', marginTop:4 }}>{summary.total_transactions} {t('empApp.clients')}</div>
               {todayStats.onlineSales > 0 && (
                 <div style={{ fontSize:11, color:'var(--text-secondary)', marginTop:4, fontWeight:600 }}>🏪 Store: {fmt(todayStats.totalSales - todayStats.onlineSales)}</div>
               )}
@@ -229,7 +229,7 @@ export default function EmployeeDashboard() {
             {[
               { label:'Cash', value:summary.total_cash, color:'#3B82F6', type:'cash' },
               { label:'POS', value:summary.total_pos, color:'#8B5CF6', type:'pos' },
-              { label: t('empApp.deposits'), value:todayStats.deposits, color:'#22C55E', type:'deposits' },
+              { label: t('empApp.deposits'), value:depositExpected, color:'#22C55E', type:'deposits' },
             ].map(c => (
               <div key={c.label} style={{ background:'var(--bg-surface)', borderRadius:12, padding:'10px', textAlign:'center', cursor:'pointer' }} onClick={() => setKpiModal({ type: c.type, title: c.label })}>
                 <div style={{ fontSize:11, color:'var(--text-secondary)', fontWeight:600, marginBottom:4 }}>{c.label}</div>
