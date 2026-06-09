@@ -212,14 +212,8 @@ export default function InventoryPage() {
 
     await saveItems(finalId!)
 
-    // Update stock to counted values
-    const countedRows = rows.filter(r => r.counted !== '')
-    for (const r of countedRows) {
-      const countedQty = parseInt(r.counted)
-      if (!isNaN(countedQty)) {
-        await supabase.from('products').update({ stock: countedQty }).eq('id', r.id)
-      }
-    }
+    // NOTE: Stock is NOT updated here — owner must approve
+    // discrepancies via Audit Inventario before stock changes.
 
     // Get employee name
     const { data: empProfile } = await supabase.from('users').select('full_name').eq('id', userId).single()

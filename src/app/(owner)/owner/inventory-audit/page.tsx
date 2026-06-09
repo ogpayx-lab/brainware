@@ -551,6 +551,31 @@ export default function InventoryAuditPage() {
                     </div>
                   ))}
                 </div>
+
+                {/* Approve full count button */}
+                {auditData.items.some(i => i.status === 'match' && !i.stock_corrected) && (
+                  <div style={{ marginTop: 'var(--space-md)', display: 'flex', gap: 'var(--space-sm)', alignItems: 'center' }}>
+                    <button className="btn btn-primary" style={{ fontSize: 13, padding: '10px 20px' }}
+                      onClick={async () => {
+                        const matchItems = auditData.items.filter(i => i.status === 'match' && !i.stock_corrected)
+                        for (const item of matchItems) {
+                          if (item.counted_qty !== null) {
+                            await supabase.from('products').update({ stock: item.counted_qty }).eq('id', item.product_id)
+                            await supabase.from('inventory_count_items').update({
+                              resolved: true, resolution_type: 'count_accepted', stock_corrected: true,
+                              resolved_at: new Date().toISOString(),
+                            }).eq('id', item.id)
+                          }
+                        }
+                        loadAudit()
+                      }}>
+                      ✅ Approva Conteggio ({auditData.items.filter(i => i.status === 'match' && !i.stock_corrected).length} match)
+                    </button>
+                    <span style={{ fontSize: 12, color: 'var(--text-secondary)' }}>
+                      Aggiorna lo stock per tutti i prodotti che corrispondono
+                    </span>
+                  </div>
+                )}
               </div>
 
               {/* Discrepancies */}
