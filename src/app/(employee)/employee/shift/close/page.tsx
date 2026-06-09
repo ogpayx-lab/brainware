@@ -10,13 +10,17 @@ import type { ShiftCashSummary, SaleWithItems, Expense, BanconoteMap } from '@/t
 import { calcFCU } from '@/types/database'
 import { useT } from '@/lib/i18n'
 
-const BANCONOTE: { value: keyof BanconoteMap; label: string }[] = [
-  { value: 50, label: '50' },
-  { value: 20, label: '20' },
-  { value: 10, label: '10' },
-  { value: 5,  label: '5' },
-  { value: 2,  label: '2' },
-  { value: 1,  label: '1' },
+const BANCONOTE: { value: keyof BanconoteMap; label: string; isCoin?: boolean }[] = [
+  { value: 50, label: '€50' },
+  { value: 20, label: '€20' },
+  { value: 10, label: '€10' },
+  { value: 5,  label: '€5' },
+  { value: 2,  label: '€2', isCoin: true },
+  { value: 1,  label: '€1', isCoin: true },
+  { value: 0.5,  label: '50c', isCoin: true },
+  { value: 0.2,  label: '20c', isCoin: true },
+  { value: 0.1,  label: '10c', isCoin: true },
+  { value: 0.05, label: '5c', isCoin: true },
 ]
 
 export default function ShiftClosePage() {
@@ -32,7 +36,7 @@ export default function ShiftClosePage() {
   const [employeeName, setEmployeeName] = useState('')
   const [fcuDefault, setFcuDefault] = useState(50)
 
-  const [banconote, setBanconote] = useState<BanconoteMap>({ 50: 0, 20: 0, 10: 0, 5: 0, 2: 0, 1: 0 })
+  const [banconote, setBanconote] = useState<BanconoteMap>({ 50: 0, 20: 0, 10: 0, 5: 0, 2: 0, 1: 0, 0.5: 0, 0.2: 0, 0.1: 0, 0.05: 0 })
   const [depositActual, setDepositActual] = useState('')
   const [varianceReason, setVarianceReason] = useState('')
   const [loading, setLoading] = useState(true)
@@ -206,23 +210,28 @@ export default function ShiftClosePage() {
           <div>
             <h4>Componi Fondo Cassa Uscita</h4>
             <p style={{ fontSize: 13, color: 'var(--text-secondary)', marginTop: 4 }}>
-              Inserisci le banconote che lasci in cassa
+              Inserisci banconote e monete che lasci in cassa
             </p>
             <div style={{ fontSize: 12, color: 'var(--text-tertiary)', marginTop: 4 }}>
-              Conta le banconote che lasci in cassa per il turno successivo
+              Conta i contanti che lasci in cassa per il turno successivo
             </div>
           </div>
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-sm)' }}>
-            {BANCONOTE.map(({ value, label }) => (
-              <div key={value} style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-md)', padding: '8px 0', borderBottom: '1px solid var(--border-subtle)' }}>
-                <span style={{ width: 40, fontWeight: 700, fontSize: 15 }}>{label}</span>
-                <button onClick={() => updateBanconota(value, -1)} className="btn btn-secondary" style={{ width: 32, height: 32, padding: 0 }}></button>
-                <span style={{ fontWeight: 700, minWidth: 24, textAlign: 'center', fontSize: 16 }}>{banconote[value]}</span>
-                <button onClick={() => updateBanconota(value, 1)} className="btn btn-secondary" style={{ width: 32, height: 32, padding: 0 }}>+</button>
-                <span style={{ marginLeft: 'auto', fontSize: 14, color: 'var(--text-secondary)', fontWeight: 600 }}>
-                  = {fmt(banconote[value] * value)}
-                </span>
+            {BANCONOTE.map(({ value, label, isCoin }, idx) => (
+              <div key={value}>
+                {isCoin && idx > 0 && !BANCONOTE[idx - 1].isCoin && (
+                  <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-tertiary)', textTransform: 'uppercase', letterSpacing: '0.05em', padding: '8px 0 4px', borderTop: '2px solid var(--border-default)', marginTop: 4 }}>🪙 Monete</div>
+                )}
+                <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-md)', padding: '8px 0', borderBottom: '1px solid var(--border-subtle)' }}>
+                  <span style={{ width: 40, fontWeight: 700, fontSize: 15 }}>{label}</span>
+                  <button onClick={() => updateBanconota(value, -1)} className="btn btn-secondary" style={{ width: 32, height: 32, padding: 0 }}>−</button>
+                  <span style={{ fontWeight: 700, minWidth: 24, textAlign: 'center', fontSize: 16 }}>{banconote[value]}</span>
+                  <button onClick={() => updateBanconota(value, 1)} className="btn btn-secondary" style={{ width: 32, height: 32, padding: 0 }}>+</button>
+                  <span style={{ marginLeft: 'auto', fontSize: 14, color: 'var(--text-secondary)', fontWeight: 600 }}>
+                    = {fmt(banconote[value] * value)}
+                  </span>
+                </div>
               </div>
             ))}
           </div>

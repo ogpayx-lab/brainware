@@ -90,9 +90,9 @@ export interface ShiftReportData {
   total_transactions: number; sales: SaleWithItems[]; expenses: Expense[]
 }
 
-export interface BanconoteMap { 50: number; 20: number; 10: number; 5: number; 2: number; 1: number }
+export interface BanconoteMap { 50: number; 20: number; 10: number; 5: number; 2: number; 1: number; 0.5: number; 0.2: number; 0.1: number; 0.05: number }
 export function calcFCU(b: BanconoteMap): number {
-  return b[50]*50 + b[20]*20 + b[10]*10 + b[5]*5 + b[2]*2 + b[1]*1
+  return b[50]*50 + b[20]*20 + b[10]*10 + b[5]*5 + b[2]*2 + b[1]*1 + b[0.5]*0.5 + b[0.2]*0.2 + b[0.1]*0.1 + b[0.05]*0.05
 }
 
 export interface FidelityCard {
