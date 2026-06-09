@@ -360,9 +360,6 @@ export default function StockPage() {
                         <span style={{ fontSize: 11, color: 'var(--text-tertiary)' }}>
                           {categoryLabel[p.category as ProductCategory] || p.category}
                         </span>
-                        <span style={{ fontSize: 11, fontWeight: 600, color: p.stock <= p.stock_alert ? 'var(--danger)' : 'var(--text-tertiary)' }}>
-                          Stock: {p.stock}
-                        </span>
                       </div>
                     </div>
 
