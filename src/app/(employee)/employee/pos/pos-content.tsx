@@ -312,8 +312,7 @@ export default function POSContent() {
 
   const filtered = products.filter(p =>
     (activeCat === 'all' || p.category === activeCat) &&
-    (!search || p.name.toLowerCase().includes(search.toLowerCase())) &&
-    p.stock > 0
+    (!search || p.name.toLowerCase().includes(search.toLowerCase()))
   )
   const popular = [...products].filter(p => p.stock > 0).sort((a, b) => b.stock - a.stock).slice(0, 3)
 
@@ -878,15 +877,18 @@ export default function POSContent() {
 
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(150px,1fr))', gap: 'var(--space-md)' }}>
             {filtered.map(p => (
-              <div key={p.id} className="card card-sm" style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              <div key={p.id} className="card card-sm" style={{ display: 'flex', flexDirection: 'column', gap: 8, border: p.stock <= 0 ? '1.5px solid var(--warning)' : undefined }}>
                 <div>
                   <div style={{ fontWeight: 600, fontSize: 13 }}>{p.name}</div>
                   <div style={{ fontSize: 12, color: 'var(--text-secondary)' }}>{fmt(p.price)}/{p.unit}</div>
-                  <span className="badge badge-indigo" style={{ fontSize: 10, marginTop: 4 }}>{categoryLabel[p.category]}</span>
+                  <div style={{ display: 'flex', gap: 4, marginTop: 4 }}>
+                    <span className="badge badge-indigo" style={{ fontSize: 10 }}>{categoryLabel[p.category]}</span>
+                    {p.stock <= 0 && <span className="badge badge-warning" style={{ fontSize: 10 }}>⚠️ Stock: 0</span>}
+                  </div>
                 </div>
 
-                <button className="btn btn-primary" style={{ padding: 8, fontSize: 12 }} disabled={p.stock === 0} onClick={() => addToCart(p)}>
-                  {p.stock === 0 ? 'Esaurito' : '+ Aggiungi'}
+                <button className="btn btn-primary" style={{ padding: 8, fontSize: 12 }} onClick={() => addToCart(p)}>
+                  + Aggiungi
                 </button>
               </div>
             ))}
