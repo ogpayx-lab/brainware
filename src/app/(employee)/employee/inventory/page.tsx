@@ -84,7 +84,7 @@ export default function InventoryPage() {
     setShiftId(shift.id)
 
     const { data: prods } = await supabase
-      .from('products').select('*').eq('store_id', profile.store_id).eq('is_active', true).order('name')
+      .from('products').select('*').eq('store_id', profile.store_id).eq('is_active', true).neq('stock', 0).order('name')
 
     // Check for existing draft (non-finalized count for this store)
     const { data: existingCount } = await supabase
@@ -458,21 +458,21 @@ export default function InventoryPage() {
               <tr key={row.id}>
                 <td style={{ fontWeight: 600 }}>{row.name}</td>
                 <td>
-                    <input
-                      type="number"
-                      min="0"
-                      value={row.counted}
-                      onChange={e => handleInput(row.id, e.target.value)}
-                      onBlur={() => handleValidate(row.id)}
-                      onKeyDown={e => { if (e.key === 'Enter') { e.currentTarget.blur() } }}
-                      placeholder=""
-                      style={{
-                        width: 64, padding: '4px 8px',
-                        border: `2px solid ${row.status === 'match' ? 'var(--success)' : row.status === 'mismatch' ? 'var(--danger)' : 'var(--border-default)'}`,
-                        background: row.status === 'match' ? 'rgba(34,197,94,0.08)' : row.status === 'mismatch' ? 'rgba(239,68,68,0.08)' : 'var(--bg-primary)',
-                        borderRadius: 'var(--radius-sm)', fontSize: 14, fontWeight: 700, textAlign: 'center',
-                      }}
-                    />
+                  <input
+                    type="number"
+                    min="0"
+                    value={row.counted}
+                    onChange={e => handleInput(row.id, e.target.value)}
+                    onBlur={() => handleValidate(row.id)}
+                    onKeyDown={e => { if (e.key === 'Enter') { e.currentTarget.blur() } }}
+                    placeholder=""
+                    style={{
+                      width: 64, padding: '4px 8px',
+                      border: `2px solid ${row.status === 'match' ? 'var(--success)' : row.status === 'mismatch' ? 'var(--danger)' : 'var(--border-default)'}`,
+                      background: row.status === 'match' ? 'rgba(34,197,94,0.08)' : row.status === 'mismatch' ? 'rgba(239,68,68,0.08)' : 'var(--bg-primary)',
+                      borderRadius: 'var(--radius-sm)', fontSize: 14, fontWeight: 700, textAlign: 'center',
+                    }}
+                  />
                 </td>
                 <td>
                   {row.status === 'pending' && <span className="badge badge-gray">In attesa</span>}
