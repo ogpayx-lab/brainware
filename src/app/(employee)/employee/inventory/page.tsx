@@ -84,7 +84,7 @@ export default function InventoryPage() {
     setShiftId(shift.id)
 
     const { data: prods } = await supabase
-      .from('products').select('*').eq('store_id', profile.store_id).eq('is_active', true).gt('stock', 0).order('name')
+      .from('products').select('*').eq('store_id', profile.store_id).eq('is_active', true).order('name')
 
     // Check for existing draft (non-finalized count for this store)
     const { data: existingCount } = await supabase
@@ -252,7 +252,7 @@ export default function InventoryPage() {
     setFinalizing(false)
   }
 
-  const categories: (ProductCategory | 'all')[] = ['all', 'flowers', 'hashish', 'oils', 'edibles', 'accessories']
+  const categories: (ProductCategory | 'all')[] = ['all', 'flowers', 'hashish', 'oils', 'edibles', 'accessories', 'cosmetics', 'clothes', 'seeds', 'vape', 'food']
   const filtered = rows
     .filter(r => activeCategory === 'all' || r.category === activeCategory)
     .filter(r => !searchQuery || r.name.toLowerCase().includes(searchQuery.toLowerCase()))
@@ -394,16 +394,20 @@ export default function InventoryPage() {
 
       {/* Category pills */}
       <div style={{ padding: 'var(--space-md) var(--space-lg)', background: 'var(--bg-primary)', borderBottom: '1px solid var(--border-subtle)', display: 'flex', gap: 'var(--space-sm)', overflowX: 'auto' }}>
-        {categories.map(cat => (
-          <button
-            key={cat}
-            onClick={() => setActiveCategory(cat)}
-            className={`badge ${activeCategory === cat ? 'badge-brand' : 'badge-gray'}`}
-            style={{ cursor: 'pointer', border: 'none', whiteSpace: 'nowrap', padding: '6px 14px' }}
-          >
-            {cat === 'all' ? 'Tutti' : categoryLabel[cat]}
-          </button>
-        ))}
+        {categories.filter(cat => cat === 'all' || rows.some(r => r.category === cat)).map(cat => {
+          const catCount = cat === 'all' ? rows.length : rows.filter(r => r.category === cat).length
+          const catCounted = cat === 'all' ? counted.length : counted.filter(r => r.category === cat).length
+          return (
+            <button
+              key={cat}
+              onClick={() => setActiveCategory(cat)}
+              className={`badge ${activeCategory === cat ? 'badge-brand' : 'badge-gray'}`}
+              style={{ cursor: 'pointer', border: 'none', whiteSpace: 'nowrap', padding: '6px 14px', fontSize: 12 }}
+            >
+              {cat === 'all' ? 'Tutti' : categoryLabel[cat]} ({catCounted}/{catCount})
+            </button>
+          )
+        })}
       </div>
 
       {/* Search bar */}
