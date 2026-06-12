@@ -280,10 +280,7 @@ export default function POSContent() {
       console.error('Errore inserimento items:', itemsError.message)
     }
 
-    // ✅ Scala stock dall'inventario (atomico via DB)
-    for (const item of cart) {
-      await supabase.rpc('increment_stock', { product_id: item.product.id, qty: -item.qty })
-    }
+    // Stock decrementato automaticamente dal trigger DB (trg_decrement_stock)
 
     if (mode === 'online') {
       await supabase.from('online_orders').insert({ sale_id: sale.id, store_id: storeId, user_id: userId, delivery_type: shipping.type, recipient_name: shipping.name, address: shipping.address, city: shipping.city, cap: shipping.cap, phone: shipping.phone, courier: shipping.courier, tracking_number: shipping.tracking || null, delivery_notes: shipping.notes || null, shipping_cost: shippingCost })
