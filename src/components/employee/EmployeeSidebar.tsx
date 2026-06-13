@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { usePathname, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
@@ -20,6 +20,64 @@ export function EmployeeSidebar() {
   const t = useT()
   const isDemo = useIsDemo()
   const topOffset = isDemo ? 46 : 12
+
+  // Draggable menu button
+  const [menuPos, setMenuPos] = useState<{ x: number; y: number }>({ x: 12, y: topOffset })
+  const isDragging = useRef(false)
+  const dragStart = useRef({ x: 0, y: 0, posX: 0, posY: 0 })
+  const hasMoved = useRef(false)
+  const btnRef = useRef<HTMLButtonElement>(null)
+
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem('menuBtnPos')
+      if (saved) {
+        const pos = JSON.parse(saved)
+        setMenuPos({ x: pos.x ?? 12, y: pos.y ?? topOffset })
+      }
+    } catch {}
+  }, [topOffset])
+
+  const handleDragStart = useCallback((clientX: number, clientY: number) => {
+    isDragging.current = true
+    hasMoved.current = false
+    dragStart.current = { x: clientX, y: clientY, posX: menuPos.x, posY: menuPos.y }
+  }, [menuPos])
+
+  const handleDragMove = useCallback((clientX: number, clientY: number) => {
+    if (!isDragging.current) return
+    const dx = clientX - dragStart.current.x
+    const dy = clientY - dragStart.current.y
+    if (Math.abs(dx) > 4 || Math.abs(dy) > 4) hasMoved.current = true
+    const newX = Math.max(0, Math.min(window.innerWidth - 56, dragStart.current.posX + dx))
+    const newY = Math.max(0, Math.min(window.innerHeight - 56, dragStart.current.posY + dy))
+    setMenuPos({ x: newX, y: newY })
+  }, [])
+
+  const handleDragEnd = useCallback(() => {
+    if (!isDragging.current) return
+    isDragging.current = false
+    if (hasMoved.current) {
+      localStorage.setItem('menuBtnPos', JSON.stringify(menuPos))
+    }
+  }, [menuPos])
+
+  useEffect(() => {
+    const onTouchMove = (e: TouchEvent) => { if (isDragging.current) { e.preventDefault(); handleDragMove(e.touches[0].clientX, e.touches[0].clientY) } }
+    const onTouchEnd = () => handleDragEnd()
+    const onMouseMove = (e: MouseEvent) => handleDragMove(e.clientX, e.clientY)
+    const onMouseUp = () => handleDragEnd()
+    window.addEventListener('touchmove', onTouchMove, { passive: false })
+    window.addEventListener('touchend', onTouchEnd)
+    window.addEventListener('mousemove', onMouseMove)
+    window.addEventListener('mouseup', onMouseUp)
+    return () => {
+      window.removeEventListener('touchmove', onTouchMove)
+      window.removeEventListener('touchend', onTouchEnd)
+      window.removeEventListener('mousemove', onMouseMove)
+      window.removeEventListener('mouseup', onMouseUp)
+    }
+  }, [handleDragMove, handleDragEnd])
 
   const MENU_SECTIONS = [
     {
@@ -125,15 +183,17 @@ export function EmployeeSidebar() {
 
   return (
     <>
-      <button id="sidebar-toggle" onClick={() => setOpen(true)} aria-label={t('empSidebar.openMenu')} style={{
-        position: 'fixed', top: topOffset, left: 12, zIndex: 10000, width: 56, height: 56, borderRadius: 16,
+      <button ref={btnRef} id="sidebar-toggle"
+        onClick={() => { if (!hasMoved.current) setOpen(true) }}
+        onTouchStart={e => handleDragStart(e.touches[0].clientX, e.touches[0].clientY)}
+        onMouseDown={e => { e.preventDefault(); handleDragStart(e.clientX, e.clientY) }}
+        aria-label={t('empSidebar.openMenu')} style={{
+        position: 'fixed', top: menuPos.y, left: menuPos.x, zIndex: 10000, width: 56, height: 56, borderRadius: 16,
         background: 'linear-gradient(135deg, #6366F1, #8B5CF6)', border: 'none',
         display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
-        gap: 5, cursor: 'pointer', boxShadow: '0 6px 24px rgba(99,102,241,0.5)', transition: 'all 0.2s',
-      }}
-        onMouseEnter={e => { e.currentTarget.style.transform = 'scale(1.08)'; e.currentTarget.style.boxShadow = '0 8px 32px rgba(99,102,241,0.6)' }}
-        onMouseLeave={e => { e.currentTarget.style.transform = 'scale(1)'; e.currentTarget.style.boxShadow = '0 6px 24px rgba(99,102,241,0.5)' }}
-      >
+        gap: 5, cursor: isDragging.current ? 'grabbing' : 'grab', boxShadow: '0 6px 24px rgba(99,102,241,0.5)',
+        transition: isDragging.current ? 'none' : 'box-shadow 0.2s', touchAction: 'none', userSelect: 'none',
+      }}>
         <span style={{ width: 22, height: 2.5, background: 'white', borderRadius: 2 }} />
         <span style={{ width: 16, height: 2.5, background: 'rgba(255,255,255,0.8)', borderRadius: 2 }} />
         <span style={{ width: 22, height: 2.5, background: 'white', borderRadius: 2 }} />

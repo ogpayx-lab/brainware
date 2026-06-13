@@ -42,6 +42,13 @@ export default function StockApprovalsPage() {
   const [transferItems, setTransferItems] = useState<{ stock_item_id: string; product_name: string; qty: string; available: number }[]>([])
   const [orgId, setOrgId] = useState<string | null>(null)
 
+  // Assign warehouse modal (for approved restocks without source)
+  const [unassignedRestocks, setUnassignedRestocks] = useState<any[]>([])
+  const [assigning, setAssigning] = useState<any>(null)
+  const [assignWhId, setAssignWhId] = useState('')
+  const [assignWhStock, setAssignWhStock] = useState<any[]>([])
+  const [assignSaving, setAssignSaving] = useState(false)
+
   useEffect(() => { loadData() }, [selectedStore])
 
   async function loadData() {
@@ -98,6 +105,21 @@ export default function StockApprovalsPage() {
       .order('approved_at', { ascending: false })
       .limit(30)
     setHistory(hist ?? [])
+
+    // Unassigned restocks (approved but no source warehouse)
+    const { data: unassigned } = await supabase
+      .from('stock_requests')
+      .select('*, stock_request_items(*), users(full_name), stores(name)')
+      .in('store_id', storeIds)
+      .eq('status', 'approved')
+      .is('source_warehouse_id', null)
+      .order('approved_at', { ascending: false })
+      .limit(50)
+    // Filter: only manual restocks (items without qty_sent)
+    setUnassignedRestocks((unassigned ?? []).filter(r =>
+      (r.stock_request_items || []).some((i: any) => i.qty_delivered != null && i.qty_delivered > 0) &&
+      !(r.stock_request_items || []).some((i: any) => i.qty_sent != null)
+    ))
 
     // Warehouse transfer movements log
     const { data: movs } = await supabase
@@ -350,6 +372,66 @@ export default function StockApprovalsPage() {
     setRestockRequests(prev => prev.filter(r => r.id !== id))
   }
 
+  // === ASSIGN WAREHOUSE TO RESTOCK ===
+  async function openAssignModal(req: any) {
+    setAssigning(req)
+    setAssignWhId('')
+    setAssignWhStock([])
+  }
+
+  async function loadAssignWhStock(whId: string) {
+    setAssignWhId(whId)
+    const { data } = await supabase.from('warehouse_stock').select('*').eq('warehouse_id', whId).order('product_name')
+    setAssignWhStock(data ?? [])
+  }
+
+  async function submitAssignment() {
+    if (!assigning || !assignWhId) return
+    setAssignSaving(true)
+    const items = assigning.stock_request_items || []
+    const destStore = stores.find((s: any) => s.id === assigning.store_id)
+    const sourceWh = warehouses.find((w: any) => w.id === assignWhId)
+
+    for (const item of items) {
+      const qty = item.qty_delivered || 0
+      if (qty <= 0) continue
+
+      // Find matching product in warehouse
+      const whItem = assignWhStock.find(s => s.product_name.toLowerCase() === item.product_name.toLowerCase())
+      if (whItem) {
+        // Deduct from warehouse
+        await supabase.from('warehouse_stock').update({
+          qty: Math.max(0, whItem.qty - qty),
+          updated_at: new Date().toISOString(),
+        }).eq('id', whItem.id)
+
+        // Log warehouse movement
+        await supabase.from('warehouse_movements').insert({
+          warehouse_id: assignWhId,
+          stock_item_id: whItem.id,
+          product_name: item.product_name,
+          movement_type: 'transfer_out',
+          qty,
+          cost_per_unit: whItem.cost_per_unit || 0,
+          total_cost: qty * (whItem.cost_per_unit || 0),
+          reference_type: 'store_restock',
+          destination_name: destStore?.name || 'Store',
+          notes: `Assegnazione ricarica manuale`,
+        })
+      }
+    }
+
+    // Mark the stock_request with source warehouse
+    await supabase.from('stock_requests').update({
+      source_warehouse_id: assignWhId,
+      notes: (assigning.notes || '') + ` | Sorgente: ${sourceWh?.name || 'Magazzino'}`,
+    }).eq('id', assigning.id)
+
+    setAssigning(null)
+    setAssignSaving(false)
+    loadData()
+  }
+
   // === TRANSFER CREATION (merged from transfers page) ===
   const typeLabels: Record<TransferType, string> = {
     wh_to_store: '🏭→🏪 Magazzino → Store',
@@ -468,6 +550,73 @@ export default function StockApprovalsPage() {
 
   return (
     <div>
+      {/* Assign Warehouse Modal */}
+      {assigning && (
+        <div className="modal-overlay">
+          <div className="modal" style={{ maxWidth: 560 }}>
+            <h3 style={{ marginBottom: 4 }}>🏭 Assegna Magazzino Sorgente</h3>
+            <p style={{ color: 'var(--text-secondary)', fontSize: 13, marginBottom: 'var(--space-lg)' }}>
+              Seleziona da quale magazzino scalare lo stock per questa ricarica.
+            </p>
+
+            <div className="input-group" style={{ marginBottom: 'var(--space-lg)' }}>
+              <label className="input-label">Magazzino Sorgente *</label>
+              <select className="input" value={assignWhId} onChange={e => loadAssignWhStock(e.target.value)}>
+                <option value="">Seleziona magazzino...</option>
+                {warehouses.map((w: any) => (
+                  <option key={w.id} value={w.id}>{w.type === 'central' ? '🏭 ' : '📦 '}{w.name}</option>
+                ))}
+              </select>
+            </div>
+
+            {assignWhId && (
+              <div style={{ marginBottom: 'var(--space-lg)' }}>
+                <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-tertiary)', letterSpacing: '0.06em', textTransform: 'uppercase', marginBottom: 8 }}>
+                  Prodotti da scalare dal magazzino
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                  {(assigning.stock_request_items || []).map((item: any) => {
+                    const whItem = assignWhStock.find((s: any) => s.product_name.toLowerCase() === item.product_name.toLowerCase())
+                    const available = whItem?.qty ?? 0
+                    const qty = item.qty_delivered || 0
+                    const isEnough = available >= qty
+                    return (
+                      <div key={item.id} style={{
+                        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                        padding: '10px 14px', borderRadius: 10,
+                        background: whItem ? (isEnough ? '#F0FDF4' : '#FEF2F2') : 'var(--bg-surface)',
+                        border: `1.5px solid ${whItem ? (isEnough ? 'var(--success)' : 'var(--danger)') : 'var(--border-subtle)'}`,
+                      }}>
+                        <div>
+                          <div style={{ fontWeight: 600, fontSize: 14 }}>{item.product_name}</div>
+                          <div style={{ fontSize: 11, color: whItem ? (isEnough ? 'var(--success)' : 'var(--danger)') : 'var(--text-tertiary)', fontWeight: 600 }}>
+                            {whItem ? `Disponibile: ${available}` : '⚠️ Non presente in magazzino'}
+                          </div>
+                        </div>
+                        <div style={{ fontWeight: 700, fontSize: 16, color: isEnough ? 'var(--success)' : 'var(--danger)' }}>
+                          -{qty}
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              </div>
+            )}
+
+            <div style={{ display: 'flex', gap: 8 }}>
+              <button className="btn btn-secondary" style={{ flex: 1 }} onClick={() => setAssigning(null)}>{t('cancel')}</button>
+              <button
+                className="btn btn-primary" style={{ flex: 2 }}
+                disabled={assignSaving || !assignWhId}
+                onClick={submitAssignment}
+              >
+                {assignSaving ? 'Assegnazione...' : '✅ Conferma e Scala Magazzino'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Fulfillment Modal */}
       {fulfilling && (
         <div className="modal-overlay">
@@ -815,7 +964,50 @@ export default function StockApprovalsPage() {
         </div>
       )}
 
-      {requests.length === 0 && restockRequests.length === 0 && pendingTransfers.length === 0 && (
+      {/* ========== UNASSIGNED RESTOCKS (approved, no warehouse source) ========== */}
+      {unassignedRestocks.length > 0 && (
+        <div style={{ marginBottom: 'var(--space-2xl)' }}>
+          <h4 style={{ marginBottom: 'var(--space-md)' }}>🏭 Ricariche da Assegnare a Magazzino</h4>
+          <p style={{ fontSize: 12, color: 'var(--text-secondary)', marginBottom: 'var(--space-md)' }}>
+            Queste ricariche sono già state applicate allo stock negozio. Assegna il magazzino sorgente per scalare l'inventario.
+          </p>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-md)' }}>
+            {unassignedRestocks.map(req => {
+              const items = req.stock_request_items || []
+              const store = stores.find((s: any) => s.id === req.store_id)
+              return (
+                <div key={req.id} className="card" style={{ padding: '16px 20px', border: '1.5px solid var(--warning)', background: '#FFFBEB' }}>
+                  <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12 }}>
+                    <span style={{ fontSize: 24 }}>📦</span>
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontWeight: 700, fontSize: 14 }}>
+                        {store?.name || 'Negozio'} — {items.length} prodotti
+                      </div>
+                      <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginTop: 4 }}>
+                        {req.notes || 'Ricarica manuale'} · {new Date(req.approved_at || req.created_at).toLocaleString('it-IT')}
+                      </div>
+                      <div style={{ display: 'flex', gap: 6, marginTop: 8, flexWrap: 'wrap' }}>
+                        {items.map((i: any) => (
+                          <span key={i.id} className="badge badge-gray" style={{ fontSize: 11 }}>
+                            {i.product_name} ×{i.qty_delivered || 0}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                  <div style={{ display: 'flex', gap: 8, marginTop: 14 }}>
+                    <button onClick={() => openAssignModal(req)} className="btn btn-primary" style={{ flex: 1, fontSize: 12 }}>
+                      🏭 Assegna Magazzino Sorgente
+                    </button>
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      )}
+
+      {requests.length === 0 && restockRequests.length === 0 && pendingTransfers.length === 0 && unassignedRestocks.length === 0 && (
         <div className="card" style={{ textAlign: 'center', padding: 'var(--space-2xl)', color: 'var(--text-tertiary)', marginBottom: 'var(--space-xl)' }}>
           <div style={{ fontSize: 40, marginBottom: 8 }}>✅</div>
           <div>Nessuna richiesta in attesa</div>
