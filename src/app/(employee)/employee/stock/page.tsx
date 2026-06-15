@@ -12,6 +12,7 @@ import { useT } from '@/lib/i18n'
 const CATEGORIES: ProductCategory[] = ['flowers','hashish','oils','edibles','accessories','cosmetics','clothes','seeds','vape','food']
 
 type Step = 'count' | 'review'
+type View = 'restock' | 'history'
 
 export default function StockPage() {
   const router = useRouter()
@@ -32,9 +33,11 @@ export default function StockPage() {
   // Simplified: single step with inline quantities
   const [step, setStep] = useState<Step>('count')
   const [countedQtys, setCountedQtys] = useState<Record<string, number>>({})
+  const [activeView, setActiveView] = useState<View>('restock')
 
   // Pending transfers
   const [pendingRequests, setPendingRequests] = useState<any[]>([])
+  const [todayRestocks, setTodayRestocks] = useState<any[]>([])
   const [activeRequest, setActiveRequest] = useState<any>(null)
 
   useEffect(() => { loadData() }, [])
@@ -65,6 +68,17 @@ export default function StockPage() {
       .eq('status', 'pending')
       .order('created_at', { ascending: false })
     setPendingRequests(pending ?? [])
+
+    // Load today's completed restocks
+    const today = new Date().toISOString().split('T')[0]
+    const { data: todayData } = await supabase
+      .from('stock_requests')
+      .select('*, stock_request_items(*), users(full_name)')
+      .eq('store_id', profile.store_id)
+      .in('status', ['approved', 'owner_review'])
+      .gte('created_at', today + 'T00:00:00')
+      .order('created_at', { ascending: false })
+    setTodayRestocks(todayData ?? [])
 
     setLoading(false)
   }
@@ -276,8 +290,100 @@ export default function StockPage() {
         </div>
       </div>
 
+      {/* View tabs */}
+      <div style={{ display: 'flex', background: 'var(--bg-primary)', borderBottom: '1px solid var(--border-subtle)' }}>
+        <button
+          onClick={() => setActiveView('restock')}
+          style={{
+            flex: 1, padding: '12px 0', fontSize: 14, fontWeight: 600, border: 'none', cursor: 'pointer',
+            background: activeView === 'restock' ? 'var(--bg-primary)' : 'var(--bg-surface)',
+            color: activeView === 'restock' ? 'var(--brand-primary)' : 'var(--text-tertiary)',
+            borderBottom: activeView === 'restock' ? '2.5px solid var(--brand-primary)' : '2.5px solid transparent',
+          }}
+        >
+          📦 Ricarica
+        </button>
+        <button
+          onClick={() => setActiveView('history')}
+          style={{
+            flex: 1, padding: '12px 0', fontSize: 14, fontWeight: 600, border: 'none', cursor: 'pointer',
+            background: activeView === 'history' ? 'var(--bg-primary)' : 'var(--bg-surface)',
+            color: activeView === 'history' ? 'var(--brand-primary)' : 'var(--text-tertiary)',
+            borderBottom: activeView === 'history' ? '2.5px solid var(--brand-primary)' : '2.5px solid transparent',
+          }}
+        >
+          📋 Storico ({todayRestocks.length})
+        </button>
+      </div>
+
+      {/* ===== HISTORY VIEW ===== */}
+      {activeView === 'history' && (
+        <div style={{ flex: 1, padding: 'var(--space-lg)', overflowY: 'auto' }}>
+          <div style={{ fontSize: 13, color: 'var(--text-secondary)', marginBottom: 'var(--space-md)' }}>
+            Ricariche di oggi — {new Date().toLocaleDateString('it-IT', { weekday: 'long', day: 'numeric', month: 'long' })}
+          </div>
+
+          {todayRestocks.length === 0 ? (
+            <div style={{ textAlign: 'center', padding: 'var(--space-2xl)', color: 'var(--text-tertiary)' }}>
+              <div style={{ fontSize: 48, marginBottom: 12 }}>📦</div>
+              <div style={{ fontSize: 14 }}>Nessuna ricarica oggi</div>
+            </div>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+              {todayRestocks.map(req => {
+                const items = req.stock_request_items || []
+                const totalPcs = items.reduce((s: number, i: any) => s + (i.qty_delivered || i.qty_requested || 0), 0)
+                const hasTransfer = items.some((i: any) => i.qty_sent != null)
+                const time = new Date(req.created_at).toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' })
+                return (
+                  <div key={req.id} style={{
+                    background: 'var(--bg-primary)', borderRadius: 12,
+                    border: '1px solid var(--border-subtle)', overflow: 'hidden',
+                  }}>
+                    {/* Header */}
+                    <div style={{
+                      padding: '12px 16px', display: 'flex', alignItems: 'center', gap: 10,
+                      borderBottom: '1px solid var(--border-subtle)',
+                      background: req.status === 'approved' ? '#F0FDF4' : '#FFFBEB',
+                    }}>
+                      <span style={{ fontSize: 20 }}>{hasTransfer ? '🚚' : '📦'}</span>
+                      <div style={{ flex: 1 }}>
+                        <div style={{ fontWeight: 700, fontSize: 14 }}>
+                          {hasTransfer ? 'Trasferimento' : 'Ricarica Manuale'}
+                        </div>
+                        <div style={{ fontSize: 11, color: 'var(--text-tertiary)' }}>
+                          {time} · {items.length} prodotti · +{totalPcs} pezzi
+                        </div>
+                      </div>
+                      <span className={`badge ${req.status === 'approved' ? 'badge-success' : 'badge-warning'}`} style={{ fontSize: 10 }}>
+                        {req.status === 'approved' ? '✅' : '⏳'}
+                      </span>
+                    </div>
+                    {/* Items */}
+                    <div style={{ padding: '8px 16px' }}>
+                      {items.map((item: any, idx: number) => (
+                        <div key={item.id || idx} style={{
+                          display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                          padding: '6px 0',
+                          borderBottom: idx < items.length - 1 ? '1px solid var(--border-subtle)' : 'none',
+                        }}>
+                          <span style={{ fontSize: 13, fontWeight: 500 }}>{item.product_name}</span>
+                          <span style={{ fontSize: 14, fontWeight: 700, color: 'var(--success)' }}>
+                            +{item.qty_delivered || item.qty_requested || 0}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          )}
+        </div>
+      )}
+
       {/* ===== STEP 1: INLINE COUNT ===== */}
-      {step === 'count' && (
+      {activeView === 'restock' && step === 'count' && (
         <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
           {/* Pending transfers */}
           {pendingRequests.length > 0 && (
@@ -434,7 +540,7 @@ export default function StockPage() {
       )}
 
       {/* ===== STEP 2: REVIEW & CONFIRM ===== */}
-      {step === 'review' && (
+      {activeView === 'restock' && step === 'review' && (
         <div style={{ padding: 'var(--space-lg)', flex: 1 }}>
           <div style={{ background: 'var(--brand-primary-light)', border: '1.5px solid var(--brand-primary)', borderRadius: 12, padding: 'var(--space-md)', marginBottom: 'var(--space-lg)' }}>
             <div style={{ fontWeight: 700, fontSize: 14 }}>📋 Riepilogo prima dell'invio</div>

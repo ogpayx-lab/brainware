@@ -107,19 +107,21 @@ export default function StockApprovalsPage() {
     setHistory(hist ?? [])
 
     // Unassigned restocks (approved but no source warehouse)
-    const { data: unassigned } = await supabase
-      .from('stock_requests')
-      .select('*, stock_request_items(*), users(full_name), stores(name)')
-      .in('store_id', storeIds)
-      .eq('status', 'approved')
-      .is('source_warehouse_id', null)
-      .order('approved_at', { ascending: false })
-      .limit(50)
-    // Filter: only manual restocks (items without qty_sent)
-    setUnassignedRestocks((unassigned ?? []).filter(r =>
-      (r.stock_request_items || []).some((i: any) => i.qty_delivered != null && i.qty_delivered > 0) &&
-      !(r.stock_request_items || []).some((i: any) => i.qty_sent != null)
-    ))
+    try {
+      const { data: unassigned } = await supabase
+        .from('stock_requests')
+        .select('*, stock_request_items(*), users(full_name), stores(name)')
+        .in('store_id', storeIds)
+        .eq('status', 'approved')
+        .is('source_warehouse_id', null)
+        .order('approved_at', { ascending: false })
+        .limit(50)
+      // Filter: only manual restocks (items without qty_sent)
+      setUnassignedRestocks((unassigned ?? []).filter(r =>
+        (r.stock_request_items || []).some((i: any) => i.qty_delivered != null && i.qty_delivered > 0) &&
+        !(r.stock_request_items || []).some((i: any) => i.qty_sent != null)
+      ))
+    } catch { setUnassignedRestocks([]) }
 
     // Warehouse transfer movements log
     const { data: movs } = await supabase
