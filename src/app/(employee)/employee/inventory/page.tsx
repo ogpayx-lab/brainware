@@ -84,7 +84,7 @@ export default function InventoryPage() {
     setShiftId(shift.id)
 
     const { data: prods } = await supabase
-      .from('products').select('*').eq('store_id', profile.store_id).eq('is_active', true).neq('stock', 0).order('name')
+      .from('products').select('*').eq('store_id', profile.store_id).eq('is_active', true).order('name')
 
     // Check for existing draft (non-finalized count for this store)
     const { data: existingCount } = await supabase
@@ -218,6 +218,7 @@ export default function InventoryPage() {
     // Get employee name
     const { data: empProfile } = await supabase.from('users').select('full_name').eq('id', userId).single()
     const empName = empProfile?.full_name || 'Dipendente'
+    const countedRows = rows.filter(r => r.counted !== '')
     const matches = countedRows.filter(r => r.status === 'match').length
     const mismatches = countedRows.filter(r => r.status !== 'match').length
 
@@ -257,7 +258,8 @@ export default function InventoryPage() {
     .filter(r => activeCategory === 'all' || r.category === activeCategory)
     .filter(r => !searchQuery || r.name.toLowerCase().includes(searchQuery.toLowerCase()))
     .sort((a, b) => a.name.localeCompare(b.name))
-  const counted = rows.filter(r => r.counted !== '')
+  const countableRows = rows.filter(r => r.system_qty !== 0)
+  const counted = countableRows.filter(r => r.counted !== '')
   const matchCount = counted.filter(r => r.status === 'match').length
   const mismatchCount = counted.filter(r => r.status === 'mismatch' || r.status === 'escalated').length
   const canFinalize = counted.length > 0
@@ -395,7 +397,7 @@ export default function InventoryPage() {
       {/* Category pills */}
       <div style={{ padding: 'var(--space-md) var(--space-lg)', background: 'var(--bg-primary)', borderBottom: '1px solid var(--border-subtle)', display: 'flex', gap: 'var(--space-sm)', overflowX: 'auto' }}>
         {categories.filter(cat => cat === 'all' || rows.some(r => r.category === cat)).map(cat => {
-          const catCount = cat === 'all' ? rows.length : rows.filter(r => r.category === cat).length
+          const catCount = cat === 'all' ? countableRows.length : countableRows.filter(r => r.category === cat).length
           const catCounted = cat === 'all' ? counted.length : counted.filter(r => r.category === cat).length
           return (
             <button
@@ -427,7 +429,7 @@ export default function InventoryPage() {
       {/* Progress bar */}
       <div style={{ padding: 'var(--space-md) var(--space-lg)', background: 'var(--bg-surface-alt)', borderBottom: '1px solid var(--border-subtle)' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
-          <span style={{ fontSize: 13, fontWeight: 700 }}>Progresso: {counted.length}/{rows.length}</span>
+          <span style={{ fontSize: 13, fontWeight: 700 }}>Progresso: {counted.length}/{countableRows.length}</span>
           <div style={{ display: 'flex', gap: 10 }}>
             <span style={{ fontSize: 12, color: 'var(--success)', fontWeight: 600 }}>✅ {matchCount}</span>
             <span style={{ fontSize: 12, color: 'var(--danger)', fontWeight: 600 }}>❌ {mismatchCount}</span>
@@ -436,7 +438,7 @@ export default function InventoryPage() {
         <div style={{ height: 6, borderRadius: 3, background: 'var(--border-subtle)', overflow: 'hidden' }}>
           <div style={{
             height: '100%', borderRadius: 3, transition: 'width 0.3s',
-            width: `${rows.length > 0 ? (counted.length / rows.length) * 100 : 0}%`,
+            width: `${countableRows.length > 0 ? (counted.length / countableRows.length) * 100 : 0}%`,
             background: mismatchCount > 0 ? 'linear-gradient(90deg, var(--success), var(--danger))' : 'var(--success)',
           }} />
         </div>
