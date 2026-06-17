@@ -227,8 +227,9 @@ export default function StockPage() {
 
         const detailList = items.map(i => `${i.product_name} ×${i.qty_delivered}`).join(', ')
         await supabase.from('notifications').insert({
-          store_id: storeId, type: 'stock_approved', title: '✅ Ricarica Stock completata',
-          message: `${empName} ha ricaricato ${items.length} prodotti (${items.reduce((s, i) => s + i.qty_delivered, 0)} pezzi). Dettaglio: ${detailList}.`,
+          store_id: storeId, type: 'restock_request',
+          title: '📦 Ricarica Stock — assegna magazzino',
+          message: `${empName} ha ricaricato ${items.length} prodotti (${items.reduce((s, i) => s + i.qty_delivered, 0)} pezzi). Stock negozio aggiornato. Assegna il magazzino sorgente. Dettaglio: ${detailList}.`,
         })
         setDoneMessage('✅ Stock aggiornato! L\'owner è stato notificato.')
       }

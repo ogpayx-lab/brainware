@@ -329,12 +329,7 @@ export default function POSContent() {
 
     if (!sale) { setStornoId(null); return }
 
-    // Restore stock using atomic increment
-    for (const item of (sale.sale_items || [])) {
-      if (item.product_id) {
-        await supabase.rpc('increment_stock', { product_id: item.product_id, qty: item.qty })
-      }
-    }
+    // Stock ripristinato automaticamente dal trigger DB (trg_restore_stock) quando si eliminano i sale_items
 
     // Delete sale items (trigger restores stock)
     await supabase.from('sale_items').delete().eq('sale_id', saleId)
